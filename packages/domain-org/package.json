@@ -1,0 +1,14 @@
+{
+  "name": "@smart-schedule/domain-org",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@smart-schedule/eslint-config": "workspace:*",
+    "@smart-schedule/config": "workspace:*",
+    "eslint": "^9.21.0"
+  }
+}

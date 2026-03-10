@@ -1,0 +1,10 @@
+{
+  "name": "@smart-schedule/testing",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./index.js",
+  "devDependencies": {
+    "vitest": "latest",
+    "testcontainers": "latest"
+  }
+}

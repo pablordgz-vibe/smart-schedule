@@ -1,0 +1,17 @@
+{
+  "name": "@smart-schedule/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --watch --dts",
+    "lint": "eslint src/**/*.ts"
+  },
+  "devDependencies": {
+    "tsup": "latest",
+    "typescript": "latest"
+  }
+}

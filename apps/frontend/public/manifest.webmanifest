@@ -1,0 +1,16 @@
+{
+  "name": "SmartSchedule",
+  "short_name": "SmartSchedule",
+  "theme_color": "#0ea5e9",
+  "background_color": "#f9fafb",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}
