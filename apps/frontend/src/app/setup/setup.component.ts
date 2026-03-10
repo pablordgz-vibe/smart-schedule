@@ -9,15 +9,17 @@ import { Component } from '@angular/core';
       <p>Configure your SmartSchedule instance.</p>
     </div>
   `,
-  styles: [`
-    .setup-container {
-      max-width: 600px;
-      margin: 100px auto;
-      padding: var(--spacing-8);
-      background-color: var(--bg-surface);
-      border-radius: var(--spacing-4);
-      box-shadow: var(--shadow-md);
-    }
-  `]
+  styles: [
+    `
+      .setup-container {
+        max-width: 600px;
+        margin: 100px auto;
+        padding: var(--spacing-8);
+        background-color: var(--bg-surface);
+        border-radius: var(--spacing-4);
+        box-shadow: var(--shadow-md);
+      }
+    `,
+  ],
 })
 export class SetupComponent {}

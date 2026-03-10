@@ -1,2 +1,7 @@
 codex-prompts/
 node_modules
+
+.gemini/
+gha-creds-*.json
+.turbo/cache/
+*.log

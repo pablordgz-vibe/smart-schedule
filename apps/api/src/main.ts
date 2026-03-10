@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { configService } from '@smart-schedule/config';
 
@@ -7,6 +8,6 @@ async function bootstrap() {
   const config = configService.all;
   const app = await NestFactory.create(AppModule);
   await app.listen(config.PORT);
-  console.log(`API is running on: ${await app.getUrl()}`);
+  Logger.log(`API is running on: ${await app.getUrl()}`);
 }
-bootstrap();
+void bootstrap();
