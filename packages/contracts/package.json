@@ -12,6 +12,9 @@
   },
   "devDependencies": {
     "tsup": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "@smart-schedule/eslint-config": "workspace:*",
+    "@smart-schedule/config": "workspace:*",
+    "eslint": "^9.21.0"
   }
 }

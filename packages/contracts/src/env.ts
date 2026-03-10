@@ -1,1 +1,1 @@
-export const placeholder = 'contracts';
+export const placeholder = "contracts";

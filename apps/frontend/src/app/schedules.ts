@@ -5,6 +5,6 @@ import { Component } from '@angular/core';
   template: `
     <h1>Schedules</h1>
     <p>Define and assign recurring schedules.</p>
-  `
+  `,
 })
 export class SchedulesComponent {}

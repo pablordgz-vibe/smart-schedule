@@ -24,7 +24,7 @@ jobs:
         run: pnpm run lint
 
       - name: Typecheck
-        run: pnpm run build --filter=...
+        run: pnpm run build
 
       - name: Unit Tests
         run: pnpm run test
@@ -47,4 +47,4 @@ jobs:
         run: pnpm exec playwright install --with-deps
 
       - name: Run Playwright tests
-        run: pnpm run test:e2e --filter=@smart-schedule/frontend
+        run: pnpm --filter=@smart-schedule/frontend run test:e2e

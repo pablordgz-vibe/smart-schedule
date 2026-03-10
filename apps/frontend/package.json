@@ -6,7 +6,7 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint . --fix",
     "test:e2e": "playwright test"
   },

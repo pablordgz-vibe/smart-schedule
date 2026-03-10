@@ -5,6 +5,6 @@ import { Component } from '@angular/core';
   template: `
     <h1>Calendar</h1>
     <p>Your aggregate calendar view.</p>
-  `
+  `,
 })
 export class CalendarComponent {}

@@ -1,4 +1,7 @@
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql';
 
 let container: StartedPostgreSqlContainer;
 
@@ -10,7 +13,7 @@ export async function startTestDb() {
     database: container.getDatabase(),
     user: container.getUsername(),
     password: container.getPassword(),
-    url: container.getConnectionString(),
+    url: container.getConnectionUri(),
   };
 }
 

@@ -1,1 +1,1 @@
-export const IDENTITY_MOD = 'identity';
+export const IDENTITY_MOD = "identity";
