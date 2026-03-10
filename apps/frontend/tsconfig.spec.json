@@ -12,6 +12,7 @@
     "src/**/*.d.ts",
     "src/**/*.spec.ts",
     "playwright.config.ts",
-    "test/**/*.ts"
+    "test/**/*.ts",
+    "vitest.config.ts"
   ]
 }
