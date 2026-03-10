@@ -15,21 +15,30 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Workflow Self-Test
+        run: pnpm run workflow:self-test
+
+      - name: Format Check
+        run: pnpm run format:check
 
       - name: Lint
         run: pnpm run lint
 
       - name: Typecheck
-        run: pnpm run build
+        run: pnpm run typecheck
+
+      - name: Boundary Check
+        run: pnpm run boundary:check
 
       - name: Unit Tests
         run: pnpm run test
 
-  e2e-gate:
+  smoke-gate:
     runs-on: ubuntu-latest
     needs: quality-gate
     steps:
@@ -38,13 +47,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
 
+      - name: API Smoke Tests
+        run: pnpm --filter=@smart-schedule/api run test:e2e
+
+      - name: Worker Smoke Tests
+        run: pnpm --filter=@smart-schedule/worker run test:e2e
+
+      - name: Scheduler Smoke Tests
+        run: pnpm --filter=@smart-schedule/scheduler run test:e2e
+
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
 
-      - name: Run Playwright tests
+      - name: Frontend Smoke Tests
         run: pnpm --filter=@smart-schedule/frontend run test:e2e

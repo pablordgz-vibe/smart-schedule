@@ -2,6 +2,7 @@
 import { z } from "zod";
 var envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().default(3e3),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),

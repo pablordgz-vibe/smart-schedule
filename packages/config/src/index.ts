@@ -1,4 +1,4 @@
-import { envSchema, Env } from './env.schema';
+import { envSchema, Env } from "./env.schema";
 
 export class ConfigService {
   private readonly env: Env;

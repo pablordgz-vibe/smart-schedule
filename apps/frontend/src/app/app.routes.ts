@@ -1,5 +1,10 @@
 import { Routes } from '@angular/router';
+import { routeAreaGuard } from './route-area.guard';
 import { ShellComponent } from './shell/shell.component';
+import { unsavedChangesGuard } from './unsaved-changes.guard';
+
+const loadPlaceholderPage = () =>
+  import('./placeholder-page.component').then((module) => module.PlaceholderPageComponent);
 
 export const routes: Routes = [
   {
@@ -7,20 +12,312 @@ export const routes: Routes = [
     component: ShellComponent,
     children: [
       { path: '', redirectTo: 'home', pathMatch: 'full' },
-      { path: 'home', loadComponent: () => import('./home').then((m) => m.HomeComponent) },
+      {
+        path: 'home',
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'Home',
+          description: 'Daily summary and active work across the current context.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-home',
+          area: 'end-user',
+        },
+      },
       {
         path: 'calendar',
-        loadComponent: () => import('./calendar').then((m) => m.CalendarComponent),
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'Calendar',
+          description: 'Schedule-first aggregate calendar with context-safe edits.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-calendar',
+          area: 'end-user',
+        },
       },
-      { path: 'tasks', loadComponent: () => import('./tasks').then((m) => m.TasksComponent) },
+      {
+        path: 'tasks',
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'Tasks',
+          description: 'Task overview and detail shell for the current context.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-tasks',
+          area: 'end-user',
+        },
+      },
       {
         path: 'schedules',
-        loadComponent: () => import('./schedules').then((m) => m.SchedulesComponent),
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'Schedules',
+          description: 'Schedule library shell with explicit context labeling.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-schedules',
+          area: 'end-user',
+          showBuilderLink: true,
+        },
+      },
+      {
+        path: 'schedules/builder',
+        loadComponent: loadPlaceholderPage,
+        canDeactivate: [unsavedChangesGuard],
+        data: {
+          title: 'Schedule Builder',
+          description: 'Dedicated builder route used by quick create and schedule-first flows.',
+          sectionLabel: 'Mutation Surface',
+          testId: 'page-schedule-builder',
+          area: 'end-user',
+          mutationSurface: true,
+        },
+      },
+      {
+        path: 'requests',
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'Requests',
+          description: 'Request inbox and approval-aware route scaffold.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-requests',
+          area: 'end-user',
+        },
+      },
+      {
+        path: 'history',
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'History',
+          description: 'Friendly audit and history surface scaffold.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-history',
+          area: 'end-user',
+        },
+      },
+      {
+        path: 'notifications',
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'Notifications',
+          description: 'Notification center scaffold with explicit deep-link targets.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-notifications',
+          area: 'end-user',
+        },
+      },
+      {
+        path: 'settings',
+        loadComponent: loadPlaceholderPage,
+        data: {
+          title: 'Settings',
+          description: 'User settings shell for identity, preferences, and billing scaffolds.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-settings',
+          area: 'end-user',
+        },
+      },
+      {
+        path: 'org/overview',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Organization Overview',
+          description: 'Organization administration landing page scaffold.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-overview',
+          area: 'org-admin',
+        },
+      },
+      {
+        path: 'org/calendars',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Organization Calendars',
+          description: 'Calendar administration shell for the active organization.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-calendars',
+          area: 'org-admin',
+        },
+      },
+      {
+        path: 'org/groups',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Groups',
+          description: 'Membership and grouping workspace scaffold.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-groups',
+          area: 'org-admin',
+        },
+      },
+      {
+        path: 'org/assignments',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        canDeactivate: [unsavedChangesGuard],
+        data: {
+          title: 'Assignments',
+          description: 'Assignment workspace scaffold with unsaved-change protection.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-assignments',
+          area: 'org-admin',
+          mutationSurface: true,
+        },
+      },
+      {
+        path: 'org/time-policies',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Time Policies',
+          description: 'Policy preview and precedence workspace scaffold.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-time-policies',
+          area: 'org-admin',
+        },
+      },
+      {
+        path: 'org/integrations',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Organization Integrations',
+          description: 'Organization-scoped provider configuration scaffold.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-integrations',
+          area: 'org-admin',
+        },
+      },
+      {
+        path: 'org/request-rules',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Request Rules',
+          description: 'Reviewer and approval settings scaffold.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-request-rules',
+          area: 'org-admin',
+        },
+      },
+      {
+        path: 'org/logs',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Organization Logs',
+          description: 'Authorized organization audit surface scaffold.',
+          sectionLabel: 'Organization Administration',
+          testId: 'page-org-logs',
+          area: 'org-admin',
+        },
+      },
+      {
+        path: 'admin/setup',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Setup / Deployment',
+          description: 'System administration setup and deployment surface scaffold.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-setup',
+          area: 'system-admin',
+        },
+      },
+      {
+        path: 'admin/users',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Users',
+          description: 'System user management scaffold.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-users',
+          area: 'system-admin',
+        },
+      },
+      {
+        path: 'admin/governance',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Admin Governance',
+          description: 'Tier and approval governance scaffold.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-governance',
+          area: 'system-admin',
+        },
+      },
+      {
+        path: 'admin/global-integrations',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Global Integrations',
+          description: 'Platform-wide provider configuration scaffold.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-global-integrations',
+          area: 'system-admin',
+        },
+      },
+      {
+        path: 'admin/entitlements',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Editions / Entitlements',
+          description: 'Entitlement management scaffold.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-entitlements',
+          area: 'system-admin',
+        },
+      },
+      {
+        path: 'admin/subscription-tiers',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'Subscription Tiers',
+          description: 'Commercial tier scaffold.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-subscription-tiers',
+          area: 'system-admin',
+        },
+      },
+      {
+        path: 'admin/logs',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        data: {
+          title: 'System Logs',
+          description: 'System-wide audit and log scaffold.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-logs',
+          area: 'system-admin',
+        },
+      },
+      {
+        path: 'admin/platform-settings',
+        loadComponent: loadPlaceholderPage,
+        canActivate: [routeAreaGuard],
+        canDeactivate: [unsavedChangesGuard],
+        data: {
+          title: 'Platform Settings',
+          description: 'Platform settings scaffold with unsaved-change protection.',
+          sectionLabel: 'System Administration',
+          testId: 'page-admin-platform-settings',
+          area: 'system-admin',
+          mutationSurface: true,
+        },
       },
     ],
   },
   {
     path: 'setup',
     loadComponent: () => import('./setup/setup.component').then((m) => m.SetupComponent),
+  },
+  {
+    path: '**',
+    redirectTo: 'home',
   },
 ];

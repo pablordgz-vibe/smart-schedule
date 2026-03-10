@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 declare const envSchema: z.ZodObject<{
     NODE_ENV: z.ZodDefault<z.ZodEnum<["development", "production", "test"]>>;
+    HOST: z.ZodDefault<z.ZodString>;
     PORT: z.ZodDefault<z.ZodNumber>;
     DATABASE_URL: z.ZodString;
     REDIS_URL: z.ZodString;
@@ -13,6 +14,7 @@ declare const envSchema: z.ZodObject<{
     JWT_SECRET: z.ZodString;
 }, "strip", z.ZodTypeAny, {
     NODE_ENV: "development" | "production" | "test";
+    HOST: string;
     PORT: number;
     DATABASE_URL: string;
     REDIS_URL: string;
@@ -27,6 +29,7 @@ declare const envSchema: z.ZodObject<{
     REDIS_URL: string;
     JWT_SECRET: string;
     NODE_ENV?: "development" | "production" | "test" | undefined;
+    HOST?: string | undefined;
     PORT?: number | undefined;
     OBJECT_STORAGE_ENDPOINT?: string | undefined;
     OBJECT_STORAGE_ACCESS_KEY?: string | undefined;

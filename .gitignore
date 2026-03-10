@@ -1,5 +1,10 @@
 codex-prompts/
 node_modules
+.env
+.angular/
+dist/
+playwright-report/
+test-results/
 
 .gemini/
 gha-creds-*.json

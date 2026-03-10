@@ -3,10 +3,10 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
-  build-and-push:
+  release-validation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,10 +14,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Format Check
+        run: pnpm run format:check
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
 
       - name: Build
         run: pnpm run build
@@ -25,13 +34,21 @@ jobs:
       - name: Run Tests
         run: pnpm run test
 
-      - name: Migration Check
+      - name: Run Runtime Smoke Tests
         run: |
-          echo "Validating migrations..."
-          # Placeholder for migration validation scripts
-          # Example: pnpm run migrations:check
+          pnpm --filter=@smart-schedule/api run test:e2e
+          pnpm --filter=@smart-schedule/worker run test:e2e
+          pnpm --filter=@smart-schedule/scheduler run test:e2e
 
-      - name: Build and Push Docker Images
+      - name: Migration Check
+        run: pnpm run migration:check
+
+      - name: Validate Compose Topology
+        run: docker compose -f infra/compose/local.yml config
+
+      - name: Build Runtime Images
         run: |
-          echo "Building and pushing versioned images..."
-          # Example: turbo run build:image
+          docker build -f infra/docker/api.Dockerfile -t smart-schedule/api:${GITHUB_REF_NAME} .
+          docker build -f infra/docker/worker.Dockerfile -t smart-schedule/worker:${GITHUB_REF_NAME} .
+          docker build -f infra/docker/scheduler.Dockerfile -t smart-schedule/scheduler:${GITHUB_REF_NAME} .
+          docker build -f infra/docker/frontend.Dockerfile -t smart-schedule/frontend:${GITHUB_REF_NAME} .

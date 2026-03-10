@@ -1,4 +1,4 @@
-import config from '@smart-schedule/eslint-config';
+import config from "@smart-schedule/eslint-config";
 
 export default [
   ...config,
@@ -10,6 +10,6 @@ export default [
     },
   },
   {
-    ignores: ['eslint.config.mjs', 'dist/**'],
+    ignores: ["eslint.config.mjs", "dist/**"],
   },
 ];
