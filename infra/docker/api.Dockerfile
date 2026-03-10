@@ -11,9 +11,7 @@ RUN pnpm run build --filter @smart-schedule/api
 
 FROM node:24-alpine
 WORKDIR /app
-COPY --from=build /app/apps/api/dist /app/dist
-COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/apps/api/package.json /app/package.json
+COPY --from=build /app /app
 
 EXPOSE 3000
-CMD ["node", "dist/main"]
+CMD ["node", "apps/api/dist/src/main.js"]

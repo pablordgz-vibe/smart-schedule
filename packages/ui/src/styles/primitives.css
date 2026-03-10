@@ -1,0 +1,134 @@
+:root {
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+.ui-page {
+  display: grid;
+  gap: var(--spacing-6);
+}
+
+.ui-card {
+  border: 1px solid rgb(148 163 184 / 0.18);
+  border-radius: var(--radius-xl);
+  background: rgb(255 255 255 / 0.88);
+  box-shadow: var(--shadow-md);
+  padding: var(--spacing-6);
+}
+
+.ui-panel {
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    180deg,
+    rgb(248 250 252 / 1) 0%,
+    rgb(241 245 249 / 0.85) 100%
+  );
+  border: 1px solid rgb(148 163 184 / 0.18);
+  padding: var(--spacing-4);
+}
+
+.ui-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  align-items: center;
+}
+
+.ui-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 1.15rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
+}
+
+.ui-button:hover,
+.ui-icon-button:hover {
+  transform: translateY(-1px);
+}
+
+.ui-button-primary {
+  background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+  color: white;
+  box-shadow: 0 12px 30px rgb(14 165 233 / 0.22);
+}
+
+.ui-button-secondary {
+  background: white;
+  border: 1px solid rgb(148 163 184 / 0.28);
+  color: var(--text-primary);
+}
+
+.ui-icon-button {
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 999px;
+  background: white;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding: 0 0.85rem;
+  cursor: pointer;
+}
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgb(2 132 199 / 0.1);
+  color: rgb(3 105 161 / 1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ui-kicker {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ui-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-4);
+}
+
+.ui-field,
+.ui-search {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ui-select,
+.ui-search input {
+  min-height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  background: white;
+  padding: 0 0.9rem;
+}
+
+.ui-search input {
+  min-width: 18rem;
+}
+
+@media (max-width: 768px) {
+  .ui-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-search input {
+    min-width: 0;
+    width: 100%;
+  }
+}

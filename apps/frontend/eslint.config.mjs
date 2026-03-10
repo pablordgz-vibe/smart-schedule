@@ -11,6 +11,12 @@ export default [
     },
   },
   {
-    ignores: ['eslint.config.mjs', 'dist/**'],
+    ignores: [
+      'eslint.config.mjs',
+      'dist/**',
+      '.angular/**',
+      'playwright-report/**',
+      'test-results/**',
+    ],
   },
 ];

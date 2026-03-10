@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthController = void 0;
 const common_1 = require("@nestjs/common");
 const terminus_1 = require("@nestjs/terminus");
+const public_route_decorator_1 = require("../security/public-route.decorator");
 let HealthController = class HealthController {
     health;
     constructor(health) {
@@ -44,6 +45,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], HealthController.prototype, "readiness", null);
 exports.HealthController = HealthController = __decorate([
+    (0, public_route_decorator_1.Public)(),
     (0, common_1.Controller)('health'),
     __metadata("design:paramtypes", [terminus_1.HealthCheckService])
 ], HealthController);

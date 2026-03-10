@@ -1,191 +1,394 @@
-import { Component } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { Component, computed, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ContextService } from '../context.service';
+import { DirtyStateService } from '../dirty-state.service';
+import {
+  endUserNavItems,
+  orgAdminNavItems,
+  quickCreateRoute,
+  systemAdminNavItems,
+} from '../route-catalog';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="app-container">
-      <header class="app-header">
-        <div class="logo" i18n>SmartSchedule</div>
-        <div class="context-switcher">
-          <span class="context-badge" i18n>Personal</span>
+    <div class="shell" data-testid="app-shell">
+      <header class="shell-header">
+        <a class="brand" routerLink="/home" data-testid="app-logo">SmartSchedule</a>
+
+        <div class="header-center">
+          <label class="ui-field">
+            <span class="sr-only">Active context</span>
+            <select
+              class="ui-select"
+              [ngModel]="activeContextId()"
+              (ngModelChange)="switchContext($event)"
+              data-testid="context-switcher"
+              aria-label="Active context"
+            >
+              <option *ngFor="let context of contexts()" [value]="context.id">
+                {{ context.label }}
+              </option>
+            </select>
+          </label>
+          <span class="ui-chip" data-testid="context-badge">{{ activeContextLabel() }}</span>
+          <label class="ui-search">
+            <span class="sr-only">Global search</span>
+            <input
+              type="search"
+              placeholder="Search or jump to a route"
+              aria-label="Global search"
+              data-testid="global-search"
+            />
+          </label>
         </div>
-        <div class="user-profile">
-          <div class="avatar" i18n>U</div>
+
+        <div class="header-actions" data-testid="header-actions">
+          <button
+            class="ui-button ui-button-primary"
+            type="button"
+            (click)="openQuickCreate()"
+            data-testid="quick-create"
+          >
+            Quick Create
+          </button>
+          <button
+            class="ui-icon-button"
+            type="button"
+            aria-label="Notifications"
+            data-testid="notifications-button"
+          >
+            Notifications
+          </button>
+          <button
+            class="ui-icon-button"
+            type="button"
+            aria-label="AI assistant"
+            data-testid="ai-button"
+          >
+            AI
+          </button>
+          <button class="ui-icon-button" type="button" aria-label="Help" data-testid="help-button">
+            Help
+          </button>
+          <button
+            class="ui-icon-button"
+            type="button"
+            aria-label="User menu"
+            data-testid="user-menu"
+          >
+            User
+          </button>
         </div>
       </header>
 
-      <nav class="app-nav">
-        <ul data-testid="main-nav">
-          <li>
-            <a routerLink="/home" routerLinkActive="active" data-testid="nav-home">
-              <span class="icon">🏠</span>
-              <span class="label" i18n>Home</span>
+      <div class="shell-body">
+        <aside class="shell-sidebar" data-testid="sidebar">
+          <section class="nav-section" *ngIf="showEndUserNav()">
+            <p class="nav-kicker">End-user</p>
+            <a
+              *ngFor="let item of endUserItems"
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-link"
+              [attr.data-testid]="item.testId"
+            >
+              <span class="nav-icon">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
             </a>
-          </li>
-          <li>
-            <a routerLink="/calendar" routerLinkActive="active" data-testid="nav-calendar">
-              <span class="icon">📅</span>
-              <span class="label" i18n>Calendar</span>
-            </a>
-          </li>
-          <li>
-            <a routerLink="/tasks" routerLinkActive="active" data-testid="nav-tasks">
-              <span class="icon">✅</span>
-              <span class="label" i18n>Tasks</span>
-            </a>
-          </li>
-          <li>
-            <a routerLink="/schedules" routerLinkActive="active" data-testid="nav-schedules">
-              <span class="icon">📜</span>
-              <span class="label" i18n>Schedules</span>
-            </a>
-          </li>
-        </ul>
-      </nav>
+          </section>
 
-      <main class="app-main">
-        <router-outlet></router-outlet>
-      </main>
+          <section class="nav-section" *ngIf="showOrgAdminNav()">
+            <p class="nav-kicker">Organization admin</p>
+            <a
+              *ngFor="let item of orgAdminItems"
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-link"
+              [attr.data-testid]="item.testId"
+            >
+              <span class="nav-icon">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </a>
+          </section>
 
-      <nav class="mobile-nav">
-        <a routerLink="/home" routerLinkActive="active">🏠</a>
-        <a routerLink="/calendar" routerLinkActive="active">📅</a>
-        <a routerLink="/tasks" routerLinkActive="active">✅</a>
-        <a routerLink="/schedules" routerLinkActive="active">📜</a>
+          <section class="nav-section" *ngIf="showSystemAdminNav()">
+            <p class="nav-kicker">System admin</p>
+            <a
+              *ngFor="let item of systemAdminItems"
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-link"
+              [attr.data-testid]="item.testId"
+            >
+              <span class="nav-icon">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </a>
+          </section>
+
+          <section class="ui-card shell-status" data-testid="shell-status">
+            <p class="ui-kicker">Shell status</p>
+            <p>{{ dirtyStateLabel() }}</p>
+            <p class="status-copy">
+              Route guards and context-aware fallbacks are active in the Sprint 0 shell scaffold.
+            </p>
+          </section>
+        </aside>
+
+        <main class="shell-main" data-testid="page-outlet">
+          <router-outlet></router-outlet>
+        </main>
+      </div>
+
+      <nav class="mobile-nav" data-testid="mobile-nav">
+        <a
+          *ngFor="let item of mobileItems()"
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          [attr.data-testid]="'mobile-' + item.testId"
+        >
+          <span>{{ item.icon }}</span>
+          <small>{{ item.label }}</small>
+        </a>
       </nav>
     </div>
   `,
   styles: [
     `
-      .app-container {
+      .shell {
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top right, rgb(14 165 233 / 0.15), transparent 22rem),
+          linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+      }
+
+      .shell-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
         display: grid;
-        grid-template-areas:
-          'header header'
-          'nav main';
-        grid-template-columns: 240px 1fr;
-        grid-template-rows: 64px 1fr;
-        height: 100vh;
-        background-color: var(--bg-app);
-      }
-
-      .app-header {
-        grid-area: header;
-        display: flex;
+        grid-template-columns: auto 1fr auto;
+        gap: var(--spacing-4);
         align-items: center;
-        justify-content: space-between;
-        padding: 0 var(--spacing-6);
-        background-color: var(--bg-surface);
+        padding: var(--spacing-4) var(--spacing-6);
         border-bottom: 1px solid var(--border-default);
-        z-index: 10;
+        background: rgb(255 255 255 / 0.88);
+        backdrop-filter: blur(18px);
       }
 
-      .logo {
-        font-size: var(--font-size-xl);
+      .brand {
+        color: var(--text-primary);
+        text-decoration: none;
+        font-size: var(--font-size-2xl);
         font-weight: 700;
-        color: var(--color-primary-600);
+        letter-spacing: -0.02em;
       }
 
-      .context-badge {
-        background-color: var(--color-primary-100);
-        color: var(--color-primary-700);
-        padding: var(--spacing-1) var(--spacing-3);
-        border-radius: 9999px;
-        font-size: var(--font-size-sm);
-        font-weight: 600;
-      }
-
-      .app-nav {
-        grid-area: nav;
-        background-color: var(--bg-surface);
-        border-right: 1px solid var(--border-default);
-        padding: var(--spacing-4);
-      }
-
-      .app-nav ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-
-      .app-nav a {
+      .header-center {
         display: flex;
         align-items: center;
         gap: var(--spacing-3);
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-2);
+      }
+
+      .shell-body {
+        display: grid;
+        grid-template-columns: 18rem minmax(0, 1fr);
+        gap: var(--spacing-6);
+        padding: var(--spacing-6);
+      }
+
+      .shell-sidebar {
+        display: grid;
+        gap: var(--spacing-4);
+        align-content: start;
+      }
+
+      .nav-section {
+        display: grid;
+        gap: var(--spacing-2);
+      }
+
+      .nav-kicker {
+        margin: 0 0 var(--spacing-1);
+        color: var(--text-muted);
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-3);
+        border-radius: var(--radius-lg);
         padding: var(--spacing-3) var(--spacing-4);
         color: var(--text-secondary);
         text-decoration: none;
-        border-radius: var(--spacing-2);
-        transition: all 0.2s;
-        margin-bottom: var(--spacing-1);
       }
 
-      .app-nav a:hover {
-        background-color: var(--color-neutral-100);
+      .nav-link:hover,
+      .nav-link.active {
+        background: rgb(14 165 233 / 0.09);
         color: var(--text-primary);
       }
 
-      .app-nav a.active {
-        background-color: var(--color-primary-50);
-        color: var(--color-primary-600);
-        font-weight: 600;
+      .nav-icon {
+        font-size: var(--font-size-sm);
+        font-weight: 700;
+        min-width: 5rem;
       }
 
-      .app-main {
-        grid-area: main;
-        padding: var(--spacing-6);
-        overflow-y: auto;
+      .shell-main {
+        min-width: 0;
+      }
+
+      .shell-status {
+        margin-top: var(--spacing-2);
+      }
+
+      .status-copy {
+        color: var(--text-secondary);
+        margin-bottom: 0;
       }
 
       .mobile-nav {
         display: none;
       }
 
-      @media (max-width: 768px) {
-        .app-container {
-          grid-template-areas:
-            'header'
-            'main';
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+
+      @media (max-width: 1100px) {
+        .shell-header {
           grid-template-columns: 1fr;
-          grid-template-rows: 64px 1fr;
         }
 
-        .app-nav {
+        .header-center,
+        .header-actions {
+          flex-wrap: wrap;
+        }
+
+        .shell-body {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .shell-header {
+          padding: var(--spacing-4);
+        }
+
+        .shell-sidebar {
           display: none;
         }
 
+        .shell-body {
+          padding: var(--spacing-4);
+        }
+
         .mobile-nav {
-          display: flex;
-          justify-content: space-around;
-          align-items: center;
           position: fixed;
           bottom: 0;
           left: 0;
           right: 0;
-          height: 64px;
-          background-color: var(--bg-surface);
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1px;
           border-top: 1px solid var(--border-default);
-          z-index: 10;
+          background: rgb(255 255 255 / 0.95);
+          backdrop-filter: blur(18px);
         }
 
         .mobile-nav a {
-          font-size: 1.5rem;
+          display: grid;
+          gap: 0.25rem;
+          place-items: center;
+          padding: var(--spacing-3) 0;
+          color: var(--text-secondary);
           text-decoration: none;
-          padding: var(--spacing-2);
         }
 
         .mobile-nav a.active {
-          color: var(--color-primary-600);
+          color: var(--color-primary-700);
+          background: rgb(14 165 233 / 0.08);
         }
 
-        .app-main {
-          padding-bottom: 80px;
+        .shell-main {
+          padding-bottom: 6rem;
         }
       }
     `,
   ],
 })
-export class ShellComponent {}
+export class ShellComponent {
+  private readonly router = inject(Router);
+  private readonly contextService = inject(ContextService);
+  private readonly dirtyState = inject(DirtyStateService);
+
+  readonly contexts = this.contextService.contexts;
+  readonly activeContextId = computed(() => this.contextService.activeContext().id);
+  readonly activeContextLabel = computed(() => this.contextService.getContextLabel());
+  readonly dirtyStateLabel = computed(() =>
+    this.dirtyState.isDirty()
+      ? 'Unsaved changes are active on a guarded route.'
+      : 'No unsaved changes.',
+  );
+
+  readonly endUserItems = endUserNavItems;
+  readonly orgAdminItems = orgAdminNavItems;
+  readonly systemAdminItems = systemAdminNavItems;
+
+  readonly showEndUserNav = computed(() =>
+    this.contextService.visibleSections().includes('end-user'),
+  );
+  readonly showOrgAdminNav = computed(() =>
+    this.contextService.visibleSections().includes('org-admin'),
+  );
+  readonly showSystemAdminNav = computed(() =>
+    this.contextService.visibleSections().includes('system-admin'),
+  );
+  readonly mobileItems = computed(() => {
+    if (this.showSystemAdminNav()) {
+      return this.systemAdminItems.slice(0, 4);
+    }
+
+    if (this.showOrgAdminNav()) {
+      return this.endUserItems.filter((item) => item.mobile).slice(0, 4);
+    }
+
+    return this.endUserItems.filter((item) => item.mobile).slice(0, 4);
+  });
+
+  switchContext(nextContextId: string): void {
+    const contextId = nextContextId as 'personal' | 'organization' | 'system';
+    const nextRoute = this.contextService.resolveRouteForContext(contextId, this.router.url);
+
+    this.contextService.setActiveContext(contextId);
+    void this.router.navigateByUrl(nextRoute);
+  }
+
+  openQuickCreate(): void {
+    const nextRoute =
+      this.contextService.activeContext().id === 'system' ? '/admin/setup' : quickCreateRoute;
+    void this.router.navigateByUrl(nextRoute);
+  }
+}

@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-schedule-worker
+  namespace: smart-schedule
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smart-schedule-worker
+  template:
+    metadata:
+      labels:
+        app: smart-schedule-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/example/smart-schedule-worker:latest
+          ports:
+            - containerPort: 3001
+          env:
+            - name: PORT
+              value: "3001"
+          envFrom:
+            - configMapRef:
+                name: smart-schedule-runtime

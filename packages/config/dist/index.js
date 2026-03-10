@@ -29,6 +29,7 @@ module.exports = __toCommonJS(index_exports);
 var import_zod = require("zod");
 var envSchema = import_zod.z.object({
   NODE_ENV: import_zod.z.enum(["development", "production", "test"]).default("development"),
+  HOST: import_zod.z.string().default("0.0.0.0"),
   PORT: import_zod.z.coerce.number().default(3e3),
   DATABASE_URL: import_zod.z.string().url(),
   REDIS_URL: import_zod.z.string().url(),

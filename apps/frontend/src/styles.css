@@ -1,7 +1,12 @@
-@import "../../../packages/ui/src/styles/tokens.css";
+@import '../../../packages/ui/src/styles/tokens.css';
+@import '../../../packages/ui/src/styles/primitives.css';
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
 }
 
 body {
@@ -12,7 +17,18 @@ body {
   color: var(--text-primary);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   margin-top: 0;
   color: var(--text-primary);
+}
+
+button,
+input,
+select {
+  font: inherit;
 }

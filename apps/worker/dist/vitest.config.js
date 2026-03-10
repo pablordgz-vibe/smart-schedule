@@ -8,6 +8,7 @@ const config_1 = require("vitest/config");
 exports.default = (0, config_1.defineConfig)({
     test: {
         globals: true,
+        passWithNoTests: true,
         root: './',
         include: ['src/**/*.spec.ts'],
         environment: 'node',

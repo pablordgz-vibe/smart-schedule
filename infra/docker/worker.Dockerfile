@@ -11,8 +11,6 @@ RUN pnpm run build --filter @smart-schedule/worker
 
 FROM node:24-alpine
 WORKDIR /app
-COPY --from=build /app/apps/worker/dist /app/dist
-COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/apps/worker/package.json /app/package.json
+COPY --from=build /app /app
 
-CMD ["node", "dist/main"]
+CMD ["node", "apps/worker/dist/src/main.js"]
