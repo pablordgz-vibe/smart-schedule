@@ -377,6 +377,9 @@ importers:
 
   packages/contracts:
     devDependencies:
+      '@smart-schedule/config':
+        specifier: workspace:*
+        version: link:../config
       '@smart-schedule/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config

@@ -1,5 +1,0 @@
-
-
-> @smart-schedule/domain-org@1.0.0 lint /home/pablo/vibe-coding/smart-schedule/packages/domain-org
-> eslint . --fix
-

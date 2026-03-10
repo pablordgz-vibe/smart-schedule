@@ -24,7 +24,7 @@ jobs:
         run: pnpm run lint
 
       - name: Typecheck
-        run: pnpm run build --filter=...
+        run: pnpm run build
 
       - name: Unit Tests
         run: pnpm run test
