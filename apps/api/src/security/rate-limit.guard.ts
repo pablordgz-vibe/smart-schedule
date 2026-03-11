@@ -5,6 +5,7 @@ import { PUBLIC_ROUTE_KEY } from './public-route.decorator';
 import { RateLimitService } from './rate-limit.service';
 import { RATE_LIMIT_POLICY_KEY } from './rate-limit.decorator';
 import { ApiRequest } from './request-context.types';
+import { getRequestIp, getRoutePath } from './http-platform';
 import { throwRateLimited } from './security-errors';
 
 @Injectable()
@@ -37,10 +38,10 @@ export class RateLimitGuard implements CanActivate {
     }
 
     const actorId = request.requestContext?.actor.id;
-    const ip = request.ip || request.socket.remoteAddress || 'unknown';
-    const keySubject =
-      routePolicy.keyScope === 'ip' ? ip : actorId ?? ip;
-    const key = `${request.route?.path ?? request.path}:${request.method}:${keySubject}`;
+    const ip = getRequestIp(request);
+    const keySubject = routePolicy.keyScope === 'ip' ? ip : (actorId ?? ip);
+    const routePath = getRoutePath(request);
+    const key = `${routePath}:${request.method}:${keySubject}`;
     const result = this.rateLimitService.consume(key, routePolicy);
 
     if (!result.allowed) {

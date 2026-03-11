@@ -15,5 +15,4 @@ function resolveSetupAccess() {
 
 export const setupCompletionGuard: CanActivateFn = () => resolveSetupAccess();
 
-export const setupCompletionChildGuard: CanActivateChildFn = () =>
-  resolveSetupAccess();
+export const setupCompletionChildGuard: CanActivateChildFn = () => resolveSetupAccess();

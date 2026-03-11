@@ -1,9 +1,9 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditService } from './audit.service';
 import { AuditTrailInterceptor } from './audit-trail.interceptor';
 import { RateLimitGuard } from './rate-limit.guard';
 import { RateLimitService } from './rate-limit.service';
-import { RequestContextMiddleware } from './request-context.middleware';
 import { RequestContextStore } from './request-context.store';
 import { SecurityKernelGuard } from './security-kernel.guard';
 import { SecurityTestController } from './security-test.controller';
@@ -15,6 +15,7 @@ const securityControllers =
 @Module({
   controllers: securityControllers,
   providers: [
+    AuditService,
     RequestContextStore,
     SessionService,
     RateLimitService,
@@ -31,10 +32,6 @@ const securityControllers =
       useClass: AuditTrailInterceptor,
     },
   ],
-  exports: [SessionService],
+  exports: [AuditService, SessionService],
 })
-export class SecurityModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestContextMiddleware).forRoutes('*');
-  }
-}
+export class SecurityModule {}

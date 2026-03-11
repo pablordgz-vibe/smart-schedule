@@ -3,6 +3,11 @@ import { provideRouter, Router } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 import { setupRouteGuard } from './setup-route.guard';
 import { SetupStateService } from './setup-state.service';
+import type { SetupStateSnapshot } from './setup.types';
+
+function setSetupState(service: SetupStateService, snapshot: SetupStateSnapshot) {
+  service.setSnapshot(snapshot);
+}
 
 describe('setupRouteGuard', () => {
   it('redirects setup to home after bootstrap completes', () => {
@@ -10,12 +15,10 @@ describe('setupRouteGuard', () => {
       providers: [provideRouter([])],
     });
 
-    const service = TestBed.inject(SetupStateService) as SetupStateService & {
-      readonly state: { set: (value: unknown) => void };
-    };
-    const router = TestBed.inject(Router);
+    const service: SetupStateService = TestBed.inject(SetupStateService);
+    const router: Router = TestBed.inject(Router);
 
-    service['state'].set({
+    setSetupState(service, {
       admin: {
         createdAt: '2026-03-11T00:00:00.000Z',
         email: 'admin@example.com',
@@ -30,9 +33,7 @@ describe('setupRouteGuard', () => {
       step: 'complete',
     });
 
-    const result = TestBed.runInInjectionContext(() =>
-      setupRouteGuard({} as never, {} as never),
-    );
+    const result = TestBed.runInInjectionContext(() => setupRouteGuard({} as never, {} as never));
 
     expect(router.serializeUrl(result as ReturnType<typeof router.parseUrl>)).toBe('/home');
   });

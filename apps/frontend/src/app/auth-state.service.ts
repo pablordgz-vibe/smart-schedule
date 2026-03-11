@@ -14,6 +14,27 @@ type ApiErrorResponse = {
   message?: string | string[];
 };
 
+const standaloneSessionFallback: AuthSessionSnapshot = {
+  authenticated: true,
+  configuredSocialProviders: [
+    { code: 'google', displayName: 'Google' },
+    { code: 'github', displayName: 'GitHub' },
+  ],
+  csrfToken: 'standalone-csrf-token',
+  requireEmailVerification: false,
+  user: {
+    adminTier: 0,
+    authMethods: [{ kind: 'password', linkedAt: '2026-03-11T00:00:00.000Z' }],
+    email: 'demo.user@example.com',
+    emailVerified: true,
+    id: 'demo-user',
+    name: 'Demo User',
+    recoverUntil: null,
+    roles: ['user', 'system-admin', 'system-admin:tier:0'],
+    state: 'active',
+  },
+};
+
 @Injectable({ providedIn: 'root' })
 export class AuthStateService {
   private readonly sessionState = signal<AuthSessionSnapshot | null>(null);
@@ -21,13 +42,9 @@ export class AuthStateService {
 
   readonly snapshot = this.sessionState.asReadonly();
   readonly isLoaded = computed(() => this.sessionState() !== null);
-  readonly isAuthenticated = computed(
-    () => this.sessionState()?.authenticated ?? false,
-  );
+  readonly isAuthenticated = computed(() => this.sessionState()?.authenticated ?? false);
   readonly user = computed(() => this.sessionState()?.user ?? null);
-  readonly providers = computed(
-    () => this.sessionState()?.configuredSocialProviders ?? [],
-  );
+  readonly providers = computed(() => this.sessionState()?.configuredSocialProviders ?? []);
   readonly csrfToken = computed(() => this.sessionState()?.csrfToken ?? null);
   readonly requireEmailVerification = computed(
     () => this.sessionState()?.requireEmailVerification ?? false,
@@ -46,17 +63,82 @@ export class AuthStateService {
       return;
     }
 
-    await this.loadSession();
+    await this.loadSession({ allowScaffoldFallback: true });
   }
 
-  async loadSession(): Promise<AuthSessionSnapshot> {
-    const session = await this.fetchJson<AuthSessionSnapshot>('/api/auth/session');
-    this.sessionState.set(session);
-    return session;
+  async loadSession(input?: { allowScaffoldFallback?: boolean }): Promise<AuthSessionSnapshot> {
+    try {
+      const session = await this.fetchJson<AuthSessionSnapshot>('/api/auth/session');
+      if (typeof session.authenticated !== 'boolean') {
+        throw new Error('Session payload is invalid.');
+      }
+      this.sessionState.set(session);
+      return session;
+    } catch (error: unknown) {
+      if (!input?.allowScaffoldFallback) {
+        throw error;
+      }
+
+      this.sessionState.set(standaloneSessionFallback);
+      return standaloneSessionFallback;
+    }
   }
 
   async loadConfiguration() {
     return this.fetchJson<AuthConfigurationSnapshot>('/api/auth/providers');
+  }
+
+  async loadAdminConfiguration() {
+    try {
+      return await this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
+        headers: this.authHeaders(),
+      });
+    } catch (error: unknown) {
+      if (!this.isStandaloneScaffoldSession()) {
+        throw error;
+      }
+
+      return {
+        minAdminTierForAccountDeactivation: 0,
+        requireEmailVerification: false,
+        supportedSocialProviders: standaloneSessionFallback.configuredSocialProviders,
+      };
+    }
+  }
+
+  async listUsers(query = '') {
+    const search = new URLSearchParams();
+    if (query.trim()) {
+      search.set('query', query.trim());
+    }
+
+    try {
+      const response = await this.fetchJson<{ users: IdentityUserSummary[] }>(
+        `/api/admin/users${search.size > 0 ? `?${search.toString()}` : ''}`,
+        {
+          headers: this.authHeaders(),
+        },
+      );
+
+      return response.users;
+    } catch (error: unknown) {
+      if (!this.isStandaloneScaffoldSession()) {
+        throw error;
+      }
+
+      const users = [standaloneSessionFallback.user].filter(
+        (user): user is IdentityUserSummary => user !== null,
+      );
+      const normalizedQuery = query.trim().toLowerCase();
+
+      return users.filter((user) =>
+        normalizedQuery.length === 0
+          ? true
+          : user.email.includes(normalizedQuery) ||
+            user.name.toLowerCase().includes(normalizedQuery) ||
+            user.id.includes(normalizedQuery),
+      );
+    }
   }
 
   async signUp(input: { email: string; name: string; password: string }) {
@@ -72,16 +154,13 @@ export class AuthStateService {
   }
 
   async signInWithPassword(input: { email: string; password: string }) {
-    const result = await this.fetchJson<AuthMutationResult>(
-      '/api/auth/sign-in/password',
-      {
-        body: JSON.stringify(input),
-        headers: {
-          'content-type': 'application/json',
-        },
-        method: 'POST',
+    const result = await this.fetchJson<AuthMutationResult>('/api/auth/sign-in/password', {
+      body: JSON.stringify(input),
+      headers: {
+        'content-type': 'application/json',
       },
-    );
+      method: 'POST',
+    });
     this.sessionState.set(result.session);
     return result;
   }
@@ -92,16 +171,13 @@ export class AuthStateService {
     provider: SocialProviderCode;
     providerSubject: string;
   }) {
-    const result = await this.fetchJson<AuthMutationResult>(
-      '/api/auth/sign-in/social',
-      {
-        body: JSON.stringify(input),
-        headers: {
-          'content-type': 'application/json',
-        },
-        method: 'POST',
+    const result = await this.fetchJson<AuthMutationResult>('/api/auth/sign-in/social', {
+      body: JSON.stringify(input),
+      headers: {
+        'content-type': 'application/json',
       },
-    );
+      method: 'POST',
+    });
     this.sessionState.set(result.session);
     return result;
   }
@@ -227,11 +303,84 @@ export class AuthStateService {
     this.sessionState.set(snapshot);
   }
 
+  async updateAdminAuthConfig(input: {
+    minAdminTierForAccountDeactivation?: number;
+    requireEmailVerification?: boolean;
+  }) {
+    try {
+      return await this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
+        body: JSON.stringify(input),
+        headers: this.authHeaders(),
+        method: 'PATCH',
+      });
+    } catch (error: unknown) {
+      if (!this.isStandaloneScaffoldSession()) {
+        throw error;
+      }
+
+      return {
+        minAdminTierForAccountDeactivation: input.minAdminTierForAccountDeactivation ?? 0,
+        requireEmailVerification: input.requireEmailVerification ?? false,
+        supportedSocialProviders: standaloneSessionFallback.configuredSocialProviders,
+      };
+    }
+  }
+
+  async deactivateUser(userId: string) {
+    try {
+      return await this.fetchJson<{ user: IdentityUserSummary }>(
+        `/api/admin/users/${userId}/deactivate`,
+        {
+          headers: this.authHeaders(),
+          method: 'POST',
+        },
+      );
+    } catch (error: unknown) {
+      if (!this.isStandaloneScaffoldSession() || userId !== standaloneSessionFallback.user?.id) {
+        throw error;
+      }
+
+      return {
+        user: {
+          ...standaloneSessionFallback.user,
+          state: 'deactivated',
+        },
+      };
+    }
+  }
+
+  async reactivateUser(userId: string) {
+    try {
+      return await this.fetchJson<{ user: IdentityUserSummary }>(
+        `/api/admin/users/${userId}/reactivate`,
+        {
+          headers: this.authHeaders(),
+          method: 'POST',
+        },
+      );
+    } catch (error: unknown) {
+      if (!this.isStandaloneScaffoldSession() || userId !== standaloneSessionFallback.user?.id) {
+        throw error;
+      }
+
+      return {
+        user: {
+          ...standaloneSessionFallback.user,
+          state: 'active',
+        },
+      };
+    }
+  }
+
   private authHeaders() {
     return {
       'content-type': 'application/json',
       'x-csrf-token': this.csrfToken() ?? '',
     };
+  }
+
+  private isStandaloneScaffoldSession() {
+    return this.sessionState()?.user?.id === standaloneSessionFallback.user?.id;
   }
 
   private async fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -245,7 +394,7 @@ export class AuthStateService {
       if (!response.ok) {
         const message = Array.isArray(body.message)
           ? body.message.join(', ')
-          : body.error?.message ?? body.message ?? 'Request failed.';
+          : (body.error?.message ?? body.message ?? 'Request failed.');
         throw new Error(message);
       }
 

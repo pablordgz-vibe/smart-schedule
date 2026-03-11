@@ -21,7 +21,8 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var index_exports = {};
 __export(index_exports, {
   ConfigService: () => ConfigService,
-  configService: () => configService
+  configService: () => configService,
+  envSchema: () => envSchema
 });
 module.exports = __toCommonJS(index_exports);
 
@@ -43,7 +44,7 @@ var envSchema = import_zod.z.object({
   SESSION_SECRET: import_zod.z.string().min(32).default("development-session-secret-must-change-0001"),
   SESSION_COOKIE_NAME: import_zod.z.string().default("smart_schedule_session"),
   SESSION_TTL_SECONDS: import_zod.z.coerce.number().int().positive().default(43200),
-  SETUP_STATE_FILE: import_zod.z.string().default(".smart-schedule/setup-state.json"),
+  MAIL_FROM_ADDRESS: import_zod.z.string().email().default("no-reply@smart-schedule.local"),
   RATE_LIMIT_WINDOW_MS: import_zod.z.coerce.number().int().positive().default(6e4),
   RATE_LIMIT_MAX: import_zod.z.coerce.number().int().positive().default(60)
 });
@@ -65,5 +66,6 @@ var configService = new ConfigService();
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ConfigService,
-  configService
+  configService,
+  envSchema
 });

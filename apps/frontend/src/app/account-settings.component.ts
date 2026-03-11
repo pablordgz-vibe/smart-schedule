@@ -73,10 +73,34 @@ import type { SocialProviderCode } from './auth.types';
           <button class="ui-button ui-button-secondary" type="button" (click)="logout()">
             Sign out
           </button>
-          <button class="ui-button" type="button" (click)="deleteAccount()">
+          <button class="ui-button" type="button" (click)="showDeleteConfirmation()">
             Delete account
           </button>
         </div>
+
+        <section class="ui-panel danger-panel" *ngIf="confirmDelete()">
+          <h2>Confirm account deletion</h2>
+          <p class="settings-copy">
+            Type <strong>DELETE</strong> to confirm. The account remains recoverable for 30 days.
+          </p>
+          <label class="ui-field">
+            <span>Confirmation text</span>
+            <input
+              class="ui-input"
+              [ngModel]="deleteConfirmationText()"
+              (ngModelChange)="deleteConfirmationText.set($event)"
+              [ngModelOptions]="{ standalone: true }"
+            />
+          </label>
+          <div class="settings-row">
+            <button class="ui-button ui-button-secondary" type="button" (click)="cancelDelete()">
+              Cancel
+            </button>
+            <button class="ui-button" type="button" (click)="confirmDeleteAccount()">
+              Confirm deletion
+            </button>
+          </div>
+        </section>
       </div>
     </section>
   `,
@@ -102,6 +126,11 @@ import type { SocialProviderCode } from './auth.types';
         gap: var(--spacing-3);
         align-items: end;
       }
+
+      .danger-panel {
+        border-color: rgb(185 28 28 / 0.25);
+        background: rgb(254 242 242 / 0.85);
+      }
     `,
   ],
 })
@@ -111,11 +140,11 @@ export class AccountSettingsComponent {
 
   readonly user = computed(() => this.authState.user());
   readonly providers = computed(() => this.authState.providers());
-  readonly requireEmailVerification = computed(() =>
-    this.authState.requireEmailVerification(),
-  );
+  readonly requireEmailVerification = computed(() => this.authState.requireEmailVerification());
   readonly message = signal('');
   readonly error = signal('');
+  readonly confirmDelete = signal(false);
+  readonly deleteConfirmationText = signal('');
 
   selectedProvider: SocialProviderCode = 'google';
 
@@ -167,6 +196,29 @@ export class AccountSettingsComponent {
       await this.authState.deleteAccount();
       await this.router.navigateByUrl('/auth/recover-account');
     });
+  }
+
+  showDeleteConfirmation() {
+    this.error.set('');
+    this.message.set('');
+    this.deleteConfirmationText.set('');
+    this.confirmDelete.set(true);
+  }
+
+  cancelDelete() {
+    this.deleteConfirmationText.set('');
+    this.confirmDelete.set(false);
+  }
+
+  async confirmDeleteAccount() {
+    if (this.deleteConfirmationText().trim().toUpperCase() !== 'DELETE') {
+      this.error.set('Type DELETE to confirm account removal.');
+      return;
+    }
+
+    await this.deleteAccount();
+    this.confirmDelete.set(false);
+    this.deleteConfirmationText.set('');
   }
 
   private async run(task: () => Promise<void>) {

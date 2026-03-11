@@ -14,7 +14,6 @@ export type RuntimeEnvironmentContract = {
   SESSION_SECRET: string;
   SESSION_COOKIE_NAME: string;
   SESSION_TTL_SECONDS: number;
-  SETUP_STATE_FILE: string;
   RATE_LIMIT_WINDOW_MS: number;
   RATE_LIMIT_MAX: number;
 };

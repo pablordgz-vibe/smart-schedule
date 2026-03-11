@@ -1,12 +1,24 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
+import { registerRequestContextHook } from './security/request-context.middleware';
+import { RequestContextStore } from './security/request-context.store';
+import { SessionService } from './security/session.service';
 
-export function configureApiApp(app: INestApplication) {
-  const httpAdapter = app.getHttpAdapter();
-  const instance = httpAdapter.getInstance() as {
-    set?: (setting: string, value: unknown) => void;
-  };
+export function createApiAdapter() {
+  return new FastifyAdapter({
+    trustProxy: true,
+  });
+}
 
-  instance.set?.('trust proxy', 1);
+export function configureApiApp(app: NestFastifyApplication) {
+  registerRequestContextHook({
+    fastify: app.getHttpAdapter().getInstance(),
+    requestContextStore: app.get(RequestContextStore),
+    sessionService: app.get(SessionService),
+  });
   app.enableShutdownHooks();
   app.useGlobalPipes(
     new ValidationPipe({

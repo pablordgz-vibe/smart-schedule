@@ -16,7 +16,7 @@ declare const envSchema: z.ZodObject<{
     SESSION_SECRET: z.ZodDefault<z.ZodString>;
     SESSION_COOKIE_NAME: z.ZodDefault<z.ZodString>;
     SESSION_TTL_SECONDS: z.ZodDefault<z.ZodNumber>;
-    SETUP_STATE_FILE: z.ZodDefault<z.ZodString>;
+    MAIL_FROM_ADDRESS: z.ZodDefault<z.ZodString>;
     RATE_LIMIT_WINDOW_MS: z.ZodDefault<z.ZodNumber>;
     RATE_LIMIT_MAX: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
@@ -31,7 +31,7 @@ declare const envSchema: z.ZodObject<{
     SESSION_SECRET: string;
     SESSION_COOKIE_NAME: string;
     SESSION_TTL_SECONDS: number;
-    SETUP_STATE_FILE: string;
+    MAIL_FROM_ADDRESS: string;
     RATE_LIMIT_WINDOW_MS: number;
     RATE_LIMIT_MAX: number;
     OBJECT_STORAGE_ENDPOINT?: string | undefined;
@@ -54,7 +54,7 @@ declare const envSchema: z.ZodObject<{
     SESSION_SECRET?: string | undefined;
     SESSION_COOKIE_NAME?: string | undefined;
     SESSION_TTL_SECONDS?: number | undefined;
-    SETUP_STATE_FILE?: string | undefined;
+    MAIL_FROM_ADDRESS?: string | undefined;
     RATE_LIMIT_WINDOW_MS?: number | undefined;
     RATE_LIMIT_MAX?: number | undefined;
 }>;
@@ -68,4 +68,4 @@ declare class ConfigService {
 }
 declare const configService: ConfigService;
 
-export { ConfigService, configService };
+export { ConfigService, type Env, configService, envSchema };

@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -21,20 +22,21 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import type { FastifyReply } from 'fastify';
 import type {
   AuthMutationResult,
   AuthSessionSnapshot,
   SocialProviderCode,
 } from '@smart-schedule/contracts';
-import type { Response } from 'express';
 import { Public } from '../security/public-route.decorator';
+import {
+  clearSessionCookie,
+  setSessionCookie,
+} from '../security/http-platform';
 import type { ApiRequest } from '../security/request-context.types';
 import { SecurityPolicy } from '../security/security-policy.decorator';
 import { SessionService } from '../security/session.service';
 import { IdentityService } from './identity.service';
-
-const sessionCookieName =
-  process.env.SESSION_COOKIE_NAME || 'smart_schedule_session';
 
 class SignUpDto {
   @IsEmail()
@@ -143,8 +145,9 @@ export class IdentityController {
         configuredSocialProviders:
           await this.identityService.getConfiguredSocialProviders(),
         csrfToken: null,
-        requireEmailVerification:
-          (await this.identityService.getAuthConfiguration()).requireEmailVerification,
+        requireEmailVerification: (
+          await this.identityService.getAuthConfiguration()
+        ).requireEmailVerification,
         user: result.user,
       },
       tokenDelivery: result.tokenDelivery,
@@ -156,7 +159,7 @@ export class IdentityController {
   async signInWithPassword(
     @Body() body: PasswordSignInDto,
     @Req() request: ApiRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
     const user = await this.identityService.authenticatePassword(
       body.email,
@@ -170,7 +173,7 @@ export class IdentityController {
   async signInWithSocial(
     @Body() body: SocialAuthDto,
     @Req() request: ApiRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
     const user = await this.identityService.authenticateSocial(body);
     return this.issueSession(user.id, request, response);
@@ -180,7 +183,9 @@ export class IdentityController {
   @Post('auth/verify-email/request')
   async requestEmailVerification(@Body() body: EmailOnlyDto) {
     return {
-      tokenDelivery: await this.identityService.requestEmailVerification(body.email),
+      tokenDelivery: await this.identityService.requestEmailVerification(
+        body.email,
+      ),
     };
   }
 
@@ -196,7 +201,9 @@ export class IdentityController {
   @Post('auth/password-reset/request')
   async requestPasswordReset(@Body() body: EmailOnlyDto) {
     return {
-      tokenDelivery: await this.identityService.requestPasswordReset(body.email),
+      tokenDelivery: await this.identityService.requestPasswordReset(
+        body.email,
+      ),
     };
   }
 
@@ -204,7 +211,10 @@ export class IdentityController {
   @Post('auth/password-reset/confirm')
   async confirmPasswordReset(@Body() body: PasswordResetConfirmDto) {
     return {
-      user: await this.identityService.confirmPasswordReset(body.token, body.password),
+      user: await this.identityService.confirmPasswordReset(
+        body.token,
+        body.password,
+      ),
     };
   }
 
@@ -246,12 +256,12 @@ export class IdentityController {
   @Post('auth/account/delete')
   async deleteAccount(
     @Req() request: ApiRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
     const userId = request.requestContext!.actor.id!;
     const user = await this.identityService.deleteAccount(userId);
-    this.sessionService.revokeActorSessions(userId);
-    this.clearSessionCookie(response);
+    await this.sessionService.revokeActorSessions(userId);
+    clearSessionCookie(response);
     return { user };
   }
 
@@ -259,7 +269,9 @@ export class IdentityController {
   @Post('auth/account/recovery/request')
   async requestRecovery(@Body() body: EmailOnlyDto) {
     return {
-      tokenDelivery: await this.identityService.requestAccountRecovery(body.email),
+      tokenDelivery: await this.identityService.requestAccountRecovery(
+        body.email,
+      ),
     };
   }
 
@@ -268,7 +280,7 @@ export class IdentityController {
   async recoverAccount(
     @Body() body: TokenConfirmDto,
     @Req() request: ApiRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
     const user = await this.identityService.recoverAccount(body.token);
     return this.issueSession(user.id, request, response);
@@ -281,10 +293,10 @@ export class IdentityController {
   @Post('auth/logout')
   async logout(
     @Req() request: ApiRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    this.sessionService.revokeSession(request.sessionCookieValue ?? null);
-    this.clearSessionCookie(response);
+    await this.sessionService.revokeSession(request.sessionCookieValue ?? null);
+    clearSessionCookie(response);
     return {
       loggedOut: true,
     };
@@ -296,12 +308,16 @@ export class IdentityController {
     requireContextId: true,
   })
   @Post('admin/users/:userId/deactivate')
-  async deactivateUser(@Req() request: ApiRequest, @Param('userId') userId: string) {
+  async deactivateUser(
+    @Req() request: ApiRequest,
+    @Param('userId') userId: string,
+  ) {
     const user = await this.identityService.deactivateAccount(
       userId,
+      request.requestContext!.actor.id!,
       request.requestContext!.actor.roles,
     );
-    this.sessionService.revokeActorSessions(userId);
+    await this.sessionService.revokeActorSessions(userId);
     return { user };
   }
 
@@ -311,10 +327,14 @@ export class IdentityController {
     requireContextId: true,
   })
   @Post('admin/users/:userId/reactivate')
-  async reactivateUser(@Req() request: ApiRequest, @Param('userId') userId: string) {
+  async reactivateUser(
+    @Req() request: ApiRequest,
+    @Param('userId') userId: string,
+  ) {
     return {
       user: await this.identityService.reactivateAccount(
         userId,
+        request.requestContext!.actor.id!,
         request.requestContext!.actor.roles,
       ),
     };
@@ -338,13 +358,37 @@ export class IdentityController {
     });
   }
 
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    requiredRoles: ['system-admin'],
+    requireContextId: true,
+  })
+  @Get('admin/auth/config')
+  async getAdminAuthConfig(@Req() request: ApiRequest) {
+    void request;
+    return this.identityService.getAuthConfiguration();
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    requiredRoles: ['system-admin'],
+    requireContextId: true,
+  })
+  @Get('admin/users')
+  async listUsers(@Req() request: ApiRequest, @Query('query') query?: string) {
+    void request;
+    return {
+      users: await this.identityService.listUsers({ query }),
+    };
+  }
+
   private async issueSession(
     userId: string,
     request: ApiRequest,
-    response: Response,
+    response: FastifyReply,
   ): Promise<AuthMutationResult> {
     if (request.sessionCookieValue) {
-      this.sessionService.revokeSession(request.sessionCookieValue);
+      await this.sessionService.revokeSession(request.sessionCookieValue);
     }
 
     const createdSession = await this.sessionService.createSession({
@@ -356,11 +400,7 @@ export class IdentityController {
       },
     });
 
-    response.cookie(sessionCookieName, createdSession.cookieValue, {
-      httpOnly: true,
-      sameSite: 'strict',
-      secure: true,
-    });
+    setSessionCookie(response, createdSession.cookieValue);
 
     const session = await this.buildSessionSnapshot({
       ...request,
@@ -385,9 +425,5 @@ export class IdentityController {
       requireEmailVerification: config.requireEmailVerification,
       user,
     };
-  }
-
-  private clearSessionCookie(response: Response) {
-    response.clearCookie(sessionCookieName);
   }
 }

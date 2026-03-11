@@ -8,7 +8,11 @@ import type { SecurityErrorPayload } from '@smart-schedule/contracts';
 
 export function throwAuthenticationRequired(message: string) {
   throw new UnauthorizedException(
-    createSecurityError('AUTHENTICATION_REQUIRED', 'authentication_required', message),
+    createSecurityError(
+      'AUTHENTICATION_REQUIRED',
+      'authentication_required',
+      message,
+    ),
   );
 }
 
@@ -26,7 +30,12 @@ export function throwContextMismatch(
   details?: SecurityErrorPayload['details'],
 ) {
   throw new ForbiddenException(
-    createSecurityError('CONTEXT_MISMATCH', 'context_mismatch', message, details),
+    createSecurityError(
+      'CONTEXT_MISMATCH',
+      'context_mismatch',
+      message,
+      details,
+    ),
   );
 }
 

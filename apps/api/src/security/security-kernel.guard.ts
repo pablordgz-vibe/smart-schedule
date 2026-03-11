@@ -11,6 +11,7 @@ import { RequestContextStore } from './request-context.store';
 import { SECURITY_POLICY_KEY } from './security-policy.decorator';
 import { BOOTSTRAP_ROUTE_KEY } from '../setup/bootstrap-route.decorator';
 import { SetupService } from '../setup/setup.service';
+import { getHeaderValue } from './http-platform';
 import {
   throwAuthenticationRequired,
   throwBootstrapLocked,
@@ -49,14 +50,34 @@ function getExpectedBindingValue(
   }
 }
 
-function getActualBindingValue(request: ApiRequest, binding: RequestFieldBinding) {
-  const container = request[binding.location];
+function getActualBindingValue(
+  request: ApiRequest,
+  binding: RequestFieldBinding,
+) {
+  const container: unknown =
+    binding.location === 'body'
+      ? request.body
+      : binding.location === 'params'
+        ? request.params
+        : request.query;
   if (!container || typeof container !== 'object') {
     return null;
   }
 
-  const value = Reflect.get(container as object, binding.field);
-  return typeof value === 'string' ? value : value == null ? null : String(value);
+  const value = (container as Record<string, unknown>)[binding.field];
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint'
+  ) {
+    return String(value);
+  }
+
+  return value == null ? null : null;
 }
 
 function evaluatePolicy(request: ApiRequest, policy: AuthorizationPolicy) {
@@ -69,21 +90,28 @@ function evaluatePolicy(request: ApiRequest, policy: AuthorizationPolicy) {
     policy.allowedActorTypes &&
     !policy.allowedActorTypes.includes(requestContext.actor.type)
   ) {
-    throwNotPermitted('The current actor type is not permitted for this route.');
+    throwNotPermitted(
+      'The current actor type is not permitted for this route.',
+    );
   }
 
   if (
     policy.allowedContextTypes &&
     !policy.allowedContextTypes.includes(requestContext.context.type)
   ) {
-    throwContextMismatch('The active context is not permitted for this route.', {
-      allowedContextTypes: policy.allowedContextTypes,
-      actualContextType: requestContext.context.type,
-    });
+    throwContextMismatch(
+      'The active context is not permitted for this route.',
+      {
+        allowedContextTypes: policy.allowedContextTypes,
+        actualContextType: requestContext.context.type,
+      },
+    );
   }
 
   if (policy.requireContextId && !requestContext.context.id) {
-    throwContextMismatch('An explicit active context is required for this route.');
+    throwContextMismatch(
+      'An explicit active context is required for this route.',
+    );
   }
 
   if (policy.requireTenant && !requestContext.context.tenantId) {
@@ -92,7 +120,9 @@ function evaluatePolicy(request: ApiRequest, policy: AuthorizationPolicy) {
 
   if (
     policy.requiredRoles?.length &&
-    !policy.requiredRoles.some((role) => requestContext.actor.roles.includes(role))
+    !policy.requiredRoles.some((role) =>
+      requestContext.actor.roles.includes(role),
+    )
   ) {
     throwNotPermitted('The current actor is missing a required role.', {
       requiredRoles: policy.requiredRoles,
@@ -178,7 +208,7 @@ export class SecurityKernelGuard implements CanActivate {
     if (
       request.authenticatedBy === 'session' &&
       isUnsafeMethod(request.method) &&
-      request.header(csrfHeaderName) !== request.session?.csrfToken
+      getHeaderValue(request, csrfHeaderName) !== request.session?.csrfToken
     ) {
       throwInvalidCsrf(
         'Unsafe cookie-authenticated requests require a valid CSRF token.',

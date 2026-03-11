@@ -6,7 +6,12 @@ import { ContextService } from '../context.service';
 import { routes } from '../app.routes';
 import { AuthStateService } from '../auth-state.service';
 import { SetupStateService } from '../setup/setup-state.service';
+import type { SetupStateSnapshot } from '../setup/setup.types';
 import { ShellComponent } from './shell.component';
+
+function setSetupState(service: SetupStateService, snapshot: SetupStateSnapshot) {
+  service.setSnapshot(snapshot);
+}
 
 describe('ShellComponent', () => {
   it('renders the active context badge', async () => {
@@ -15,11 +20,9 @@ describe('ShellComponent', () => {
       providers: [provideRouter(routes)],
     });
 
-    const contextService = TestBed.inject(ContextService);
-    const setupStateService = TestBed.inject(SetupStateService) as SetupStateService & {
-      readonly state: { set: (value: unknown) => void };
-    };
-    setupStateService['state'].set({
+    const contextService: ContextService = TestBed.inject(ContextService);
+    const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
+    setSetupState(setupStateService, {
       admin: null,
       completedAt: '2026-03-11T00:00:00.000Z',
       configuredIntegrations: [],
@@ -44,12 +47,10 @@ describe('ShellComponent', () => {
       providers: [provideRouter(routes)],
     });
 
-    const router = TestBed.inject(Router);
-    const authStateService = TestBed.inject(AuthStateService);
-    const setupStateService = TestBed.inject(SetupStateService) as SetupStateService & {
-      readonly state: { set: (value: unknown) => void };
-    };
-    setupStateService['state'].set({
+    const router: Router = TestBed.inject(Router);
+    const authStateService: AuthStateService = TestBed.inject(AuthStateService);
+    const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
+    setSetupState(setupStateService, {
       admin: null,
       completedAt: '2026-03-11T00:00:00.000Z',
       configuredIntegrations: [],

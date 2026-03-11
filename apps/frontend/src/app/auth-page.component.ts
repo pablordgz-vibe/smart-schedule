@@ -6,6 +6,7 @@ import { AuthStateService } from './auth-state.service';
 import type { SocialProviderCode } from './auth.types';
 
 type AuthMode =
+  | 'deactivated'
   | 'recover-account'
   | 'reset-password'
   | 'sign-in'
@@ -65,7 +66,11 @@ type AuthMode =
             <span>Email</span>
             <input [(ngModel)]="email" name="verify-email" type="email" />
           </label>
-          <button class="ui-button ui-button-secondary" type="button" (click)="requestVerification()">
+          <button
+            class="ui-button ui-button-secondary"
+            type="button"
+            (click)="requestVerification()"
+          >
             Send Verification Email
           </button>
           <label class="ui-field">
@@ -82,7 +87,11 @@ type AuthMode =
             <span>Email</span>
             <input [(ngModel)]="email" name="reset-email" type="email" />
           </label>
-          <button class="ui-button ui-button-secondary" type="button" (click)="requestPasswordReset()">
+          <button
+            class="ui-button ui-button-secondary"
+            type="button"
+            (click)="requestPasswordReset()"
+          >
             Send Reset Email
           </button>
           <label class="ui-field">
@@ -93,7 +102,11 @@ type AuthMode =
             <span>New password</span>
             <input [(ngModel)]="password" name="reset-password" type="password" minlength="12" />
           </label>
-          <button class="ui-button ui-button-primary" type="button" (click)="confirmPasswordReset()">
+          <button
+            class="ui-button ui-button-primary"
+            type="button"
+            (click)="confirmPasswordReset()"
+          >
             Reset Password
           </button>
         </div>
@@ -115,7 +128,17 @@ type AuthMode =
           </button>
         </div>
 
-        <div class="provider-grid" *ngIf="socialProviders().length > 0">
+        <div class="auth-form" *ngIf="mode() === 'deactivated'">
+          <p class="auth-copy">
+            This account has been deactivated by an administrator and cannot sign in right now.
+          </p>
+          <p class="auth-copy">
+            Contact a system administrator to reactivate the account, then return to sign in.
+          </p>
+          <a class="ui-button ui-button-secondary" routerLink="/auth/sign-in">Back to sign in</a>
+        </div>
+
+        <div class="provider-grid" *ngIf="mode() !== 'deactivated' && socialProviders().length > 0">
           <button
             *ngFor="let provider of socialProviders()"
             class="ui-button ui-button-secondary"
@@ -132,6 +155,7 @@ type AuthMode =
           <a routerLink="/auth/verify-email">Verify email</a>
           <a routerLink="/auth/reset-password">Reset password</a>
           <a routerLink="/auth/recover-account">Recover account</a>
+          <a routerLink="/auth/deactivated">Deactivated</a>
         </nav>
       </div>
     </section>
@@ -197,6 +221,8 @@ export class AuthPageComponent {
         return 'Reset your password';
       case 'recover-account':
         return 'Recover your account';
+      case 'deactivated':
+        return 'Account deactivated';
       default:
         return 'Sign in';
     }
@@ -211,6 +237,8 @@ export class AuthPageComponent {
         return 'Start a password reset flow and complete it with the delivered token.';
       case 'recover-account':
         return 'Deleted accounts remain recoverable for 30 days before permanent removal.';
+      case 'deactivated':
+        return 'Deactivated accounts stay unavailable until a system administrator restores access.';
       default:
         return 'Use email/password or a configured social provider.';
     }
@@ -225,13 +253,22 @@ export class AuthPageComponent {
   token = '';
 
   async signIn() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       await this.authState.signInWithPassword({
         email: this.email,
         password: this.password,
       });
       await this.router.navigateByUrl('/home');
-    });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to sign in right now.';
+      if (message.toLowerCase().includes('deactivated')) {
+        await this.router.navigateByUrl('/auth/deactivated');
+        return;
+      }
+
+      this.error.set(message);
+    }
   }
 
   async signUp() {

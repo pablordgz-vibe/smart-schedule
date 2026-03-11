@@ -6,6 +6,7 @@ import { SetupStateService } from './setup-state.service';
 import type {
   SetupBootstrapPayload,
   SetupIntegrationCredentialMode,
+  SetupStateSnapshot,
 } from './setup.types';
 
 @Component({
@@ -30,6 +31,7 @@ import type {
             <li [class.active]="step() === 0">1. Integrations</li>
             <li [class.active]="step() === 1">2. First admin</li>
             <li [class.active]="step() === 2">3. Review</li>
+            <li [class.active]="step() === 3">4. Complete</li>
           </ol>
           <p class="edition-copy" data-testid="setup-edition">
             Edition: <strong>{{ editionLabel() }}</strong>
@@ -45,7 +47,9 @@ import type {
             <section *ngSwitchCase="0">
               <div class="section-heading">
                 <h2>Enable integrations</h2>
-                <p>Choose which providers are active at launch and how their credentials are stored.</p>
+                <p>
+                  Choose which providers are active at launch and how their credentials are stored.
+                </p>
               </div>
 
               <article
@@ -97,17 +101,31 @@ import type {
             <section *ngSwitchCase="1">
               <div class="section-heading">
                 <h2>Create the first system admin</h2>
-                <p>This account becomes the initial deployment administrator and completes bootstrap.</p>
+                <p>
+                  This account becomes the initial deployment administrator and completes bootstrap.
+                </p>
               </div>
 
               <label class="ui-field">
                 <span>Full name</span>
-                <input class="ui-input" [(ngModel)]="admin.name" name="name" required minlength="2" />
+                <input
+                  class="ui-input"
+                  [(ngModel)]="admin.name"
+                  name="name"
+                  required
+                  minlength="2"
+                />
               </label>
 
               <label class="ui-field">
                 <span>Email</span>
-                <input class="ui-input" [(ngModel)]="admin.email" name="email" type="email" required />
+                <input
+                  class="ui-input"
+                  [(ngModel)]="admin.email"
+                  name="email"
+                  type="email"
+                  required
+                />
               </label>
 
               <label class="ui-field">
@@ -126,7 +144,10 @@ import type {
             <section *ngSwitchCase="2">
               <div class="section-heading">
                 <h2>Review and finish</h2>
-                <p>Confirm the integration plan and bootstrap account before locking setup permanently.</p>
+                <p>
+                  Confirm the integration plan and bootstrap account before locking setup
+                  permanently.
+                </p>
               </div>
 
               <div class="summary-card">
@@ -137,7 +158,9 @@ import type {
 
               <div class="summary-card">
                 <h3>Enabled integrations</h3>
-                <p *ngIf="selectedProviders().length === 0">No integrations enabled at bootstrap.</p>
+                <p *ngIf="selectedProviders().length === 0">
+                  No integrations enabled at bootstrap.
+                </p>
                 <ul *ngIf="selectedProviders().length > 0">
                   <li *ngFor="let provider of selectedProviders()">
                     {{ provider.displayName }} via {{ modeLabel(modeFor(provider.code)) }}
@@ -147,14 +170,54 @@ import type {
 
               <p class="error-copy" *ngIf="errorMessage()">{{ errorMessage() }}</p>
             </section>
+
+            <section *ngSwitchCase="3">
+              <div class="section-heading">
+                <h2>Setup complete</h2>
+                <p>
+                  Bootstrap is now permanently locked. Review this completion summary before opening
+                  the main workspace.
+                </p>
+              </div>
+
+              <div class="summary-card">
+                <h3>Deployment summary</h3>
+                <p>Edition: {{ editionLabel() }}</p>
+                <p>Completed at: {{ completedState()?.completedAt || 'Unavailable' }}</p>
+                <p>Setup routes are now locked for this deployment.</p>
+              </div>
+
+              <div class="summary-card">
+                <h3>Initial admin</h3>
+                <p>{{ admin.name }}</p>
+                <p>{{ admin.email }}</p>
+              </div>
+
+              <div class="summary-card">
+                <h3>Enabled integrations</h3>
+                <p *ngIf="selectedProviders().length === 0">
+                  No integrations were enabled during bootstrap.
+                </p>
+                <ul *ngIf="selectedProviders().length > 0">
+                  <li *ngFor="let provider of selectedProviders()">
+                    {{ provider.displayName }} via {{ modeLabel(modeFor(provider.code)) }}
+                  </li>
+                </ul>
+              </div>
+            </section>
           </ng-container>
 
           <footer class="wizard-actions">
-            <button *ngIf="step() > 0" class="ui-button" type="button" (click)="previousStep()">
+            <button
+              *ngIf="step() > 0 && step() < 3"
+              class="ui-button"
+              type="button"
+              (click)="previousStep()"
+            >
               Back
             </button>
             <button class="ui-button ui-button-primary" type="submit" data-testid="setup-submit">
-              {{ step() === 2 ? 'Complete setup' : 'Continue' }}
+              {{ step() === 3 ? 'Open workspace' : step() === 2 ? 'Complete setup' : 'Continue' }}
             </button>
           </footer>
         </form>
@@ -296,6 +359,7 @@ export class SetupComponent {
   private readonly setupState = inject(SetupStateService);
 
   protected readonly providers = this.setupState.integrationProviders;
+  protected readonly completedState = signal<SetupStateSnapshot | null>(null);
   protected readonly step = signal(0);
   protected readonly errorMessage = signal('');
   protected readonly editionLabel = computed(() =>
@@ -380,6 +444,11 @@ export class SetupComponent {
   protected async submitCurrentStep() {
     this.errorMessage.set('');
 
+    if (this.step() === 3) {
+      await this.router.navigateByUrl('/home');
+      return;
+    }
+
     if (this.step() === 0) {
       const invalidSelection = this.selectedProviders().some(
         (provider) => this.secretFor(provider.code).trim().length === 0,
@@ -401,9 +470,7 @@ export class SetupComponent {
         this.admin.password.trim().length < 12 ||
         !this.admin.email.includes('@')
       ) {
-        this.errorMessage.set(
-          'Enter a valid admin name, email, and password before continuing.',
-        );
+        this.errorMessage.set('Enter a valid admin name, email, and password before continuing.');
         return;
       }
 
@@ -428,19 +495,18 @@ export class SetupComponent {
     };
 
     try {
-      await this.setupState.completeSetup(payload);
-      await this.router.navigateByUrl('/home');
+      const completedState = await this.setupState.completeSetup(payload);
+      this.completedState.set(completedState);
+      this.step.set(3);
     } catch (error: unknown) {
-      this.errorMessage.set(
-        error instanceof Error ? error.message : 'Setup completion failed.',
-      );
+      this.errorMessage.set(error instanceof Error ? error.message : 'Setup completion failed.');
     }
   }
 
   private defaultMode(code: string): SetupIntegrationCredentialMode {
-    return this.providers()
-      .find((provider) => provider.code === code)
-      ?.credentialModes[0] ?? 'api-key';
+    return (
+      this.providers().find((provider) => provider.code === code)?.credentialModes[0] ?? 'api-key'
+    );
   }
 
   private updateSelection(

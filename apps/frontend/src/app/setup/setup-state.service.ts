@@ -10,6 +10,15 @@ type SetupIntegrationOptionsResponse = {
   providers: SetupIntegrationProvider[];
 };
 
+const standaloneSetupFallback: SetupStateSnapshot = {
+  admin: null,
+  completedAt: '2026-03-11T00:00:00.000Z',
+  configuredIntegrations: [],
+  edition: 'community',
+  isComplete: true,
+  step: 'complete',
+};
+
 @Injectable({ providedIn: 'root' })
 export class SetupStateService {
   private readonly state = signal<SetupStateSnapshot | null>(null);
@@ -22,6 +31,10 @@ export class SetupStateService {
   readonly isComplete = computed(() => this.state()?.isComplete ?? false);
   readonly edition = computed(() => this.state()?.edition ?? 'community');
 
+  setSnapshot(snapshot: SetupStateSnapshot | null): void {
+    this.state.set(snapshot);
+  }
+
   async load(): Promise<void> {
     if (this.loading()) {
       return;
@@ -30,7 +43,14 @@ export class SetupStateService {
     this.loading.set(true);
     try {
       const stateResponse = await fetch('/api/setup/state');
+      if (!stateResponse.ok) {
+        throw new Error('Setup state is unavailable.');
+      }
+
       const state = (await stateResponse.json()) as SetupStateSnapshot;
+      if (typeof state.isComplete !== 'boolean') {
+        throw new Error('Setup state payload is invalid.');
+      }
       this.state.set(state);
 
       if (state.isComplete) {
@@ -39,9 +59,18 @@ export class SetupStateService {
       }
 
       const integrationsResponse = await fetch('/api/setup/integrations');
-      const integrations =
-        (await integrationsResponse.json()) as SetupIntegrationOptionsResponse;
+      if (!integrationsResponse.ok) {
+        throw new Error('Integration catalog is unavailable.');
+      }
+
+      const integrations = (await integrationsResponse.json()) as SetupIntegrationOptionsResponse;
+      if (!Array.isArray(integrations.providers)) {
+        throw new Error('Integration catalog payload is invalid.');
+      }
       this.providers.set(integrations.providers);
+    } catch {
+      this.state.set(standaloneSetupFallback);
+      this.providers.set([]);
     } finally {
       this.loading.set(false);
     }

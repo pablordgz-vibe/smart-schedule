@@ -14,11 +14,22 @@ import type {
   SocialProviderCode,
   SocialProviderDescriptor,
 } from '@smart-schedule/contracts';
-import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import {
+  createHash,
+  randomBytes,
+  randomUUID,
+  scryptSync,
+  timingSafeEqual,
+} from 'node:crypto';
+import { DatabaseService } from '../persistence/database.service';
+import { AuditService } from '../security/audit.service';
 
 type TokenKind = 'account-recovery' | 'email-verification' | 'password-reset';
+
+type MailMessageKind =
+  | 'account-recovery'
+  | 'email-verification'
+  | 'password-reset';
 
 type LinkedSocialIdentity = {
   linkedAt: string;
@@ -62,6 +73,16 @@ type PersistedIdentityState = {
   users: PersistedUserRecord[];
 };
 
+type PersistedMailMessage = {
+  body: string;
+  createdAt: string;
+  expiresAt: string;
+  id: string;
+  kind: MailMessageKind;
+  subject: string;
+  to: string;
+};
+
 type RegisterPasswordInput = {
   email: string;
   name: string;
@@ -80,7 +101,10 @@ type TokenIssueResult = {
   previewToken: string | null;
 };
 
-const socialProviderCatalog: Record<SocialProviderCode, SocialProviderDescriptor> = {
+const socialProviderCatalog: Record<
+  SocialProviderCode,
+  SocialProviderDescriptor
+> = {
   github: { code: 'github', displayName: 'GitHub' },
   google: { code: 'google', displayName: 'Google' },
   microsoft: { code: 'microsoft', displayName: 'Microsoft' },
@@ -133,10 +157,13 @@ function buildTierRoles(adminTier: number | null) {
 
 @Injectable()
 export class IdentityService {
-  private readonly stateFilePath = path.resolve(
-    process.cwd(),
-    process.env.IDENTITY_STATE_FILE ?? '.smart-schedule/identity-state.json',
-  );
+  private readonly mailFromAddress =
+    process.env.MAIL_FROM_ADDRESS ?? 'no-reply@smart-schedule.local';
+
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly databaseService: DatabaseService,
+  ) {}
 
   async getAuthConfiguration(): Promise<AuthConfigurationSnapshot> {
     const state = await this.readState();
@@ -149,12 +176,34 @@ export class IdentityService {
     return user ? this.toUserSummary(user) : null;
   }
 
-  async getUserSummaryByEmail(email: string): Promise<IdentityUserSummary | null> {
+  async getUserSummaryByEmail(
+    email: string,
+  ): Promise<IdentityUserSummary | null> {
     const state = await this.readState();
     const user = state.users.find(
       (candidate) => candidate.email === normalizeEmail(email),
     );
     return user ? this.toUserSummary(user) : null;
+  }
+
+  async listUsers(input?: { query?: string }) {
+    const state = await this.readState();
+    const query = input?.query?.trim().toLowerCase() ?? '';
+
+    return state.users
+      .filter((user) => {
+        if (!query) {
+          return true;
+        }
+
+        return (
+          user.email.includes(query) ||
+          user.name.toLowerCase().includes(query) ||
+          user.id.includes(query)
+        );
+      })
+      .map((user) => this.toUserSummary(user))
+      .sort((left, right) => left.email.localeCompare(right.email));
   }
 
   async createInitialAdmin(input: RegisterPasswordInput) {
@@ -174,6 +223,14 @@ export class IdentityService {
 
     state.users.push(user);
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.admin.bootstrap_created',
+      details: {
+        adminTier: user.adminTier,
+      },
+      targetId: user.id,
+      targetType: 'user',
+    });
 
     return this.toUserSummary(user);
   }
@@ -192,7 +249,8 @@ export class IdentityService {
       return this.toUserSummary(existing);
     }
 
-    const adminTier = input.adminTier ?? this.extractAdminTier(input.roles ?? []);
+    const adminTier =
+      input.adminTier ?? this.extractAdminTier(input.roles ?? []);
     const roles = input.roles ?? ['user'];
     const user: PersistedUserRecord = {
       adminTier,
@@ -205,7 +263,10 @@ export class IdentityService {
       name: input.name ?? input.actorId,
       passwordHash: encodePasswordHash('test-password-not-for-login'),
       recoverUntil: null,
-      roles: adminTier == null ? roles : [...new Set([...roles, ...buildTierRoles(adminTier)])],
+      roles:
+        adminTier == null
+          ? roles
+          : [...new Set([...roles, ...buildTierRoles(adminTier)])],
       state: input.state ?? 'active',
       updatedAt: nowIso(),
     };
@@ -238,7 +299,21 @@ export class IdentityService {
       'email-verification',
       emailVerificationTtlMs,
     );
+    await this.queueMailMessage({
+      email: user.email,
+      expiresAt: tokenDelivery.expiresAt,
+      kind: 'email-verification',
+      previewToken: tokenDelivery.previewToken,
+    });
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.account.registered',
+      details: {
+        requiresEmailVerification: state.config.requireEmailVerification,
+      },
+      targetId: user.id,
+      targetType: 'user',
+    });
 
     return {
       tokenDelivery,
@@ -248,18 +323,29 @@ export class IdentityService {
 
   async authenticatePassword(email: string, password: string) {
     const state = await this.readState();
-    const user = state.users.find((candidate) => candidate.email === normalizeEmail(email));
-    if (!user || !user.passwordHash || !verifyPasswordHash(password, user.passwordHash)) {
+    const user = state.users.find(
+      (candidate) => candidate.email === normalizeEmail(email),
+    );
+    if (
+      !user ||
+      !user.passwordHash ||
+      !verifyPasswordHash(password, user.passwordHash)
+    ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
-    this.assertAccountCanAuthenticate(user, state.config.requireEmailVerification);
+    this.assertAccountCanAuthenticate(
+      user,
+      state.config.requireEmailVerification,
+    );
     return this.toUserSummary(user);
   }
 
   async requestEmailVerification(email: string) {
     const state = await this.readState();
-    const user = state.users.find((candidate) => candidate.email === normalizeEmail(email));
+    const user = state.users.find(
+      (candidate) => candidate.email === normalizeEmail(email),
+    );
     if (!user || user.state !== 'active' || user.emailVerified) {
       return { expiresAt: null, previewToken: null };
     }
@@ -270,6 +356,12 @@ export class IdentityService {
       'email-verification',
       emailVerificationTtlMs,
     );
+    await this.queueMailMessage({
+      email: user.email,
+      expiresAt: tokenDelivery.expiresAt,
+      kind: 'email-verification',
+      previewToken: tokenDelivery.previewToken,
+    });
     await this.writeState(state);
     return tokenDelivery;
   }
@@ -280,17 +372,35 @@ export class IdentityService {
     user.emailVerified = true;
     user.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.email.verified',
+      targetId: user.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(user);
   }
 
   async requestPasswordReset(email: string) {
     const state = await this.readState();
-    const user = state.users.find((candidate) => candidate.email === normalizeEmail(email));
+    const user = state.users.find(
+      (candidate) => candidate.email === normalizeEmail(email),
+    );
     if (!user || user.state !== 'active' || !user.passwordHash) {
       return { expiresAt: null, previewToken: null };
     }
 
-    const tokenDelivery = this.issueToken(state, user.id, 'password-reset', passwordResetTtlMs);
+    const tokenDelivery = this.issueToken(
+      state,
+      user.id,
+      'password-reset',
+      passwordResetTtlMs,
+    );
+    await this.queueMailMessage({
+      email: user.email,
+      expiresAt: tokenDelivery.expiresAt,
+      kind: 'password-reset',
+      previewToken: tokenDelivery.previewToken,
+    });
     await this.writeState(state);
     return tokenDelivery;
   }
@@ -302,6 +412,11 @@ export class IdentityService {
     user.passwordHash = encodePasswordHash(password);
     user.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.password.reset_completed',
+      targetId: user.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(user);
   }
 
@@ -378,7 +493,9 @@ export class IdentityService {
       ),
     );
     if (existingLink && existingLink.id !== owner.id) {
-      throw new ConflictException('That social identity is already linked to another account.');
+      throw new ConflictException(
+        'That social identity is already linked to another account.',
+      );
     }
 
     if (
@@ -386,7 +503,9 @@ export class IdentityService {
         (identity) => identity.provider === input.provider,
       )
     ) {
-      throw new ConflictException('That provider is already linked to this account.');
+      throw new ConflictException(
+        'That provider is already linked to this account.',
+      );
     }
 
     owner.linkedSocialIdentities.push({
@@ -396,6 +515,14 @@ export class IdentityService {
     });
     owner.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.provider.linked',
+      details: {
+        provider: input.provider,
+      },
+      targetId: owner.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(owner);
   }
 
@@ -412,7 +539,9 @@ export class IdentityService {
       (identity) => identity.provider !== provider,
     );
     if (beforeCount === user.linkedSocialIdentities.length) {
-      throw new NotFoundException('That provider is not linked to the account.');
+      throw new NotFoundException(
+        'That provider is not linked to the account.',
+      );
     }
 
     if (!this.hasUsableLoginMethod(user)) {
@@ -423,6 +552,14 @@ export class IdentityService {
 
     user.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.provider.unlinked',
+      details: {
+        provider,
+      },
+      targetId: user.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(user);
   }
 
@@ -441,12 +578,22 @@ export class IdentityService {
     user.recoverUntil = new Date(Date.now() + recoveryWindowMs).toISOString();
     user.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.account.deleted',
+      details: {
+        recoverUntil: user.recoverUntil,
+      },
+      targetId: user.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(user);
   }
 
   async requestAccountRecovery(email: string) {
     const state = await this.readState();
-    const user = state.users.find((candidate) => candidate.email === normalizeEmail(email));
+    const user = state.users.find(
+      (candidate) => candidate.email === normalizeEmail(email),
+    );
     if (!user || user.state !== 'deleted' || !user.recoverUntil) {
       return { expiresAt: null, previewToken: null };
     }
@@ -465,6 +612,12 @@ export class IdentityService {
         new Date(user.recoverUntil).getTime() - Date.now(),
       ),
     );
+    await this.queueMailMessage({
+      email: user.email,
+      expiresAt: tokenDelivery.expiresAt,
+      kind: 'account-recovery',
+      previewToken: tokenDelivery.previewToken,
+    });
     await this.writeState(state);
     return tokenDelivery;
   }
@@ -485,34 +638,62 @@ export class IdentityService {
     user.recoverUntil = null;
     user.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.account.recovered',
+      targetId: user.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(user);
   }
 
-  async deactivateAccount(userId: string, actorRoles: string[]) {
+  async deactivateAccount(
+    userId: string,
+    actorId: string,
+    actorRoles: string[],
+  ) {
     const state = await this.readState();
     const minimumTier = state.config.minAdminTierForAccountDeactivation;
     const actorTier = this.extractAdminTier(actorRoles);
     if (!actorRoles.includes('system-admin') || actorTier < minimumTier) {
-      throw new UnauthorizedException('The current admin tier cannot deactivate accounts.');
+      throw new UnauthorizedException(
+        'The current admin tier cannot deactivate accounts.',
+      );
     }
 
     const user = state.users.find((candidate) => candidate.id === userId);
     if (!user) {
       throw new NotFoundException('Account not found.');
     }
+
+    this.assertActorCanManageUser(actorId, actorTier, user);
 
     user.state = 'deactivated';
     user.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.account.deactivated',
+      details: {
+        actorTier,
+        targetAdminTier: user.adminTier,
+      },
+      targetId: user.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(user);
   }
 
-  async reactivateAccount(userId: string, actorRoles: string[]) {
+  async reactivateAccount(
+    userId: string,
+    actorId: string,
+    actorRoles: string[],
+  ) {
     const state = await this.readState();
     const minimumTier = state.config.minAdminTierForAccountDeactivation;
     const actorTier = this.extractAdminTier(actorRoles);
     if (!actorRoles.includes('system-admin') || actorTier < minimumTier) {
-      throw new UnauthorizedException('The current admin tier cannot reactivate accounts.');
+      throw new UnauthorizedException(
+        'The current admin tier cannot reactivate accounts.',
+      );
     }
 
     const user = state.users.find((candidate) => candidate.id === userId);
@@ -520,14 +701,30 @@ export class IdentityService {
       throw new NotFoundException('Account not found.');
     }
 
+    this.assertActorCanManageUser(actorId, actorTier, user);
+
     user.state = 'active';
     user.updatedAt = nowIso();
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.account.reactivated',
+      details: {
+        actorTier,
+        targetAdminTier: user.adminTier,
+      },
+      targetId: user.id,
+      targetType: 'user',
+    });
     return this.toUserSummary(user);
   }
 
   async updateAuthConfiguration(
-    input: Partial<Pick<AuthConfigurationSnapshot, 'minAdminTierForAccountDeactivation' | 'requireEmailVerification'>>,
+    input: Partial<
+      Pick<
+        AuthConfigurationSnapshot,
+        'minAdminTierForAccountDeactivation' | 'requireEmailVerification'
+      >
+    >,
   ) {
     const state = await this.readState();
     if (typeof input.minAdminTierForAccountDeactivation === 'number') {
@@ -540,6 +737,16 @@ export class IdentityService {
     }
 
     await this.writeState(state);
+    this.auditService.emit({
+      action: 'identity.auth.configuration_updated',
+      details: {
+        minAdminTierForAccountDeactivation:
+          state.config.minAdminTierForAccountDeactivation,
+        requireEmailVerification: state.config.requireEmailVerification,
+      },
+      targetId: 'identity-config',
+      targetType: 'auth-configuration',
+    });
     return this.toAuthConfiguration(state);
   }
 
@@ -564,7 +771,10 @@ export class IdentityService {
       throw new UnauthorizedException('Account not found.');
     }
 
-    this.assertAccountCanAuthenticate(user, state.config.requireEmailVerification);
+    this.assertAccountCanAuthenticate(
+      user,
+      state.config.requireEmailVerification,
+    );
     return this.toUserSummary(user);
   }
 
@@ -631,10 +841,14 @@ export class IdentityService {
     );
 
     if (!record) {
-      throw new BadRequestException('The provided token is invalid or expired.');
+      throw new BadRequestException(
+        'The provided token is invalid or expired.',
+      );
     }
 
-    const user = state.users.find((candidate) => candidate.id === record.userId);
+    const user = state.users.find(
+      (candidate) => candidate.id === record.userId,
+    );
     if (!user) {
       throw new NotFoundException('Account not found.');
     }
@@ -654,7 +868,9 @@ export class IdentityService {
 
   private assertRecoverableUser(user: PersistedUserRecord) {
     if (user.state === 'deleted') {
-      throw new UnauthorizedException('Deleted accounts cannot perform this action.');
+      throw new UnauthorizedException(
+        'Deleted accounts cannot perform this action.',
+      );
     }
   }
 
@@ -671,7 +887,28 @@ export class IdentityService {
     }
 
     if (requireEmailVerification && user.passwordHash && !user.emailVerified) {
-      throw new UnauthorizedException('Email verification is required before sign-in.');
+      throw new UnauthorizedException(
+        'Email verification is required before sign-in.',
+      );
+    }
+  }
+
+  private assertActorCanManageUser(
+    actorId: string,
+    actorTier: number,
+    user: PersistedUserRecord,
+  ) {
+    if (actorId === user.id) {
+      throw new UnauthorizedException(
+        'Administrators cannot manage their own account lifecycle state.',
+      );
+    }
+
+    const targetTier = user.adminTier ?? this.extractAdminTier(user.roles);
+    if (targetTier >= 0 && actorTier <= targetTier) {
+      throw new UnauthorizedException(
+        'The current admin tier cannot manage this account.',
+      );
     }
   }
 
@@ -680,7 +917,9 @@ export class IdentityService {
   }
 
   private extractAdminTier(roles: string[]) {
-    const tierRole = roles.find((role) => role.startsWith('system-admin:tier:'));
+    const tierRole = roles.find((role) =>
+      role.startsWith('system-admin:tier:'),
+    );
     if (!tierRole) {
       return roles.includes('system-admin') ? 0 : -1;
     }
@@ -716,7 +955,9 @@ export class IdentityService {
     };
   }
 
-  private toAuthConfiguration(state: PersistedIdentityState): AuthConfigurationSnapshot {
+  private toAuthConfiguration(
+    state: PersistedIdentityState,
+  ): AuthConfigurationSnapshot {
     return {
       minAdminTierForAccountDeactivation:
         state.config.minAdminTierForAccountDeactivation,
@@ -728,46 +969,247 @@ export class IdentityService {
   }
 
   private async readState(): Promise<PersistedIdentityState> {
-    try {
-      const content = await readFile(this.stateFilePath, 'utf8');
-      const parsed = JSON.parse(content) as PersistedIdentityState;
-      const state = {
-        config: {
-          minAdminTierForAccountDeactivation:
-            parsed.config?.minAdminTierForAccountDeactivation ?? 0,
-          requireEmailVerification: parsed.config?.requireEmailVerification ?? false,
-          supportedSocialProviders: this.normalizeProviderList(
-            parsed.config?.supportedSocialProviders,
-          ),
-        },
-        tokens: parsed.tokens ?? [],
-        users: parsed.users ?? [],
-      } satisfies PersistedIdentityState;
-      this.pruneExpiredData(state);
-      return state;
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        const state = this.createEmptyState();
-        this.pruneExpiredData(state);
-        return state;
-      }
+    const [configResult, usersResult, socialResult, tokensResult] =
+      await Promise.all([
+        this.databaseService.query<{
+          min_admin_tier_for_account_deactivation: number;
+          require_email_verification: boolean;
+          supported_social_providers: string[];
+        }>(
+          `select
+             min_admin_tier_for_account_deactivation,
+             require_email_verification,
+             supported_social_providers
+           from identity_config
+           where id = 1`,
+        ),
+        this.databaseService.query<{
+          admin_tier: number | null;
+          created_at: Date | string;
+          deleted_at: Date | string | null;
+          email: string;
+          email_verified: boolean;
+          id: string;
+          name: string;
+          password_hash: string | null;
+          recover_until: Date | string | null;
+          roles: string[];
+          state: AccountState;
+          updated_at: Date | string;
+        }>(
+          `select
+             admin_tier,
+             created_at,
+             deleted_at,
+             email,
+             email_verified,
+             id,
+             name,
+             password_hash,
+             recover_until,
+             roles,
+             state,
+             updated_at
+           from users`,
+        ),
+        this.databaseService.query<{
+          linked_at: Date | string;
+          provider: SocialProviderCode;
+          provider_subject: string;
+          user_id: string;
+        }>(
+          `select linked_at, provider, provider_subject, user_id
+           from social_identities`,
+        ),
+        this.databaseService.query<{
+          consumed_at: Date | string | null;
+          created_at: Date | string;
+          expires_at: Date | string;
+          id: string;
+          kind: TokenKind;
+          token_hash: string;
+          user_id: string;
+        }>(
+          `select consumed_at, created_at, expires_at, id, kind, token_hash, user_id
+           from identity_tokens`,
+        ),
+      ]);
 
-      throw error;
+    const linkedByUserId = new Map<string, LinkedSocialIdentity[]>();
+    for (const row of socialResult.rows) {
+      const linkedIdentity: LinkedSocialIdentity = {
+        linkedAt: toIsoString(row.linked_at) ?? nowIso(),
+        provider: row.provider,
+        providerSubject: row.provider_subject,
+      };
+      const existing = linkedByUserId.get(row.user_id) ?? [];
+      existing.push(linkedIdentity);
+      linkedByUserId.set(row.user_id, existing);
     }
+
+    const configRow = configResult.rows[0];
+    const state = {
+      config: configRow
+        ? {
+            minAdminTierForAccountDeactivation:
+              configRow.min_admin_tier_for_account_deactivation,
+            requireEmailVerification: configRow.require_email_verification,
+            supportedSocialProviders: this.normalizeProviderList(
+              configRow.supported_social_providers,
+            ),
+          }
+        : this.createEmptyState().config,
+      tokens: tokensResult.rows.map((row) => ({
+        consumedAt: toIsoString(row.consumed_at),
+        createdAt: toIsoString(row.created_at) ?? nowIso(),
+        expiresAt: toIsoString(row.expires_at) ?? nowIso(),
+        id: row.id,
+        kind: row.kind,
+        tokenHash: row.token_hash,
+        userId: row.user_id,
+      })),
+      users: usersResult.rows.map((row) => ({
+        adminTier: row.admin_tier,
+        createdAt: toIsoString(row.created_at) ?? nowIso(),
+        deletedAt: toIsoString(row.deleted_at),
+        email: row.email,
+        emailVerified: row.email_verified,
+        id: row.id,
+        linkedSocialIdentities: linkedByUserId.get(row.id) ?? [],
+        name: row.name,
+        passwordHash: row.password_hash,
+        recoverUntil: toIsoString(row.recover_until),
+        roles: row.roles ?? [],
+        state: row.state,
+        updatedAt: toIsoString(row.updated_at) ?? nowIso(),
+      })),
+    } satisfies PersistedIdentityState;
+
+    const serializedBeforePrune = JSON.stringify(state);
+    this.pruneExpiredData(state);
+    if (JSON.stringify(state) !== serializedBeforePrune) {
+      await this.persistState(state);
+    }
+
+    return state;
   }
 
   private async writeState(state: PersistedIdentityState) {
     this.pruneExpiredData(state);
-    await mkdir(path.dirname(this.stateFilePath), { recursive: true });
-    await writeFile(this.stateFilePath, JSON.stringify(state, null, 2), 'utf8');
+    await this.persistState(state);
+  }
+
+  private async persistState(state: PersistedIdentityState) {
+    await this.databaseService.transaction(async (client) => {
+      await client.query(
+        `insert into identity_config (
+           id,
+           min_admin_tier_for_account_deactivation,
+           require_email_verification,
+           supported_social_providers,
+           updated_at
+         )
+         values (1, $1, $2, $3, now())
+         on conflict (id) do update
+         set min_admin_tier_for_account_deactivation =
+               excluded.min_admin_tier_for_account_deactivation,
+             require_email_verification = excluded.require_email_verification,
+             supported_social_providers = excluded.supported_social_providers,
+             updated_at = now()`,
+        [
+          state.config.minAdminTierForAccountDeactivation,
+          state.config.requireEmailVerification,
+          state.config.supportedSocialProviders,
+        ],
+      );
+
+      await client.query('delete from social_identities');
+      await client.query('delete from identity_tokens');
+      await client.query('delete from users');
+
+      for (const user of state.users) {
+        await client.query(
+          `insert into users (
+             id,
+             admin_tier,
+             created_at,
+             deleted_at,
+             email,
+             email_verified,
+             name,
+             password_hash,
+             recover_until,
+             roles,
+             state,
+             updated_at
+           )
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            user.id,
+            user.adminTier,
+            user.createdAt,
+            user.deletedAt,
+            user.email,
+            user.emailVerified,
+            user.name,
+            user.passwordHash,
+            user.recoverUntil,
+            user.roles,
+            user.state,
+            user.updatedAt,
+          ],
+        );
+
+        for (const identity of user.linkedSocialIdentities) {
+          await client.query(
+            `insert into social_identities (
+               provider,
+               provider_subject,
+               user_id,
+               linked_at
+             )
+             values ($1, $2, $3, $4)`,
+            [
+              identity.provider,
+              identity.providerSubject,
+              user.id,
+              identity.linkedAt,
+            ],
+          );
+        }
+      }
+
+      for (const token of state.tokens) {
+        await client.query(
+          `insert into identity_tokens (
+             id,
+             consumed_at,
+             created_at,
+             expires_at,
+             kind,
+             token_hash,
+             user_id
+           )
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            token.id,
+            token.consumedAt,
+            token.createdAt,
+            token.expiresAt,
+            token.kind,
+            token.tokenHash,
+            token.userId,
+          ],
+        );
+      }
+    });
   }
 
   private pruneExpiredData(state: PersistedIdentityState) {
     const currentTime = Date.now();
     state.tokens = state.tokens.filter(
       (token) =>
-        !token.consumedAt &&
-        new Date(token.expiresAt).getTime() > currentTime,
+        !token.consumedAt && new Date(token.expiresAt).getTime() > currentTime,
     );
     state.users = state.users.filter((user) => {
       if (user.state !== 'deleted' || !user.recoverUntil) {
@@ -797,8 +1239,122 @@ export class IdentityService {
       new Set(
         (values ?? [])
           .map((value) => value.trim().toLowerCase())
-          .filter((value): value is SocialProviderCode => value in socialProviderCatalog),
+          .filter(
+            (value): value is SocialProviderCode =>
+              value in socialProviderCatalog,
+          ),
       ),
     );
   }
+
+  private async queueMailMessage(input: {
+    email: string;
+    expiresAt: string;
+    kind: MailMessageKind;
+    previewToken: string | null;
+  }) {
+    await this.databaseService.query(
+      `insert into mail_outbox (
+         id,
+         body,
+         created_at,
+         expires_at,
+         kind,
+         subject,
+         recipient_email
+       )
+       values ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        randomUUID(),
+        this.buildMailBody(input),
+        nowIso(),
+        input.expiresAt,
+        input.kind,
+        this.buildMailSubject(input.kind),
+        input.email,
+      ],
+    );
+  }
+
+  private buildMailBody(input: {
+    email: string;
+    expiresAt: string;
+    kind: MailMessageKind;
+    previewToken: string | null;
+  }) {
+    const actionLabel =
+      input.kind === 'email-verification'
+        ? 'verify your email address'
+        : input.kind === 'password-reset'
+          ? 'reset your password'
+          : 'recover your account';
+    const actionUrl = input.previewToken
+      ? `https://app.smart-schedule.local/${input.kind}?token=${input.previewToken}`
+      : `https://app.smart-schedule.local/${input.kind}`;
+
+    return [
+      `From: ${this.mailFromAddress}`,
+      `To: ${input.email}`,
+      '',
+      `Use the link below to ${actionLabel}.`,
+      actionUrl,
+      `This link expires at ${input.expiresAt}.`,
+    ].join('\n');
+  }
+
+  private buildMailSubject(kind: MailMessageKind) {
+    if (kind === 'email-verification') {
+      return 'Verify your SmartSchedule email';
+    }
+
+    if (kind === 'password-reset') {
+      return 'Reset your SmartSchedule password';
+    }
+
+    return 'Recover your SmartSchedule account';
+  }
+
+  private async readMailOutbox(): Promise<PersistedMailMessage[]> {
+    const result = await this.databaseService.query<{
+      body: string;
+      created_at: Date | string;
+      expires_at: Date | string;
+      id: string;
+      kind: MailMessageKind;
+      subject: string;
+      recipient_email: string;
+    }>(
+      `select
+         body,
+         created_at,
+         expires_at,
+         id,
+         kind,
+         subject,
+         recipient_email
+       from mail_outbox
+       where expires_at > now()
+       order by created_at asc`,
+    );
+
+    return result.rows.map((row) => ({
+      body: row.body,
+      createdAt: toIsoString(row.created_at) ?? nowIso(),
+      expiresAt: toIsoString(row.expires_at) ?? nowIso(),
+      id: row.id,
+      kind: row.kind,
+      subject: row.subject,
+      to: row.recipient_email,
+    }));
+  }
+}
+
+function toIsoString(value: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }

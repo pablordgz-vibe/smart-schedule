@@ -1,20 +1,58 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { rm } from 'node:fs/promises';
 import { AppModule } from './../src/app.module';
-import { configureApiApp } from './../src/app.factory';
+import { configureApiApp, createApiAdapter } from './../src/app.factory';
 import { requestContextHeaderNames } from '@smart-schedule/contracts';
+import {
+  resetTestDb,
+  startTestDb,
+  stopTestDb,
+  type TestDatabase,
+} from './test-db';
 
 type HealthResponse = {
-  status: string;
   info: {
     app: {
       status: string;
     };
   };
+  status: string;
+};
+
+type SecurityErrorResponse = {
+  error: {
+    code: string;
+    kind?: string;
+  };
+  message?: string | string[];
+};
+
+type SetupCompleteResponse = {
+  state: {
+    admin: null;
+    isComplete: boolean;
+  };
+};
+
+type SetupStateResponse = {
+  configuredIntegrations: unknown[];
+  isComplete: boolean;
+};
+
+type SessionLoginResponse = {
+  csrfToken: string;
 };
 
 function createIdentityHeaders(input: {
@@ -34,17 +72,11 @@ function createIdentityHeaders(input: {
 }
 
 describe('API health endpoints (e2e)', () => {
-  let app: INestApplication<App>;
-  const setupStateFile = '/tmp/smart-schedule-api-e2e-setup.json';
-  const identityStateFile = '/tmp/smart-schedule-api-e2e-identity.json';
-  const getTestServer = () => {
-    const handler = app.getHttpAdapter().getInstance() as (
-      req: unknown,
-      res: unknown,
-    ) => void;
+  let app: NestFastifyApplication;
+  let databaseUrl: string;
+  let testDb: TestDatabase;
 
-    return (req: unknown, res: unknown) => handler(req, res);
-  };
+  const getTestServer = () => app.getHttpServer();
 
   async function completeSetup() {
     return request(getTestServer())
@@ -60,32 +92,45 @@ describe('API health endpoints (e2e)', () => {
       .expect(201);
   }
 
-  beforeEach(async () => {
-    process.env.SETUP_STATE_FILE = setupStateFile;
-    process.env.IDENTITY_STATE_FILE = identityStateFile;
-    process.env.APP_EDITION = 'community';
-    await rm(setupStateFile, { force: true });
-    await rm(identityStateFile, { force: true });
-
+  async function bootApp() {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app =
+      moduleFixture.createNestApplication<NestFastifyApplication>(
+        createApiAdapter(),
+      );
     configureApiApp(app);
     await app.init();
+    await app.getHttpAdapter().getInstance().ready();
+  }
+
+  beforeAll(async () => {
+    testDb = await startTestDb();
+    databaseUrl = testDb.url;
+  });
+
+  beforeEach(async () => {
+    process.env.APP_EDITION = 'community';
+    process.env.NODE_ENV = 'test';
+    process.env.DATABASE_URL = databaseUrl;
+    await resetTestDb(databaseUrl);
+    await bootApp();
   });
 
   afterEach(async () => {
-    await app.close();
-    await rm(setupStateFile, { force: true });
-    await rm(identityStateFile, { force: true });
+    if (app) {
+      await app.close();
+    }
+  });
+
+  afterAll(async () => {
+    await stopTestDb(testDb);
   });
 
   it('returns liveness status', async () => {
-    const response = await request(getTestServer())
-      .get('/health')
-      .expect(200);
+    const response = await request(getTestServer()).get('/health').expect(200);
     const body = response.body as HealthResponse;
 
     expect(body.status).toBe('ok');
@@ -109,13 +154,19 @@ describe('API health endpoints (e2e)', () => {
   });
 
   it('blocks non-bootstrap routes until first-run setup is completed', async () => {
-    const response = await request(getTestServer()).get('/kernel/session/me').expect(403);
+    const response = await request(getTestServer())
+      .get('/kernel/session/me')
+      .expect(403);
 
-    expect(response.body.error.code).toBe('BOOTSTRAP_LOCKED');
+    expect((response.body as SecurityErrorResponse).error.code).toBe(
+      'BOOTSTRAP_LOCKED',
+    );
   });
 
   it('completes setup once and rejects bootstrap reuse', async () => {
-    const loggerSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const loggerSpy = vi
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
 
     const setupPayload = {
       admin: {
@@ -140,11 +191,12 @@ describe('API health endpoints (e2e)', () => {
       .send(setupPayload)
       .expect(201);
 
-    expect(firstResponse.body.state.isComplete).toBe(true);
-    expect(firstResponse.body.state.admin).toBeNull();
+    const firstBody = firstResponse.body as SetupCompleteResponse;
+    expect(firstBody.state.isComplete).toBe(true);
+    expect(firstBody.state.admin).toBeNull();
     expect(
       loggerSpy.mock.calls.some(([entry]) =>
-        String(entry).includes('"resource":"POST /setup/complete"'),
+        String(entry).includes('"action":"setup.completed"'),
       ),
     ).toBe(true);
     loggerSpy.mockRestore();
@@ -154,27 +206,23 @@ describe('API health endpoints (e2e)', () => {
       .send(setupPayload)
       .expect(409);
 
-    expect(retryResponse.body.error.code).toBe('BOOTSTRAP_LOCKED');
+    expect((retryResponse.body as SecurityErrorResponse).error.code).toBe(
+      'BOOTSTRAP_LOCKED',
+    );
 
     const stateResponse = await request(getTestServer())
       .get('/setup/state')
       .expect(200);
 
-    expect(stateResponse.body.isComplete).toBe(true);
-    expect(stateResponse.body.configuredIntegrations).toEqual([]);
+    const stateBody = stateResponse.body as SetupStateResponse;
+    expect(stateBody.isComplete).toBe(true);
+    expect(stateBody.configuredIntegrations).toEqual([]);
   });
 
   it('rejects provider-login setup in the commercial edition', async () => {
     process.env.APP_EDITION = 'commercial';
     await app.close();
-
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    configureApiApp(app);
-    await app.init();
+    await bootApp();
 
     const response = await request(getTestServer())
       .post('/setup/complete')
@@ -197,7 +245,9 @@ describe('API health endpoints (e2e)', () => {
       })
       .expect(400);
 
-    expect(response.body.message).toContain('Credential mode provider-login is not allowed');
+    expect((response.body as SecurityErrorResponse).message).toContain(
+      'Credential mode provider-login is not allowed',
+    );
   });
 
   it('rejects unknown request fields before controller logic', async () => {
@@ -211,7 +261,9 @@ describe('API health endpoints (e2e)', () => {
       })
       .expect(400);
 
-    expect(response.body.message).toContain('property rogueField should not exist');
+    expect((response.body as SecurityErrorResponse).message).toContain(
+      'property rogueField should not exist',
+    );
   });
 
   it('rejects direct-object-reference access in personal scope', async () => {
@@ -228,7 +280,9 @@ describe('API health endpoints (e2e)', () => {
       )
       .expect(403);
 
-    expect(response.body.error.code).toBe('CONTEXT_MISMATCH');
+    expect((response.body as SecurityErrorResponse).error.code).toBe(
+      'CONTEXT_MISMATCH',
+    );
   });
 
   it('rejects direct-object-reference access in organization scope', async () => {
@@ -252,7 +306,9 @@ describe('API health endpoints (e2e)', () => {
       })
       .expect(403);
 
-    expect(response.body.error.code).toBe('CONTEXT_MISMATCH');
+    expect((response.body as SecurityErrorResponse).error.code).toBe(
+      'CONTEXT_MISMATCH',
+    );
   });
 
   it('rejects personal users attempting organization-scoped mutations', async () => {
@@ -275,8 +331,9 @@ describe('API health endpoints (e2e)', () => {
       })
       .expect(403);
 
-    expect(response.body.error.code).toBe('CONTEXT_MISMATCH');
-    expect(response.body.error.kind).toBe('context_mismatch');
+    const responseBody = response.body as SecurityErrorResponse;
+    expect(responseBody.error.code).toBe('CONTEXT_MISMATCH');
+    expect(responseBody.error.kind).toBe('context_mismatch');
   });
 
   it('rejects forged context flags within organization-scoped mutations', async () => {
@@ -300,7 +357,9 @@ describe('API health endpoints (e2e)', () => {
       })
       .expect(403);
 
-    expect(response.body.error.code).toBe('CONTEXT_MISMATCH');
+    expect((response.body as SecurityErrorResponse).error.code).toBe(
+      'CONTEXT_MISMATCH',
+    );
   });
 
   it('enforces secure cookie sessions and CSRF on unsafe requests', async () => {
@@ -314,12 +373,13 @@ describe('API health endpoints (e2e)', () => {
         contextType: 'personal',
       })
       .expect(201);
+    const loginBody = loginResponse.body as SessionLoginResponse;
 
     const cookieHeader = loginResponse.headers['set-cookie'][0];
     expect(cookieHeader).toContain('HttpOnly');
     expect(cookieHeader).toContain('Secure');
     expect(cookieHeader).toContain('SameSite=Strict');
-    expect(loginResponse.body.csrfToken).toBeTypeOf('string');
+    expect(loginBody.csrfToken).toBeTypeOf('string');
 
     await request(getTestServer())
       .get('/kernel/session/me')
@@ -331,12 +391,14 @@ describe('API health endpoints (e2e)', () => {
       .set('Cookie', cookieHeader)
       .expect(403);
 
-    expect(csrfFailure.body.error.code).toBe('CSRF_INVALID');
+    expect((csrfFailure.body as SecurityErrorResponse).error.code).toBe(
+      'CSRF_INVALID',
+    );
 
     await request(getTestServer())
       .post('/kernel/session/logout')
       .set('Cookie', cookieHeader)
-      .set('x-csrf-token', loginResponse.body.csrfToken)
+      .set('x-csrf-token', loginBody.csrfToken)
       .expect(201);
   });
 
@@ -365,7 +427,9 @@ describe('API health endpoints (e2e)', () => {
       .set('Cookie', cookieHeader)
       .expect(401);
 
-    expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
+    expect((response.body as SecurityErrorResponse).error.code).toBe(
+      'AUTHENTICATION_REQUIRED',
+    );
   });
 
   it('rate limits repeated login attempts', async () => {
@@ -392,6 +456,8 @@ describe('API health endpoints (e2e)', () => {
       })
       .expect(429);
 
-    expect(response.body.error.code).toBe('RATE_LIMITED');
+    expect((response.body as SecurityErrorResponse).error.code).toBe(
+      'RATE_LIMITED',
+    );
   });
 });

@@ -5,9 +5,9 @@ import type {
   SetupIntegrationProvider,
   SetupStateSnapshot,
 } from '@smart-schedule/contracts';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { IdentityService } from '../identity/identity.service';
+import { DatabaseService } from '../persistence/database.service';
+import { AuditService } from '../security/audit.service';
 
 type PersistedSetupState = {
   admin: SetupStateSnapshot['admin'];
@@ -43,12 +43,12 @@ const integrationCatalog: SetupIntegrationProvider[] = [
 export class SetupService {
   private readonly edition: AppEdition =
     (process.env.APP_EDITION as AppEdition | undefined) ?? 'community';
-  private readonly stateFilePath = path.resolve(
-    process.cwd(),
-    process.env.SETUP_STATE_FILE ?? '.smart-schedule/setup-state.json',
-  );
 
-  constructor(private readonly identityService: IdentityService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly identityService: IdentityService,
+    private readonly databaseService: DatabaseService,
+  ) {}
 
   async getSetupState(): Promise<SetupStateSnapshot> {
     const persisted = await this.readPersistedState();
@@ -57,7 +57,9 @@ export class SetupService {
     return {
       admin: isComplete ? null : persisted.admin,
       completedAt: persisted.completedAt,
-      configuredIntegrations: isComplete ? [] : persisted.configuredIntegrations,
+      configuredIntegrations: isComplete
+        ? []
+        : persisted.configuredIntegrations,
       edition: this.edition,
       isComplete,
       step: this.resolveCurrentStep(persisted),
@@ -85,7 +87,10 @@ export class SetupService {
     }
 
     const allowedProviders = new Map(
-      this.getAvailableIntegrations().map((provider) => [provider.code, provider]),
+      this.getAvailableIntegrations().map((provider) => [
+        provider.code,
+        provider,
+      ]),
     );
 
     const normalizedIntegrations = payload.integrations
@@ -131,18 +136,30 @@ export class SetupService {
     };
 
     await this.writePersistedState(nextState);
+    this.auditService.emit({
+      action: 'setup.completed',
+      details: {
+        configuredIntegrationCount: normalizedIntegrations.length,
+        edition: this.edition,
+      },
+      targetId: adminUser.id,
+      targetType: 'user',
+    });
 
     return {
-      auditAction: 'setup.completed',
       state: await this.getSetupState(),
     };
   }
 
-  private isModeAllowed(mode: SetupIntegrationProvider['credentialModes'][number]) {
+  private isModeAllowed(
+    mode: SetupIntegrationProvider['credentialModes'][number],
+  ) {
     return this.edition === 'community' || mode === 'api-key';
   }
 
-  private resolveCurrentStep(state: PersistedSetupState): SetupStateSnapshot['step'] {
+  private resolveCurrentStep(
+    state: PersistedSetupState,
+  ): SetupStateSnapshot['step'] {
     if (state.completedAt) {
       return 'complete';
     }
@@ -159,30 +176,119 @@ export class SetupService {
   }
 
   private async readPersistedState(): Promise<PersistedSetupState> {
-    try {
-      const content = await readFile(this.stateFilePath, 'utf8');
-      const parsed = JSON.parse(content) as PersistedSetupState;
+    const stateResult = await this.databaseService.query<{
+      admin_user_id: string | null;
+      completed_at: Date | string | null;
+    }>(
+      `select admin_user_id, completed_at
+       from setup_state
+       where id = 1`,
+    );
+    const integrationsResult = await this.databaseService.query<{
+      code: string;
+      credentials: Record<string, string>;
+      enabled: boolean;
+      mode: 'api-key' | 'provider-login';
+    }>(
+      `select code, credentials, enabled, mode
+       from setup_integrations
+       order by code`,
+    );
 
+    const stateRow = stateResult.rows[0];
+    if (!stateRow) {
       return {
-        admin: parsed.admin ?? null,
-        completedAt: parsed.completedAt ?? null,
-        configuredIntegrations: parsed.configuredIntegrations ?? [],
+        admin: null,
+        completedAt: null,
+        configuredIntegrations: [],
       };
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return {
-          admin: null,
-          completedAt: null,
-          configuredIntegrations: [],
+    }
+
+    let admin: SetupStateSnapshot['admin'] = null;
+    if (stateRow.admin_user_id) {
+      const adminSummary = await this.identityService.getUserSummary(
+        stateRow.admin_user_id,
+      );
+      if (adminSummary) {
+        admin = {
+          createdAt: adminSummary.roles.includes('system-admin')
+            ? (adminSummary.authMethods[0]?.linkedAt ??
+              new Date().toISOString())
+            : new Date().toISOString(),
+          email: adminSummary.email,
+          id: adminSummary.id,
+          name: adminSummary.name,
+          role: 'system-admin',
         };
       }
-
-      throw error;
     }
+
+    return {
+      admin,
+      completedAt: toIsoString(stateRow.completed_at),
+      configuredIntegrations: integrationsResult.rows.map((row) => ({
+        code: row.code,
+        credentials: row.credentials ?? {},
+        enabled: row.enabled,
+        mode: row.mode,
+      })),
+    };
   }
 
   private async writePersistedState(state: PersistedSetupState) {
-    await mkdir(path.dirname(this.stateFilePath), { recursive: true });
-    await writeFile(this.stateFilePath, JSON.stringify(state, null, 2), 'utf8');
+    await this.databaseService.transaction(async (client) => {
+      await client.query(
+        `insert into setup_state (
+           id,
+           edition,
+           admin_user_id,
+           completed_at,
+           updated_at
+         )
+         values (1, $1, $2, $3, now())
+         on conflict (id) do update
+         set edition = excluded.edition,
+             admin_user_id = excluded.admin_user_id,
+             completed_at = excluded.completed_at,
+             updated_at = now()`,
+        [this.edition, state.admin?.id ?? null, state.completedAt],
+      );
+      await client.query('delete from setup_integrations');
+
+      for (const integration of state.configuredIntegrations) {
+        const category =
+          integrationCatalog.find(
+            (provider) => provider.code === integration.code,
+          )?.category ?? 'calendar';
+        await client.query(
+          `insert into setup_integrations (
+             code,
+             category,
+             credentials,
+             enabled,
+             mode,
+             updated_at
+           )
+           values ($1, $2, $3::jsonb, $4, $5, now())`,
+          [
+            integration.code,
+            category,
+            JSON.stringify(integration.credentials),
+            integration.enabled,
+            integration.mode,
+          ],
+        );
+      }
+    });
   }
+}
+
+function toIsoString(value: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }

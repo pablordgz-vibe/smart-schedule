@@ -16,7 +16,7 @@ var envSchema = z.object({
   SESSION_SECRET: z.string().min(32).default("development-session-secret-must-change-0001"),
   SESSION_COOKIE_NAME: z.string().default("smart_schedule_session"),
   SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(43200),
-  SETUP_STATE_FILE: z.string().default(".smart-schedule/setup-state.json"),
+  MAIL_FROM_ADDRESS: z.string().email().default("no-reply@smart-schedule.local"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(6e4),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60)
 });
@@ -37,5 +37,6 @@ var ConfigService = class {
 var configService = new ConfigService();
 export {
   ConfigService,
-  configService
+  configService,
+  envSchema
 };

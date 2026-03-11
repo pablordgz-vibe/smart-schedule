@@ -9,6 +9,8 @@ x-runtime-env: &runtime-env
   OBJECT_STORAGE_BUCKET: smart-schedule
   OBJECT_STORAGE_USE_SSL: false
   JWT_SECRET: super-secret-placeholder-at-least-32-chars-long-0123456789
+  SESSION_SECRET: another-super-secret-placeholder-at-least-32-chars-long
+  MAIL_FROM_ADDRESS: no-reply@smart-schedule.local
 
 services:
   reverse-proxy:

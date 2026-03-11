@@ -1,14 +1,18 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import {
   ActiveContextType,
   RequestContext,
   requestContextHeaderNames,
 } from '@smart-schedule/contracts';
 import { randomUUID } from 'node:crypto';
-import { NextFunction, Response } from 'express';
 import { ApiRequest } from './request-context.types';
 import { RequestContextStore } from './request-context.store';
 import { SessionService } from './session.service';
+import {
+  clearSessionCookie,
+  getHeaderValue,
+  sessionCookieName,
+} from './http-platform';
 
 const activeContextTypes = new Set<ActiveContextType>([
   'organization',
@@ -17,12 +21,7 @@ const activeContextTypes = new Set<ActiveContextType>([
   'system',
 ]);
 
-function getHeaderValue(request: ApiRequest, headerName: string) {
-  const value = request.header(headerName);
-  return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function getRolesHeaderValue(request: ApiRequest) {
+function getRolesHeaderValue(request: Pick<ApiRequest, 'headers'>) {
   const headerValue = getHeaderValue(
     request,
     requestContextHeaderNames.actorRoles,
@@ -38,7 +37,7 @@ function getRolesHeaderValue(request: ApiRequest) {
 }
 
 function getContextType(
-  request: ApiRequest,
+  request: Pick<ApiRequest, 'headers'>,
   actorId: string | null,
 ): ActiveContextType {
   const headerValue = getHeaderValue(
@@ -53,8 +52,8 @@ function getContextType(
   return actorId ? 'personal' : 'public';
 }
 
-function parseCookies(request: ApiRequest) {
-  const cookieHeader = request.headers.cookie;
+function parseCookies(request: Pick<ApiRequest, 'headers'>) {
+  const cookieHeader = getHeaderValue(request, 'cookie');
   if (!cookieHeader) {
     return new Map<string, string>();
   }
@@ -78,59 +77,87 @@ function parseCookies(request: ApiRequest) {
   );
 }
 
-@Injectable()
-export class RequestContextMiddleware implements NestMiddleware {
-  private readonly sessionCookieName =
-    process.env.SESSION_COOKIE_NAME || 'smart_schedule_session';
+type RequestContextHookInput = {
+  fastify: Pick<FastifyInstance, 'addHook'>;
+  requestContextStore: RequestContextStore;
+  sessionService: SessionService;
+};
 
-  constructor(
-    private readonly requestContextStore: RequestContextStore,
-    private readonly sessionService: SessionService,
-  ) {}
+async function buildRequestContext(
+  request: ApiRequest,
+  reply: FastifyReply,
+  sessionService: SessionService,
+) {
+  const cookies = parseCookies(request);
+  const sessionCookieValue = cookies.get(sessionCookieName) ?? null;
+  const session = await sessionService.resolveSession(sessionCookieValue);
+  const actorId =
+    session?.actor.id ??
+    getHeaderValue(request, requestContextHeaderNames.actorId);
+  const correlationId =
+    getHeaderValue(request, requestContextHeaderNames.correlationId) ??
+    randomUUID();
+  const requestId =
+    getHeaderValue(request, requestContextHeaderNames.requestId) ??
+    randomUUID();
+  const requestContext: RequestContext = {
+    actor: {
+      id: actorId,
+      roles: session?.actor.roles ?? getRolesHeaderValue(request),
+      type: session ? 'user' : actorId ? 'user' : 'anonymous',
+    },
+    context: {
+      id:
+        session?.context.id ??
+        getHeaderValue(request, requestContextHeaderNames.activeContextId),
+      tenantId:
+        session?.context.tenantId ??
+        getHeaderValue(request, requestContextHeaderNames.tenantId),
+      type: session?.context.type ?? getContextType(request, actorId),
+    },
+    correlationId,
+    requestId,
+  };
 
-  async use(request: ApiRequest, response: Response, next: NextFunction) {
-    const cookies = parseCookies(request);
-    const sessionCookieValue = cookies.get(this.sessionCookieName) ?? null;
-    const session = await this.sessionService.resolveSession(sessionCookieValue);
-    const actorId =
-      session?.actor.id ??
-      getHeaderValue(request, requestContextHeaderNames.actorId);
-    const correlationId =
-      getHeaderValue(request, requestContextHeaderNames.correlationId) ??
-      randomUUID();
-    const requestId =
-      getHeaderValue(request, requestContextHeaderNames.requestId) ??
-      randomUUID();
-    const requestContext: RequestContext = {
-      actor: {
-        id: actorId,
-        roles: session?.actor.roles ?? getRolesHeaderValue(request),
-        type: session ? 'user' : actorId ? 'user' : 'anonymous',
-      },
-      context: {
-        id:
-          session?.context.id ??
-          getHeaderValue(request, requestContextHeaderNames.activeContextId),
-        tenantId:
-          session?.context.tenantId ??
-          getHeaderValue(request, requestContextHeaderNames.tenantId),
-        type: session?.context.type ?? getContextType(request, actorId),
-      },
-      correlationId,
-      requestId,
-    };
-
-    if (sessionCookieValue && !session) {
-      response.clearCookie(this.sessionCookieName);
-    }
-
-    request.authenticatedBy = session ? 'session' : actorId ? 'header' : 'anonymous';
-    request.requestContext = requestContext;
-    request.session = session ?? undefined;
-    request.sessionCookieValue = sessionCookieValue;
-    response.setHeader(requestContextHeaderNames.correlationId, correlationId);
-    response.setHeader(requestContextHeaderNames.requestId, requestId);
-
-    this.requestContextStore.run(requestContext, next);
+  if (sessionCookieValue && !session) {
+    clearSessionCookie(reply);
   }
+
+  return {
+    authenticatedBy: session ? 'session' : actorId ? 'header' : 'anonymous',
+    requestContext,
+    session: session ?? undefined,
+    sessionCookieValue,
+  } satisfies Pick<
+    ApiRequest,
+    'authenticatedBy' | 'requestContext' | 'session' | 'sessionCookieValue'
+  >;
+}
+
+export function registerRequestContextHook({
+  fastify,
+  requestContextStore,
+  sessionService,
+}: RequestContextHookInput) {
+  fastify.addHook('onRequest', (request, reply, done) => {
+    void buildRequestContext(request as ApiRequest, reply, sessionService)
+      .then((resolved) => {
+        const apiRequest = request as ApiRequest;
+        apiRequest.authenticatedBy = resolved.authenticatedBy;
+        apiRequest.requestContext = resolved.requestContext;
+        apiRequest.session = resolved.session;
+        apiRequest.sessionCookieValue = resolved.sessionCookieValue;
+        reply.header(
+          requestContextHeaderNames.correlationId,
+          resolved.requestContext.correlationId,
+        );
+        reply.header(
+          requestContextHeaderNames.requestId,
+          resolved.requestContext.requestId,
+        );
+
+        requestContextStore.run(resolved.requestContext, done);
+      })
+      .catch(done);
+  });
 }

@@ -1,22 +1,15 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { IsArray, IsIn, IsOptional, IsString } from 'class-validator';
+import type { FastifyReply } from 'fastify';
 import type { ActiveContextType } from '@smart-schedule/contracts';
 import { requestContextHeaderNames } from '@smart-schedule/contracts';
-import type { Response } from 'express';
+import { IdentityService } from '../identity/identity.service';
 import { Public } from './public-route.decorator';
 import { RateLimit } from './rate-limit.decorator';
 import { SecurityPolicy } from './security-policy.decorator';
+import { clearSessionCookie, setSessionCookie } from './http-platform';
 import type { ApiRequest } from './request-context.types';
 import { SessionService } from './session.service';
-import { IdentityService } from '../identity/identity.service';
 
 class SessionLoginDto {
   @IsString()
@@ -56,9 +49,6 @@ class OrganizationMutationDto {
   tenantId!: string;
 }
 
-const sessionCookieName =
-  process.env.SESSION_COOKIE_NAME || 'smart_schedule_session';
-
 @Controller('kernel')
 export class SecurityTestController {
   constructor(
@@ -71,7 +61,7 @@ export class SecurityTestController {
   @Post('session/login')
   async login(
     @Body() body: SessionLoginDto,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
     await this.identityService.ensureTestUser({
       actorId: body.actorId,
@@ -88,15 +78,7 @@ export class SecurityTestController {
       },
     });
 
-    response.cookie(
-      sessionCookieName,
-      createdSession.cookieValue,
-      {
-        httpOnly: true,
-        sameSite: 'strict',
-        secure: true,
-      },
-    );
+    setSessionCookie(response, createdSession.cookieValue);
 
     return {
       csrfToken: createdSession.session.csrfToken,
@@ -121,12 +103,12 @@ export class SecurityTestController {
     requireContextId: true,
   })
   @Post('session/logout')
-  logout(
+  async logout(
     @Req() request: ApiRequest,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: FastifyReply,
   ) {
-    this.sessionService.revokeSession(request.sessionCookieValue ?? null);
-    response.clearCookie(sessionCookieName);
+    await this.sessionService.revokeSession(request.sessionCookieValue ?? null);
+    clearSessionCookie(response);
     return {
       loggedOut: true,
     };
@@ -134,9 +116,11 @@ export class SecurityTestController {
 
   @Public()
   @Post('testing/deactivate-actor')
-  deactivateActor(@Body() body: DeactivateActorDto) {
+  async deactivateActor(@Body() body: DeactivateActorDto) {
     return {
-      revokedSessions: this.sessionService.revokeActorSessions(body.actorId),
+      revokedSessions: await this.sessionService.revokeActorSessions(
+        body.actorId,
+      ),
     };
   }
 

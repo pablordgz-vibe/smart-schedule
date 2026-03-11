@@ -1,11 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { describe, expect, it } from 'vitest';
-import {
-  setupCompletionChildGuard,
-  setupCompletionGuard,
-} from './setup-completion.guard';
+import { setupCompletionChildGuard, setupCompletionGuard } from './setup-completion.guard';
 import { SetupStateService } from './setup-state.service';
+import type { SetupStateSnapshot } from './setup.types';
+
+function setSetupState(service: SetupStateService, snapshot: SetupStateSnapshot) {
+  service.setSnapshot(snapshot);
+}
 
 describe('setupCompletionGuard', () => {
   it('redirects regular routes to setup when bootstrap is incomplete', () => {
@@ -13,12 +15,10 @@ describe('setupCompletionGuard', () => {
       providers: [provideRouter([])],
     });
 
-    const service = TestBed.inject(SetupStateService) as SetupStateService & {
-      readonly state: { set: (value: unknown) => void };
-    };
-    const router = TestBed.inject(Router);
+    const service: SetupStateService = TestBed.inject(SetupStateService);
+    const router: Router = TestBed.inject(Router);
 
-    service['state'].set({
+    setSetupState(service, {
       admin: null,
       completedAt: null,
       configuredIntegrations: [],
