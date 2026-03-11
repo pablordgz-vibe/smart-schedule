@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 import { ContextService } from '../context.service';
 import { routes } from '../app.routes';
+import { AuthStateService } from '../auth-state.service';
 import { SetupStateService } from '../setup/setup-state.service';
 import { ShellComponent } from './shell.component';
 
@@ -44,6 +45,7 @@ describe('ShellComponent', () => {
     });
 
     const router = TestBed.inject(Router);
+    const authStateService = TestBed.inject(AuthStateService);
     const setupStateService = TestBed.inject(SetupStateService) as SetupStateService & {
       readonly state: { set: (value: unknown) => void };
     };
@@ -54,6 +56,23 @@ describe('ShellComponent', () => {
       edition: 'community',
       isComplete: true,
       step: 'complete',
+    });
+    authStateService.setSnapshot({
+      authenticated: true,
+      configuredSocialProviders: [],
+      csrfToken: 'csrf-token',
+      requireEmailVerification: false,
+      user: {
+        adminTier: 0,
+        authMethods: [{ kind: 'password', linkedAt: '2026-03-11T00:00:00.000Z' }],
+        email: 'admin@example.com',
+        emailVerified: true,
+        id: 'admin-1',
+        name: 'Admin',
+        recoverUntil: null,
+        roles: ['system-admin', 'system-admin:tier:0'],
+        state: 'active',
+      },
     });
     const fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();

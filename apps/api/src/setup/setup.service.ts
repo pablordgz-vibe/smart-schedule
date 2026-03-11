@@ -5,9 +5,9 @@ import type {
   SetupIntegrationProvider,
   SetupStateSnapshot,
 } from '@smart-schedule/contracts';
-import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { IdentityService } from '../identity/identity.service';
 
 type PersistedSetupState = {
   admin: SetupStateSnapshot['admin'];
@@ -47,6 +47,8 @@ export class SetupService {
     process.cwd(),
     process.env.SETUP_STATE_FILE ?? '.smart-schedule/setup-state.json',
   );
+
+  constructor(private readonly identityService: IdentityService) {}
 
   async getSetupState(): Promise<SetupStateSnapshot> {
     const persisted = await this.readPersistedState();
@@ -111,12 +113,17 @@ export class SetupService {
       });
 
     const completedAt = new Date().toISOString();
+    const adminUser = await this.identityService.createInitialAdmin({
+      email: payload.admin.email,
+      name: payload.admin.name,
+      password: payload.admin.password,
+    });
     const nextState: PersistedSetupState = {
       admin: {
         createdAt: completedAt,
-        email: payload.admin.email.trim().toLowerCase(),
-        id: randomUUID(),
-        name: payload.admin.name.trim(),
+        email: adminUser.email,
+        id: adminUser.id,
+        name: adminUser.name,
         role: 'system-admin',
       },
       completedAt,

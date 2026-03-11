@@ -48,7 +48,7 @@ export type AuditEnvelope = {
   tenantId: string | null;
 };
 
-export type AccountState = "active" | "deactivated";
+export type AccountState = "active" | "deactivated" | "deleted";
 
 export type SessionActor = {
   id: string;

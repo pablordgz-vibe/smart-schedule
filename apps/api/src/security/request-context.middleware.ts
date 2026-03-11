@@ -88,10 +88,10 @@ export class RequestContextMiddleware implements NestMiddleware {
     private readonly sessionService: SessionService,
   ) {}
 
-  use(request: ApiRequest, response: Response, next: NextFunction) {
+  async use(request: ApiRequest, response: Response, next: NextFunction) {
     const cookies = parseCookies(request);
     const sessionCookieValue = cookies.get(this.sessionCookieName) ?? null;
-    const session = this.sessionService.resolveSession(sessionCookieValue);
+    const session = await this.sessionService.resolveSession(sessionCookieValue);
     const actorId =
       session?.actor.id ??
       getHeaderValue(request, requestContextHeaderNames.actorId);

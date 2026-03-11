@@ -1,4 +1,6 @@
 import { Routes } from '@angular/router';
+import { anonymousOnlyGuard } from './anonymous-only.guard';
+import { authenticatedGuard } from './authenticated.guard';
 import { routeAreaGuard } from './route-area.guard';
 import { ShellComponent } from './shell/shell.component';
 import {
@@ -13,9 +15,50 @@ const loadPlaceholderPage = () =>
 
 export const routes: Routes = [
   {
+    path: 'auth',
+    canActivate: [anonymousOnlyGuard],
+    children: [
+      {
+        path: 'sign-in',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'sign-in' },
+      },
+      {
+        path: 'sign-up',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'sign-up' },
+      },
+      {
+        path: 'verify-email',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'verify-email' },
+      },
+      {
+        path: 'reset-password',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'reset-password' },
+      },
+      {
+        path: 'recover-account',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'recover-account' },
+      },
+      {
+        path: '',
+        redirectTo: 'sign-in',
+        pathMatch: 'full',
+      },
+    ],
+  },
+  {
     path: '',
     component: ShellComponent,
-    canActivate: [setupCompletionGuard],
+    canActivate: [setupCompletionGuard, authenticatedGuard],
     canActivateChild: [setupCompletionChildGuard],
     children: [
       { path: '', redirectTo: 'home', pathMatch: 'full' },
@@ -112,7 +155,10 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./account-settings.component').then(
+            (module) => module.AccountSettingsComponent,
+          ),
         data: {
           title: 'Settings',
           description: 'User settings shell for identity, preferences, and billing scaffolds.',

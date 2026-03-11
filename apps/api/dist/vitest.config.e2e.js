@@ -11,6 +11,7 @@ exports.default = (0, config_1.defineConfig)({
         root: './',
         include: ['test/**/*.e2e-spec.ts'],
         environment: 'node',
+        setupFiles: ['test/setup-env.ts'],
     },
     plugins: [
         unplugin_swc_1.default.vite({

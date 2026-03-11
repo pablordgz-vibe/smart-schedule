@@ -36,6 +36,7 @@ function createIdentityHeaders(input: {
 describe('API health endpoints (e2e)', () => {
   let app: INestApplication<App>;
   const setupStateFile = '/tmp/smart-schedule-api-e2e-setup.json';
+  const identityStateFile = '/tmp/smart-schedule-api-e2e-identity.json';
   const getTestServer = () => {
     const handler = app.getHttpAdapter().getInstance() as (
       req: unknown,
@@ -61,8 +62,10 @@ describe('API health endpoints (e2e)', () => {
 
   beforeEach(async () => {
     process.env.SETUP_STATE_FILE = setupStateFile;
+    process.env.IDENTITY_STATE_FILE = identityStateFile;
     process.env.APP_EDITION = 'community';
     await rm(setupStateFile, { force: true });
+    await rm(identityStateFile, { force: true });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -76,6 +79,7 @@ describe('API health endpoints (e2e)', () => {
   afterEach(async () => {
     await app.close();
     await rm(setupStateFile, { force: true });
+    await rm(identityStateFile, { force: true });
   });
 
   it('returns liveness status', async () => {

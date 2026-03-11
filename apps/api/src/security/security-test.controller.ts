@@ -16,6 +16,7 @@ import { RateLimit } from './rate-limit.decorator';
 import { SecurityPolicy } from './security-policy.decorator';
 import type { ApiRequest } from './request-context.types';
 import { SessionService } from './session.service';
+import { IdentityService } from '../identity/identity.service';
 
 class SessionLoginDto {
   @IsString()
@@ -60,23 +61,31 @@ const sessionCookieName =
 
 @Controller('kernel')
 export class SecurityTestController {
-  constructor(private readonly sessionService: SessionService) {}
+  constructor(
+    private readonly sessionService: SessionService,
+    private readonly identityService: IdentityService,
+  ) {}
 
   @Public()
   @RateLimit({ keyScope: 'ip', limit: 2, windowMs: 60_000 })
   @Post('session/login')
-  login(
+  async login(
     @Body() body: SessionLoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const createdSession = this.sessionService.createSession({
+    await this.identityService.ensureTestUser({
+      actorId: body.actorId,
+      adminTier: body.roles?.includes('system-admin') ? 0 : null,
+      roles: body.roles ?? ['user'],
+    });
+
+    const createdSession = await this.sessionService.createSession({
       actorId: body.actorId,
       context: {
         id: body.contextId ?? body.actorId,
         tenantId: body.tenantId ?? null,
         type: body.contextType ?? 'personal',
       },
-      roles: body.roles ?? [],
     });
 
     response.cookie(
@@ -127,7 +136,7 @@ export class SecurityTestController {
   @Post('testing/deactivate-actor')
   deactivateActor(@Body() body: DeactivateActorDto) {
     return {
-      revokedSessions: this.sessionService.deactivateActor(body.actorId),
+      revokedSessions: this.sessionService.revokeActorSessions(body.actorId),
     };
   }
 

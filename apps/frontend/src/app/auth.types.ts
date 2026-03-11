@@ -1,0 +1,51 @@
+export type SocialProviderCode = 'github' | 'google' | 'microsoft';
+
+export type SocialProviderDescriptor = {
+  code: SocialProviderCode;
+  displayName: string;
+};
+
+export type AuthMethodSummary =
+  | {
+      kind: 'password';
+      linkedAt: string;
+    }
+  | {
+      kind: 'social';
+      linkedAt: string;
+      provider: SocialProviderCode;
+    };
+
+export type IdentityUserSummary = {
+  adminTier: number | null;
+  authMethods: AuthMethodSummary[];
+  email: string;
+  emailVerified: boolean;
+  id: string;
+  name: string;
+  recoverUntil: string | null;
+  roles: string[];
+  state: 'active' | 'deactivated' | 'deleted';
+};
+
+export type AuthSessionSnapshot = {
+  authenticated: boolean;
+  configuredSocialProviders: SocialProviderDescriptor[];
+  csrfToken: string | null;
+  requireEmailVerification: boolean;
+  user: IdentityUserSummary | null;
+};
+
+export type AuthMutationResult = {
+  session: AuthSessionSnapshot;
+  tokenDelivery?: {
+    expiresAt: string | null;
+    previewToken: string | null;
+  };
+};
+
+export type AuthConfigurationSnapshot = {
+  minAdminTierForAccountDeactivation: number;
+  requireEmailVerification: boolean;
+  supportedSocialProviders: SocialProviderDescriptor[];
+};

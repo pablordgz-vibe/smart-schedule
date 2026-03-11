@@ -31,6 +31,7 @@ const securityControllers =
       useClass: AuditTrailInterceptor,
     },
   ],
+  exports: [SessionService],
 })
 export class SecurityModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

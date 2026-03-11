@@ -19,48 +19,6 @@ type RuntimeEnvironmentContract = {
     RATE_LIMIT_MAX: number;
 };
 
-declare const runtimeServices: {
-    readonly api: {
-        readonly name: "api";
-        readonly displayName: "Smart Schedule API";
-        readonly defaultPort: 3000;
-    };
-    readonly worker: {
-        readonly name: "worker";
-        readonly displayName: "Smart Schedule Worker";
-        readonly defaultPort: 3001;
-    };
-    readonly scheduler: {
-        readonly name: "scheduler";
-        readonly displayName: "Smart Schedule Scheduler";
-        readonly defaultPort: 3002;
-    };
-    readonly frontend: {
-        readonly name: "frontend";
-        readonly displayName: "Smart Schedule Frontend";
-        readonly defaultPort: 80;
-    };
-};
-declare const runtimeHealthRoutes: {
-    readonly liveness: "/health";
-    readonly readiness: "/health/readiness";
-};
-type RuntimeHealthResponse = {
-    status: "ok" | "error";
-    info: {
-        app: {
-            status: "up" | "down";
-        };
-    };
-};
-type ServiceDiscoveryContract = {
-    frontendBaseUrl: string;
-    apiBaseUrl: string;
-    workerHealthUrl: string;
-    schedulerHealthUrl: string;
-    objectStorageConsoleUrl: string;
-};
-
 declare const requestContextHeaderNames: {
     readonly actorId: "x-actor-id";
     readonly actorRoles: "x-actor-roles";
@@ -101,7 +59,7 @@ type AuditEnvelope = {
     resource: string;
     tenantId: string | null;
 };
-type AccountState = "active" | "deactivated";
+type AccountState = "active" | "deactivated" | "deleted";
 type SessionActor = {
     id: string;
     roles: string[];
@@ -183,4 +141,91 @@ type SetupBootstrapPayload = {
     integrations: SetupIntegrationSelection[];
 };
 
-export { type AccountState, type ActiveContext, type ActiveContextType, type ActorType, type AppEdition, type AuditEnvelope, type AuthorizationPolicy, type RateLimitPolicy, type RequestActor, type RequestContext, type RequestFieldBinding, type RequestFieldBindingSource, type RuntimeEnvironmentContract, type RuntimeHealthResponse, type SecurityDenialKind, type SecurityErrorPayload, type ServiceDiscoveryContract, type SessionActor, type SessionContext, type SessionRecord, type SetupAdminRecord, type SetupBootstrapPayload, type SetupIntegrationCredentialMode, type SetupIntegrationProvider, type SetupIntegrationSelection, type SetupStateSnapshot, requestContextHeaderNames, runtimeHealthRoutes, runtimeServices };
+type SocialProviderCode = "github" | "google" | "microsoft";
+type SocialProviderDescriptor = {
+    code: SocialProviderCode;
+    displayName: string;
+};
+type AuthMethodSummary = {
+    kind: "password";
+    linkedAt: string;
+} | {
+    kind: "social";
+    linkedAt: string;
+    provider: SocialProviderCode;
+};
+type IdentityUserSummary = {
+    adminTier: number | null;
+    authMethods: AuthMethodSummary[];
+    email: string;
+    emailVerified: boolean;
+    id: string;
+    name: string;
+    recoverUntil: string | null;
+    roles: string[];
+    state: AccountState;
+};
+type AuthSessionSnapshot = {
+    authenticated: boolean;
+    configuredSocialProviders: SocialProviderDescriptor[];
+    csrfToken: string | null;
+    requireEmailVerification: boolean;
+    user: IdentityUserSummary | null;
+};
+type AuthTokenDelivery = {
+    expiresAt: string;
+    previewToken: string | null;
+};
+type AuthMutationResult = {
+    session: AuthSessionSnapshot;
+    tokenDelivery?: AuthTokenDelivery;
+};
+type AuthConfigurationSnapshot = {
+    minAdminTierForAccountDeactivation: number;
+    requireEmailVerification: boolean;
+    supportedSocialProviders: SocialProviderDescriptor[];
+};
+
+declare const runtimeServices: {
+    readonly api: {
+        readonly name: "api";
+        readonly displayName: "Smart Schedule API";
+        readonly defaultPort: 3000;
+    };
+    readonly worker: {
+        readonly name: "worker";
+        readonly displayName: "Smart Schedule Worker";
+        readonly defaultPort: 3001;
+    };
+    readonly scheduler: {
+        readonly name: "scheduler";
+        readonly displayName: "Smart Schedule Scheduler";
+        readonly defaultPort: 3002;
+    };
+    readonly frontend: {
+        readonly name: "frontend";
+        readonly displayName: "Smart Schedule Frontend";
+        readonly defaultPort: 80;
+    };
+};
+declare const runtimeHealthRoutes: {
+    readonly liveness: "/health";
+    readonly readiness: "/health/readiness";
+};
+type RuntimeHealthResponse = {
+    status: "ok" | "error";
+    info: {
+        app: {
+            status: "up" | "down";
+        };
+    };
+};
+type ServiceDiscoveryContract = {
+    frontendBaseUrl: string;
+    apiBaseUrl: string;
+    workerHealthUrl: string;
+    schedulerHealthUrl: string;
+    objectStorageConsoleUrl: string;
+};
+
+export { type AccountState, type ActiveContext, type ActiveContextType, type ActorType, type AppEdition, type AuditEnvelope, type AuthConfigurationSnapshot, type AuthMethodSummary, type AuthMutationResult, type AuthSessionSnapshot, type AuthTokenDelivery, type AuthorizationPolicy, type IdentityUserSummary, type RateLimitPolicy, type RequestActor, type RequestContext, type RequestFieldBinding, type RequestFieldBindingSource, type RuntimeEnvironmentContract, type RuntimeHealthResponse, type SecurityDenialKind, type SecurityErrorPayload, type ServiceDiscoveryContract, type SessionActor, type SessionContext, type SessionRecord, type SetupAdminRecord, type SetupBootstrapPayload, type SetupIntegrationCredentialMode, type SetupIntegrationProvider, type SetupIntegrationSelection, type SetupStateSnapshot, type SocialProviderCode, type SocialProviderDescriptor, requestContextHeaderNames, runtimeHealthRoutes, runtimeServices };

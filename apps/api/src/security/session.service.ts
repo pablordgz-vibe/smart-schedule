@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { AccountState, SessionRecord } from '@smart-schedule/contracts';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { IdentityService } from '../identity/identity.service';
 
 type CreateSessionInput = {
   actorId: string;
   context: SessionRecord['context'];
-  roles: string[];
 };
 
 const SESSION_COOKIE_SIGNATURE_DELIMITER = '.';
@@ -17,23 +17,25 @@ function now() {
 @Injectable()
 export class SessionService {
   private readonly sessions = new Map<string, SessionRecord>();
-  private readonly actorStates = new Map<string, AccountState>();
   private readonly sessionTtlMs = getNumberEnv('SESSION_TTL_SECONDS', 43_200) * 1000;
   private readonly sessionSecret = getStringEnv(
     'SESSION_SECRET',
     'development-session-secret-must-change-0001',
   );
 
-  createSession(input: CreateSessionInput) {
+  constructor(private readonly identityService: IdentityService) {}
+
+  async createSession(input: CreateSessionInput) {
+    const actor = await this.identityService.buildSessionActor(input.actorId);
+    if (!actor) {
+      throw new Error(`Cannot create a session for unknown actor ${input.actorId}.`);
+    }
+
     const sessionId = randomUUID();
     const timestamp = new Date().toISOString();
     const expiresAt = new Date(now() + this.sessionTtlMs).toISOString();
     const record: SessionRecord = {
-      actor: {
-        id: input.actorId,
-        roles: input.roles,
-        state: this.actorStates.get(input.actorId) ?? 'active',
-      },
+      actor,
       context: input.context,
       createdAt: timestamp,
       csrfToken: randomUUID(),
@@ -51,7 +53,7 @@ export class SessionService {
     };
   }
 
-  resolveSession(cookieValue: string | null) {
+  async resolveSession(cookieValue: string | null) {
     if (!cookieValue) {
       return null;
     }
@@ -66,21 +68,14 @@ export class SessionService {
       return null;
     }
 
-    const actorState = this.actorStates.get(existing.actor.id) ?? existing.actor.state;
-    if (
-      existing.revokedAt ||
-      actorState !== 'active' ||
-      new Date(existing.expiresAt).getTime() <= now()
-    ) {
+    const actor = await this.identityService.buildSessionActor(existing.actor.id);
+    if (!actor || existing.revokedAt || actor.state !== 'active' || new Date(existing.expiresAt).getTime() <= now()) {
       return null;
     }
 
     const refreshed: SessionRecord = {
       ...existing,
-      actor: {
-        ...existing.actor,
-        state: actorState,
-      },
+      actor,
       lastSeenAt: new Date().toISOString(),
     };
 
@@ -114,9 +109,7 @@ export class SessionService {
     return true;
   }
 
-  deactivateActor(actorId: string) {
-    this.actorStates.set(actorId, 'deactivated');
-
+  revokeActorSessions(actorId: string) {
     let revokedSessions = 0;
     for (const [sessionId, session] of this.sessions.entries()) {
       if (session.actor.id !== actorId || session.revokedAt) {
@@ -128,7 +121,7 @@ export class SessionService {
         ...session,
         actor: {
           ...session.actor,
-          state: 'deactivated',
+          state: 'deactivated' satisfies AccountState,
         },
         revokedAt: new Date().toISOString(),
       });
@@ -139,7 +132,6 @@ export class SessionService {
 
   clearAll() {
     this.sessions.clear();
-    this.actorStates.clear();
   }
 
   private signSessionId(sessionId: string) {
