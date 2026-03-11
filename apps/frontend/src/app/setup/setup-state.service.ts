@@ -10,13 +10,9 @@ type SetupIntegrationOptionsResponse = {
   providers: SetupIntegrationProvider[];
 };
 
-const standaloneSetupFallback: SetupStateSnapshot = {
-  admin: null,
-  completedAt: '2026-03-11T00:00:00.000Z',
-  configuredIntegrations: [],
-  edition: 'community',
-  isComplete: true,
-  step: 'complete',
+type BootstrapStatusResponse = {
+  edition: SetupStateSnapshot['edition'];
+  isComplete: boolean;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -24,14 +20,17 @@ export class SetupStateService {
   private readonly state = signal<SetupStateSnapshot | null>(null);
   private readonly providers = signal<SetupIntegrationProvider[]>([]);
   private readonly loading = signal(false);
+  private readonly loadErrorState = signal<string | null>(null);
 
   readonly snapshot = this.state.asReadonly();
   readonly integrationProviders = this.providers.asReadonly();
-  readonly isLoaded = computed(() => this.state() !== null);
+  readonly isLoaded = computed(() => this.state() !== null || this.loadErrorState() !== null);
   readonly isComplete = computed(() => this.state()?.isComplete ?? false);
   readonly edition = computed(() => this.state()?.edition ?? 'community');
+  readonly loadError = this.loadErrorState.asReadonly();
 
   setSnapshot(snapshot: SetupStateSnapshot | null): void {
+    this.loadErrorState.set(null);
     this.state.set(snapshot);
   }
 
@@ -41,7 +40,31 @@ export class SetupStateService {
     }
 
     this.loading.set(true);
+    this.loadErrorState.set(null);
     try {
+      const bootstrapStatusResponse = await fetch('/api/platform/bootstrap-status');
+      if (!bootstrapStatusResponse.ok) {
+        throw new Error('Bootstrap status is unavailable.');
+      }
+
+      const bootstrapStatus = (await bootstrapStatusResponse.json()) as BootstrapStatusResponse;
+      if (typeof bootstrapStatus.isComplete !== 'boolean') {
+        throw new Error('Bootstrap status payload is invalid.');
+      }
+
+      if (bootstrapStatus.isComplete) {
+        this.state.set({
+          admin: null,
+          completedAt: null,
+          configuredIntegrations: [],
+          edition: bootstrapStatus.edition,
+          isComplete: true,
+          step: 'complete',
+        });
+        this.providers.set([]);
+        return;
+      }
+
       const stateResponse = await fetch('/api/setup/state');
       if (!stateResponse.ok) {
         throw new Error('Setup state is unavailable.');
@@ -53,11 +76,6 @@ export class SetupStateService {
       }
       this.state.set(state);
 
-      if (state.isComplete) {
-        this.providers.set([]);
-        return;
-      }
-
       const integrationsResponse = await fetch('/api/setup/integrations');
       if (!integrationsResponse.ok) {
         throw new Error('Integration catalog is unavailable.');
@@ -68,9 +86,13 @@ export class SetupStateService {
         throw new Error('Integration catalog payload is invalid.');
       }
       this.providers.set(integrations.providers);
-    } catch {
-      this.state.set(standaloneSetupFallback);
+      this.loadErrorState.set(null);
+    } catch (error: unknown) {
+      this.state.set(null);
       this.providers.set([]);
+      this.loadErrorState.set(
+        error instanceof Error ? error.message : 'Setup state is unavailable.',
+      );
     } finally {
       this.loading.set(false);
     }

@@ -28,6 +28,9 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: Design System Check
+        run: pnpm run design-system:check
+
       - name: Build
         run: pnpm run build
 

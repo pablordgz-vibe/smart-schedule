@@ -165,6 +165,7 @@ type IdentityUserSummary = {
     state: AccountState;
 };
 type AuthSessionSnapshot = {
+    activeContext: SessionContext;
     authenticated: boolean;
     configuredSocialProviders: SocialProviderDescriptor[];
     csrfToken: string | null;

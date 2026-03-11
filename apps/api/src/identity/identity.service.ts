@@ -21,6 +21,7 @@ import {
   scryptSync,
   timingSafeEqual,
 } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import { DatabaseService } from '../persistence/database.service';
 import { AuditService } from '../security/audit.service';
 
@@ -207,8 +208,33 @@ export class IdentityService {
   }
 
   async createInitialAdmin(input: RegisterPasswordInput) {
-    const state = await this.readState();
-    if (state.users.some((user) => user.roles.includes('system-admin'))) {
+    const user = await this.databaseService.transaction((client) =>
+      this.createInitialAdminInTransaction(client, input),
+    );
+    this.auditService.emit({
+      action: 'identity.admin.bootstrap_created',
+      details: {
+        adminTier: user.adminTier,
+      },
+      targetId: user.id,
+      targetType: 'user',
+    });
+
+    return this.toUserSummary(user);
+  }
+
+  async createInitialAdminInTransaction(
+    client: Pick<PoolClient, 'query'>,
+    input: RegisterPasswordInput,
+  ) {
+    const existingAdmin = await client.query<{ exists: boolean }>(
+      `select exists(
+         select 1
+         from users
+         where roles @> array['system-admin']::text[]
+       ) as exists`,
+    );
+    if (existingAdmin.rows[0]?.exists) {
       throw new ConflictException('A system administrator already exists.');
     }
 
@@ -221,18 +247,39 @@ export class IdentityService {
       roles: ['system-admin', ...buildTierRoles(0)],
     });
 
-    state.users.push(user);
-    await this.writeState(state);
-    this.auditService.emit({
-      action: 'identity.admin.bootstrap_created',
-      details: {
-        adminTier: user.adminTier,
-      },
-      targetId: user.id,
-      targetType: 'user',
-    });
+    await client.query(
+      `insert into users (
+         id,
+         admin_tier,
+         created_at,
+         deleted_at,
+         email,
+         email_verified,
+         name,
+         password_hash,
+         recover_until,
+         roles,
+         state,
+         updated_at
+       )
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        user.id,
+        user.adminTier,
+        user.createdAt,
+        user.deletedAt,
+        user.email,
+        user.emailVerified,
+        user.name,
+        user.passwordHash,
+        user.recoverUntil,
+        user.roles,
+        user.state,
+        user.updatedAt,
+      ],
+    );
 
-    return this.toUserSummary(user);
+    return user;
   }
 
   async ensureTestUser(input: {

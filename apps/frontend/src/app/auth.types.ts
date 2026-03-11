@@ -29,6 +29,11 @@ export type IdentityUserSummary = {
 };
 
 export type AuthSessionSnapshot = {
+  activeContext: {
+    id: string | null;
+    tenantId: string | null;
+    type: 'organization' | 'personal' | 'public' | 'system';
+  };
   authenticated: boolean;
   configuredSocialProviders: SocialProviderDescriptor[];
   csrfToken: string | null;

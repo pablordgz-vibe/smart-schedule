@@ -24,6 +24,16 @@ import type {
         </p>
       </header>
 
+      <section class="ui-banner ui-banner-denied mx-auto mb-6 max-w-5xl" *ngIf="loadError()">
+        <h2>Setup service unavailable</h2>
+        <p>{{ loadError() }}</p>
+        <div class="flex flex-wrap gap-3">
+          <button class="ui-button ui-button-secondary" type="button" (click)="retryLoad()">
+            Retry bootstrap status
+          </button>
+        </div>
+      </section>
+
       <div class="wizard-grid">
         <aside class="steps-card">
           <p class="ui-kicker">Progress</p>
@@ -216,7 +226,12 @@ import type {
             >
               Back
             </button>
-            <button class="ui-button ui-button-primary" type="submit" data-testid="setup-submit">
+            <button
+              class="ui-button ui-button-primary"
+              type="submit"
+              data-testid="setup-submit"
+              [disabled]="loadError() !== null"
+            >
               {{ step() === 3 ? 'Open workspace' : step() === 2 ? 'Complete setup' : 'Continue' }}
             </button>
           </footer>
@@ -362,6 +377,7 @@ export class SetupComponent {
   protected readonly completedState = signal<SetupStateSnapshot | null>(null);
   protected readonly step = signal(0);
   protected readonly errorMessage = signal('');
+  protected readonly loadError = this.setupState.loadError;
   protected readonly editionLabel = computed(() =>
     this.setupState.edition() === 'community' ? 'Community' : 'Commercial',
   );
@@ -442,6 +458,10 @@ export class SetupComponent {
   }
 
   protected async submitCurrentStep() {
+    if (this.loadError()) {
+      return;
+    }
+
     this.errorMessage.set('');
 
     if (this.step() === 3) {
@@ -501,6 +521,10 @@ export class SetupComponent {
     } catch (error: unknown) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Setup completion failed.');
     }
+  }
+
+  protected async retryLoad() {
+    await this.setupState.load();
   }
 
   private defaultMode(code: string): SetupIntegrationCredentialMode {

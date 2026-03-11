@@ -1,3 +1,4 @@
+import type { SessionContext } from "./security";
 import type { AccountState } from "./security";
 
 export type SocialProviderCode = "github" | "google" | "microsoft";
@@ -31,6 +32,7 @@ export type IdentityUserSummary = {
 };
 
 export type AuthSessionSnapshot = {
+  activeContext: SessionContext;
   authenticated: boolean;
   configuredSocialProviders: SocialProviderDescriptor[];
   csrfToken: string | null;

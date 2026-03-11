@@ -5,6 +5,7 @@ import type {
   SetupIntegrationProvider,
   SetupStateSnapshot,
 } from '@smart-schedule/contracts';
+import type { PoolClient } from 'pg';
 import { IdentityService } from '../identity/identity.service';
 import { DatabaseService } from '../persistence/database.service';
 import { AuditService } from '../security/audit.service';
@@ -57,9 +58,14 @@ export class SetupService {
     return {
       admin: isComplete ? null : persisted.admin,
       completedAt: persisted.completedAt,
-      configuredIntegrations: isComplete
-        ? []
-        : persisted.configuredIntegrations,
+      configuredIntegrations: persisted.configuredIntegrations.map(
+        (integration) => ({
+          code: integration.code,
+          credentials: {},
+          enabled: integration.enabled,
+          mode: integration.mode,
+        }),
+      ),
       edition: this.edition,
       isComplete,
       step: this.resolveCurrentStep(persisted),
@@ -118,24 +124,37 @@ export class SetupService {
       });
 
     const completedAt = new Date().toISOString();
-    const adminUser = await this.identityService.createInitialAdmin({
-      email: payload.admin.email,
-      name: payload.admin.name,
-      password: payload.admin.password,
-    });
-    const nextState: PersistedSetupState = {
-      admin: {
-        createdAt: completedAt,
-        email: adminUser.email,
-        id: adminUser.id,
-        name: adminUser.name,
-        role: 'system-admin',
-      },
-      completedAt,
-      configuredIntegrations: normalizedIntegrations,
-    };
+    const adminUser = await this.databaseService.transaction(async (client) => {
+      const createdAdmin =
+        await this.identityService.createInitialAdminInTransaction(client, {
+          email: payload.admin.email,
+          name: payload.admin.name,
+          password: payload.admin.password,
+        });
+      const nextState: PersistedSetupState = {
+        admin: {
+          createdAt: completedAt,
+          email: createdAdmin.email,
+          id: createdAdmin.id,
+          name: createdAdmin.name,
+          role: 'system-admin',
+        },
+        completedAt,
+        configuredIntegrations: normalizedIntegrations,
+      };
 
-    await this.writePersistedState(nextState);
+      await this.writePersistedStateWithClient(client, nextState);
+
+      return createdAdmin;
+    });
+    this.auditService.emit({
+      action: 'identity.admin.bootstrap_created',
+      details: {
+        adminTier: adminUser.adminTier,
+      },
+      targetId: adminUser.id,
+      targetType: 'user',
+    });
     this.auditService.emit({
       action: 'setup.completed',
       details: {
@@ -236,50 +255,57 @@ export class SetupService {
   }
 
   private async writePersistedState(state: PersistedSetupState) {
-    await this.databaseService.transaction(async (client) => {
+    await this.databaseService.transaction((client) =>
+      this.writePersistedStateWithClient(client, state),
+    );
+  }
+
+  private async writePersistedStateWithClient(
+    client: Pick<PoolClient, 'query'>,
+    state: PersistedSetupState,
+  ) {
+    await client.query(
+      `insert into setup_state (
+         id,
+         edition,
+         admin_user_id,
+         completed_at,
+         updated_at
+       )
+       values (1, $1, $2, $3, now())
+       on conflict (id) do update
+       set edition = excluded.edition,
+           admin_user_id = excluded.admin_user_id,
+           completed_at = excluded.completed_at,
+           updated_at = now()`,
+      [this.edition, state.admin?.id ?? null, state.completedAt],
+    );
+    await client.query('delete from setup_integrations');
+
+    for (const integration of state.configuredIntegrations) {
+      const category =
+        integrationCatalog.find(
+          (provider) => provider.code === integration.code,
+        )?.category ?? 'calendar';
       await client.query(
-        `insert into setup_state (
-           id,
-           edition,
-           admin_user_id,
-           completed_at,
+        `insert into setup_integrations (
+           code,
+           category,
+           credentials,
+           enabled,
+           mode,
            updated_at
          )
-         values (1, $1, $2, $3, now())
-         on conflict (id) do update
-         set edition = excluded.edition,
-             admin_user_id = excluded.admin_user_id,
-             completed_at = excluded.completed_at,
-             updated_at = now()`,
-        [this.edition, state.admin?.id ?? null, state.completedAt],
+         values ($1, $2, $3::jsonb, $4, $5, now())`,
+        [
+          integration.code,
+          category,
+          JSON.stringify(integration.credentials),
+          integration.enabled,
+          integration.mode,
+        ],
       );
-      await client.query('delete from setup_integrations');
-
-      for (const integration of state.configuredIntegrations) {
-        const category =
-          integrationCatalog.find(
-            (provider) => provider.code === integration.code,
-          )?.category ?? 'calendar';
-        await client.query(
-          `insert into setup_integrations (
-             code,
-             category,
-             credentials,
-             enabled,
-             mode,
-             updated_at
-           )
-           values ($1, $2, $3::jsonb, $4, $5, now())`,
-          [
-            integration.code,
-            category,
-            JSON.stringify(integration.credentials),
-            integration.enabled,
-            integration.mode,
-          ],
-        );
-      }
-    });
+    }
   }
 }
 

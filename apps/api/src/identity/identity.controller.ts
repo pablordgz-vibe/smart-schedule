@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import {
@@ -24,6 +25,7 @@ import {
 } from 'class-validator';
 import type { FastifyReply } from 'fastify';
 import type {
+  ActiveContextType,
   AuthMutationResult,
   AuthSessionSnapshot,
   SocialProviderCode,
@@ -115,6 +117,11 @@ class UpdateAuthConfigDto {
   minAdminTierForAccountDeactivation?: number;
 }
 
+class SwitchContextDto {
+  @IsIn(['personal', 'system'])
+  contextType!: Extract<ActiveContextType, 'personal' | 'system'>;
+}
+
 @Controller()
 export class IdentityController {
   constructor(
@@ -134,6 +141,49 @@ export class IdentityController {
     return this.buildSessionSnapshot(request);
   }
 
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    requireContextId: true,
+  })
+  @Post('auth/context')
+  async switchContext(
+    @Req() request: ApiRequest,
+    @Body() body: SwitchContextDto,
+    @Res({ passthrough: true }) response: FastifyReply,
+  ) {
+    const actorId = request.requestContext!.actor.id!;
+    if (
+      body.contextType === 'system' &&
+      !request.requestContext!.actor.roles.includes('system-admin')
+    ) {
+      throw new UnauthorizedException(
+        'Only system administrators can enter system context.',
+      );
+    }
+
+    if (request.sessionCookieValue) {
+      await this.sessionService.revokeSession(request.sessionCookieValue);
+    }
+
+    const createdSession = await this.sessionService.createSession({
+      actorId,
+      context: {
+        id: actorId,
+        tenantId: null,
+        type: body.contextType,
+      },
+    });
+
+    setSessionCookie(response, createdSession.cookieValue);
+
+    return {
+      session: await this.buildSessionSnapshot({
+        ...request,
+        session: createdSession.session,
+      } as ApiRequest),
+    };
+  }
+
   @Public()
   @Post('auth/sign-up')
   @HttpCode(201)
@@ -141,6 +191,11 @@ export class IdentityController {
     const result = await this.identityService.registerPasswordUser(body);
     return {
       session: {
+        activeContext: {
+          id: null,
+          tenantId: null,
+          type: 'public',
+        },
         authenticated: false,
         configuredSocialProviders:
           await this.identityService.getConfiguredSocialProviders(),
@@ -304,6 +359,7 @@ export class IdentityController {
 
   @SecurityPolicy({
     allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
     requiredRoles: ['system-admin'],
     requireContextId: true,
   })
@@ -323,6 +379,7 @@ export class IdentityController {
 
   @SecurityPolicy({
     allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
     requiredRoles: ['system-admin'],
     requireContextId: true,
   })
@@ -342,6 +399,7 @@ export class IdentityController {
 
   @SecurityPolicy({
     allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
     requiredRoles: ['system-admin'],
     requireContextId: true,
   })
@@ -360,6 +418,7 @@ export class IdentityController {
 
   @SecurityPolicy({
     allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
     requiredRoles: ['system-admin'],
     requireContextId: true,
   })
@@ -371,6 +430,7 @@ export class IdentityController {
 
   @SecurityPolicy({
     allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
     requiredRoles: ['system-admin'],
     requireContextId: true,
   })
@@ -419,6 +479,11 @@ export class IdentityController {
       : null;
 
     return {
+      activeContext: request.session?.context ?? {
+        id: null,
+        tenantId: null,
+        type: 'public',
+      },
       authenticated: Boolean(user && request.session),
       configuredSocialProviders: config.supportedSocialProviders,
       csrfToken: request.session?.csrfToken ?? null,

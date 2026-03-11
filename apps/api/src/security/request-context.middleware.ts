@@ -20,6 +20,9 @@ const activeContextTypes = new Set<ActiveContextType>([
   'public',
   'system',
 ]);
+const trustedHeaderAuthEnabled =
+  process.env.NODE_ENV === 'test' ||
+  process.env.ALLOW_TRUSTED_CONTEXT_HEADERS === 'true';
 
 function getRolesHeaderValue(request: Pick<ApiRequest, 'headers'>) {
   const headerValue = getHeaderValue(
@@ -91,9 +94,10 @@ async function buildRequestContext(
   const cookies = parseCookies(request);
   const sessionCookieValue = cookies.get(sessionCookieName) ?? null;
   const session = await sessionService.resolveSession(sessionCookieValue);
-  const actorId =
-    session?.actor.id ??
-    getHeaderValue(request, requestContextHeaderNames.actorId);
+  const trustedHeaderActorId = trustedHeaderAuthEnabled
+    ? getHeaderValue(request, requestContextHeaderNames.actorId)
+    : null;
+  const actorId = session?.actor.id ?? trustedHeaderActorId;
   const correlationId =
     getHeaderValue(request, requestContextHeaderNames.correlationId) ??
     randomUUID();
@@ -103,17 +107,24 @@ async function buildRequestContext(
   const requestContext: RequestContext = {
     actor: {
       id: actorId,
-      roles: session?.actor.roles ?? getRolesHeaderValue(request),
-      type: session ? 'user' : actorId ? 'user' : 'anonymous',
+      roles:
+        session?.actor.roles ??
+        (trustedHeaderActorId ? getRolesHeaderValue(request) : []),
+      type: session ? 'user' : trustedHeaderActorId ? 'user' : 'anonymous',
     },
     context: {
       id:
         session?.context.id ??
-        getHeaderValue(request, requestContextHeaderNames.activeContextId),
+        (trustedHeaderAuthEnabled
+          ? getHeaderValue(request, requestContextHeaderNames.activeContextId)
+          : null),
       tenantId:
         session?.context.tenantId ??
-        getHeaderValue(request, requestContextHeaderNames.tenantId),
-      type: session?.context.type ?? getContextType(request, actorId),
+        (trustedHeaderAuthEnabled
+          ? getHeaderValue(request, requestContextHeaderNames.tenantId)
+          : null),
+      type:
+        session?.context.type ?? getContextType(request, trustedHeaderActorId),
     },
     correlationId,
     requestId,
@@ -124,7 +135,11 @@ async function buildRequestContext(
   }
 
   return {
-    authenticatedBy: session ? 'session' : actorId ? 'header' : 'anonymous',
+    authenticatedBy: session
+      ? 'session'
+      : trustedHeaderActorId
+        ? 'header'
+        : 'anonymous',
     requestContext,
     session: session ?? undefined,
     sessionCookieValue,

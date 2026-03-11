@@ -31,6 +31,15 @@ type HealthResponse = {
   status: string;
 };
 
+type OpenApiDocumentResponse = {
+  info: {
+    title: string;
+    version: string;
+  };
+  openapi: string;
+  paths: Record<string, unknown>;
+};
+
 type SecurityErrorResponse = {
   error: {
     code: string;
@@ -46,8 +55,9 @@ type SetupCompleteResponse = {
   };
 };
 
-type SetupStateResponse = {
-  configuredIntegrations: unknown[];
+type BootstrapStatusResponse = {
+  edition: 'commercial' | 'community';
+  enabledIntegrationCodes: string[];
   isComplete: boolean;
 };
 
@@ -153,6 +163,20 @@ describe('API health endpoints (e2e)', () => {
     expect(body.info.app.status).toBe('up');
   });
 
+  it('publishes a versioned OpenAPI document for the sprint 1 surface', async () => {
+    const response = await request(getTestServer())
+      .get('/openapi/v1.json')
+      .expect(200);
+    const body = response.body as OpenApiDocumentResponse;
+
+    expect(body.info.title).toBe('Smart Schedule API');
+    expect(body.info.version).toBe('v1');
+    expect(body.openapi).toMatch(/^3\./);
+    expect(body.paths).toHaveProperty('/setup/state');
+    expect(body.paths).toHaveProperty('/auth/session');
+    expect(body.paths).toHaveProperty('/health');
+  });
+
   it('blocks non-bootstrap routes until first-run setup is completed', async () => {
     const response = await request(getTestServer())
       .get('/kernel/session/me')
@@ -161,6 +185,34 @@ describe('API health endpoints (e2e)', () => {
     expect((response.body as SecurityErrorResponse).error.code).toBe(
       'BOOTSTRAP_LOCKED',
     );
+  });
+
+  it('exposes a public bootstrap status endpoint without keeping bootstrap routes open', async () => {
+    const beforeSetupResponse = await request(getTestServer())
+      .get('/platform/bootstrap-status')
+      .expect(200);
+
+    expect(
+      (beforeSetupResponse.body as BootstrapStatusResponse).isComplete,
+    ).toBe(false);
+
+    await completeSetup();
+
+    const afterSetupResponse = await request(getTestServer())
+      .get('/platform/bootstrap-status')
+      .expect(200);
+
+    const afterSetupBody = afterSetupResponse.body as BootstrapStatusResponse;
+    expect(afterSetupBody.isComplete).toBe(true);
+    expect(afterSetupBody.enabledIntegrationCodes).toEqual([]);
+
+    const lockedBootstrapRoute = await request(getTestServer())
+      .get('/setup/state')
+      .expect(403);
+
+    expect(
+      (lockedBootstrapRoute.body as SecurityErrorResponse).error.code,
+    ).toBe('BOOTSTRAP_LOCKED');
   });
 
   it('completes setup once and rejects bootstrap reuse', async () => {
@@ -204,19 +256,34 @@ describe('API health endpoints (e2e)', () => {
     const retryResponse = await request(getTestServer())
       .post('/setup/complete')
       .send(setupPayload)
-      .expect(409);
+      .expect(403);
 
     expect((retryResponse.body as SecurityErrorResponse).error.code).toBe(
       'BOOTSTRAP_LOCKED',
     );
 
-    const stateResponse = await request(getTestServer())
-      .get('/setup/state')
+    const bootstrapStatusResponse = await request(getTestServer())
+      .get('/platform/bootstrap-status')
       .expect(200);
 
-    const stateBody = stateResponse.body as SetupStateResponse;
-    expect(stateBody.isComplete).toBe(true);
-    expect(stateBody.configuredIntegrations).toEqual([]);
+    expect(
+      (bootstrapStatusResponse.body as BootstrapStatusResponse).isComplete,
+    ).toBe(true);
+
+    const lockedStateResponse = await request(getTestServer())
+      .get('/setup/state')
+      .expect(403);
+
+    expect((lockedStateResponse.body as SecurityErrorResponse).error.code).toBe(
+      'BOOTSTRAP_LOCKED',
+    );
+
+    const openApiResponse = await request(getTestServer())
+      .get('/openapi/v1.json')
+      .expect(200);
+
+    const openApiBody = openApiResponse.body as OpenApiDocumentResponse;
+    expect(openApiBody.paths).toHaveProperty('/admin/users');
   });
 
   it('rejects provider-login setup in the commercial edition', async () => {

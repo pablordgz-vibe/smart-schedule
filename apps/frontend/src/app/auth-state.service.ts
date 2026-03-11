@@ -14,31 +14,11 @@ type ApiErrorResponse = {
   message?: string | string[];
 };
 
-const standaloneSessionFallback: AuthSessionSnapshot = {
-  authenticated: true,
-  configuredSocialProviders: [
-    { code: 'google', displayName: 'Google' },
-    { code: 'github', displayName: 'GitHub' },
-  ],
-  csrfToken: 'standalone-csrf-token',
-  requireEmailVerification: false,
-  user: {
-    adminTier: 0,
-    authMethods: [{ kind: 'password', linkedAt: '2026-03-11T00:00:00.000Z' }],
-    email: 'demo.user@example.com',
-    emailVerified: true,
-    id: 'demo-user',
-    name: 'Demo User',
-    recoverUntil: null,
-    roles: ['user', 'system-admin', 'system-admin:tier:0'],
-    state: 'active',
-  },
-};
-
 @Injectable({ providedIn: 'root' })
 export class AuthStateService {
   private readonly sessionState = signal<AuthSessionSnapshot | null>(null);
   private readonly busy = signal(false);
+  private readonly loadErrorState = signal<string | null>(null);
 
   readonly snapshot = this.sessionState.asReadonly();
   readonly isLoaded = computed(() => this.sessionState() !== null);
@@ -50,38 +30,42 @@ export class AuthStateService {
     () => this.sessionState()?.requireEmailVerification ?? false,
   );
   readonly isBusy = this.busy.asReadonly();
+  readonly loadError = this.loadErrorState.asReadonly();
 
   async loadIfReady(setupComplete: boolean): Promise<void> {
     if (!setupComplete) {
-      this.sessionState.set({
-        authenticated: false,
-        configuredSocialProviders: [],
-        csrfToken: null,
-        requireEmailVerification: false,
-        user: null,
-      });
+      this.loadErrorState.set(null);
+      this.sessionState.set(this.createAnonymousSession());
       return;
     }
 
-    await this.loadSession({ allowScaffoldFallback: true });
+    try {
+      await this.loadSession();
+      this.loadErrorState.set(null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Session bootstrap failed.';
+      if (
+        message.toLowerCase().includes('authentication') ||
+        message.toLowerCase().includes('not authenticated')
+      ) {
+        this.loadErrorState.set(null);
+        this.sessionState.set(this.createAnonymousSession());
+        return;
+      }
+
+      this.loadErrorState.set(message);
+      this.sessionState.set(this.createAnonymousSession());
+    }
   }
 
-  async loadSession(input?: { allowScaffoldFallback?: boolean }): Promise<AuthSessionSnapshot> {
-    try {
-      const session = await this.fetchJson<AuthSessionSnapshot>('/api/auth/session');
-      if (typeof session.authenticated !== 'boolean') {
-        throw new Error('Session payload is invalid.');
-      }
-      this.sessionState.set(session);
-      return session;
-    } catch (error: unknown) {
-      if (!input?.allowScaffoldFallback) {
-        throw error;
-      }
-
-      this.sessionState.set(standaloneSessionFallback);
-      return standaloneSessionFallback;
+  async loadSession(): Promise<AuthSessionSnapshot> {
+    const session = await this.fetchJson<AuthSessionSnapshot>('/api/auth/session');
+    if (typeof session.authenticated !== 'boolean') {
+      throw new Error('Session payload is invalid.');
     }
+    this.loadErrorState.set(null);
+    this.sessionState.set(session);
+    return session;
   }
 
   async loadConfiguration() {
@@ -89,21 +73,9 @@ export class AuthStateService {
   }
 
   async loadAdminConfiguration() {
-    try {
-      return await this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
-        headers: this.authHeaders(),
-      });
-    } catch (error: unknown) {
-      if (!this.isStandaloneScaffoldSession()) {
-        throw error;
-      }
-
-      return {
-        minAdminTierForAccountDeactivation: 0,
-        requireEmailVerification: false,
-        supportedSocialProviders: standaloneSessionFallback.configuredSocialProviders,
-      };
-    }
+    return this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
+      headers: this.authHeaders(),
+    });
   }
 
   async listUsers(query = '') {
@@ -112,33 +84,14 @@ export class AuthStateService {
       search.set('query', query.trim());
     }
 
-    try {
-      const response = await this.fetchJson<{ users: IdentityUserSummary[] }>(
-        `/api/admin/users${search.size > 0 ? `?${search.toString()}` : ''}`,
-        {
-          headers: this.authHeaders(),
-        },
-      );
+    const response = await this.fetchJson<{ users: IdentityUserSummary[] }>(
+      `/api/admin/users${search.size > 0 ? `?${search.toString()}` : ''}`,
+      {
+        headers: this.authHeaders(),
+      },
+    );
 
-      return response.users;
-    } catch (error: unknown) {
-      if (!this.isStandaloneScaffoldSession()) {
-        throw error;
-      }
-
-      const users = [standaloneSessionFallback.user].filter(
-        (user): user is IdentityUserSummary => user !== null,
-      );
-      const normalizedQuery = query.trim().toLowerCase();
-
-      return users.filter((user) =>
-        normalizedQuery.length === 0
-          ? true
-          : user.email.includes(normalizedQuery) ||
-            user.name.toLowerCase().includes(normalizedQuery) ||
-            user.id.includes(normalizedQuery),
-      );
-    }
+    return response.users;
   }
 
   async signUp(input: { email: string; name: string; password: string }) {
@@ -276,13 +229,8 @@ export class AuthStateService {
       headers: this.authHeaders(),
       method: 'POST',
     });
-    this.sessionState.set({
-      authenticated: false,
-      configuredSocialProviders: this.providers(),
-      csrfToken: null,
-      requireEmailVerification: this.requireEmailVerification(),
-      user: null,
-    });
+    await this.clearClientCaches();
+    this.sessionState.set(this.createAnonymousSession());
   }
 
   async logout() {
@@ -290,16 +238,22 @@ export class AuthStateService {
       headers: this.authHeaders(),
       method: 'POST',
     });
-    this.sessionState.set({
-      authenticated: false,
-      configuredSocialProviders: this.providers(),
-      csrfToken: null,
-      requireEmailVerification: this.requireEmailVerification(),
-      user: null,
+    await this.clearClientCaches();
+    this.sessionState.set(this.createAnonymousSession());
+  }
+
+  async switchContext(contextType: 'personal' | 'system') {
+    const result = await this.fetchJson<AuthMutationResult>('/api/auth/context', {
+      body: JSON.stringify({ contextType }),
+      headers: this.authHeaders(),
+      method: 'POST',
     });
+    this.sessionState.set(result.session);
+    return result.session;
   }
 
   setSnapshot(snapshot: AuthSessionSnapshot) {
+    this.loadErrorState.set(null);
     this.sessionState.set(snapshot);
   }
 
@@ -307,69 +261,25 @@ export class AuthStateService {
     minAdminTierForAccountDeactivation?: number;
     requireEmailVerification?: boolean;
   }) {
-    try {
-      return await this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
-        body: JSON.stringify(input),
-        headers: this.authHeaders(),
-        method: 'PATCH',
-      });
-    } catch (error: unknown) {
-      if (!this.isStandaloneScaffoldSession()) {
-        throw error;
-      }
-
-      return {
-        minAdminTierForAccountDeactivation: input.minAdminTierForAccountDeactivation ?? 0,
-        requireEmailVerification: input.requireEmailVerification ?? false,
-        supportedSocialProviders: standaloneSessionFallback.configuredSocialProviders,
-      };
-    }
+    return this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
+      body: JSON.stringify(input),
+      headers: this.authHeaders(),
+      method: 'PATCH',
+    });
   }
 
   async deactivateUser(userId: string) {
-    try {
-      return await this.fetchJson<{ user: IdentityUserSummary }>(
-        `/api/admin/users/${userId}/deactivate`,
-        {
-          headers: this.authHeaders(),
-          method: 'POST',
-        },
-      );
-    } catch (error: unknown) {
-      if (!this.isStandaloneScaffoldSession() || userId !== standaloneSessionFallback.user?.id) {
-        throw error;
-      }
-
-      return {
-        user: {
-          ...standaloneSessionFallback.user,
-          state: 'deactivated',
-        },
-      };
-    }
+    return this.fetchJson<{ user: IdentityUserSummary }>(`/api/admin/users/${userId}/deactivate`, {
+      headers: this.authHeaders(),
+      method: 'POST',
+    });
   }
 
   async reactivateUser(userId: string) {
-    try {
-      return await this.fetchJson<{ user: IdentityUserSummary }>(
-        `/api/admin/users/${userId}/reactivate`,
-        {
-          headers: this.authHeaders(),
-          method: 'POST',
-        },
-      );
-    } catch (error: unknown) {
-      if (!this.isStandaloneScaffoldSession() || userId !== standaloneSessionFallback.user?.id) {
-        throw error;
-      }
-
-      return {
-        user: {
-          ...standaloneSessionFallback.user,
-          state: 'active',
-        },
-      };
-    }
+    return this.fetchJson<{ user: IdentityUserSummary }>(`/api/admin/users/${userId}/reactivate`, {
+      headers: this.authHeaders(),
+      method: 'POST',
+    });
   }
 
   private authHeaders() {
@@ -377,10 +287,6 @@ export class AuthStateService {
       'content-type': 'application/json',
       'x-csrf-token': this.csrfToken() ?? '',
     };
-  }
-
-  private isStandaloneScaffoldSession() {
-    return this.sessionState()?.user?.id === standaloneSessionFallback.user?.id;
   }
 
   private async fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -402,5 +308,29 @@ export class AuthStateService {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private createAnonymousSession(): AuthSessionSnapshot {
+    return {
+      activeContext: {
+        id: null,
+        tenantId: null,
+        type: 'public',
+      },
+      authenticated: false,
+      configuredSocialProviders: this.providers(),
+      csrfToken: null,
+      requireEmailVerification: this.requireEmailVerification(),
+      user: null,
+    };
+  }
+
+  private async clearClientCaches() {
+    if (typeof caches === 'undefined') {
+      return;
+    }
+
+    const cacheKeys = await caches.keys();
+    await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
   }
 }

@@ -1,3 +1,5 @@
+@import './tailwind.css';
+@import 'tailwindcss';
 @import '../../../packages/ui/src/styles/tokens.css';
 @import '../../../packages/ui/src/styles/primitives.css';
 
@@ -15,6 +17,14 @@ body {
   font-family: var(--font-family);
   background-color: var(--bg-app);
   color: var(--text-primary);
+}
+
+body,
+input,
+button,
+select,
+textarea {
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
 h1,

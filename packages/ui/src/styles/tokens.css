@@ -32,6 +32,15 @@
   --color-neutral-700: #374151;
   --color-neutral-800: #1f2937;
   --color-neutral-900: #111827;
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #d97706;
+  --color-warning-700: #92400e;
+  --color-danger-50: #fef2f2;
+  --color-danger-500: #dc2626;
+  --color-danger-700: #991b1b;
+  --color-success-50: #ecfdf5;
+  --color-success-500: #059669;
+  --color-success-700: #047857;
 
   /* Semantic Colors */
   --bg-app: var(--color-neutral-50);
@@ -40,6 +49,21 @@
   --text-secondary: var(--color-neutral-600);
   --text-muted: var(--color-neutral-400);
   --border-default: var(--color-neutral-200);
+  --state-info-bg: rgb(14 165 233 / 0.08);
+  --state-info-border: rgb(2 132 199 / 0.2);
+  --state-info-text: #075985;
+  --state-warning-bg: rgb(245 158 11 / 0.12);
+  --state-warning-border: rgb(217 119 6 / 0.2);
+  --state-warning-text: var(--color-warning-700);
+  --state-approval-bg: rgb(236 72 153 / 0.12);
+  --state-approval-border: rgb(219 39 119 / 0.2);
+  --state-approval-text: var(--color-accent-700);
+  --state-denied-bg: rgb(220 38 38 / 0.1);
+  --state-denied-border: rgb(220 38 38 / 0.18);
+  --state-denied-text: var(--color-danger-700);
+  --state-entitlement-bg: rgb(5 150 105 / 0.1);
+  --state-entitlement-border: rgb(5 150 105 / 0.18);
+  --state-entitlement-text: var(--color-success-700);
 
   /* Spacing */
   --spacing-1: 0.25rem;
@@ -54,8 +78,8 @@
 
   /* Typography */
   --font-family:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    "IBM Plex Sans", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial,
+    sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -68,4 +92,10 @@
   --shadow-default:
     0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 18px 45px rgb(15 23 42 / 0.14);
+
+  /* Radius */
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
 }

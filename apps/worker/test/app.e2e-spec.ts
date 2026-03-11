@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
 type HealthResponse = {
@@ -15,7 +14,11 @@ type HealthResponse = {
 };
 
 describe('Worker health endpoints (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
+
+  function getTestServer() {
+    return app.getHttpAdapter().getInstance() as Parameters<typeof request>[0];
+  }
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -31,9 +34,7 @@ describe('Worker health endpoints (e2e)', () => {
   });
 
   it('returns liveness status', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/health')
-      .expect(200);
+    const response = await request(getTestServer()).get('/health').expect(200);
     const body = response.body as HealthResponse;
 
     expect(body.status).toBe('ok');
@@ -41,7 +42,7 @@ describe('Worker health endpoints (e2e)', () => {
   });
 
   it('returns readiness status', async () => {
-    const response = await request(app.getHttpServer())
+    const response = await request(getTestServer())
       .get('/health/readiness')
       .expect(200);
     const body = response.body as HealthResponse;

@@ -24,6 +24,9 @@ import {
 
 type SessionResponse = {
   session: {
+    activeContext: {
+      type: 'personal' | 'public' | 'system';
+    };
     authenticated: boolean;
     csrfToken: string | null;
     user: {
@@ -75,16 +78,39 @@ describe('identity lifecycle (e2e)', () => {
       .expect(201);
   }
 
-  async function signInWithPassword(email: string, password: string) {
-    const response = await request(getTestServer())
+  async function signInWithPassword(
+    email: string,
+    password: string,
+    input?: { contextType?: 'personal' | 'system' },
+  ) {
+    const signInResponse = await request(getTestServer())
       .post('/auth/sign-in/password')
       .send({ email, password })
       .expect(201);
 
+    let cookie = signInResponse.headers['set-cookie'][0];
+    let csrfToken = (signInResponse.body as SessionResponse).session.csrfToken!;
+    const userId = (signInResponse.body as SessionResponse).session.user!.id;
+
+    if (input?.contextType === 'system') {
+      const switchResponse = await request(getTestServer())
+        .post('/auth/context')
+        .set('cookie', cookie)
+        .set('x-csrf-token', csrfToken)
+        .send({ contextType: 'system' })
+        .expect(201);
+
+      cookie = switchResponse.headers['set-cookie'][0];
+      csrfToken = (switchResponse.body as SessionResponse).session.csrfToken!;
+      expect(
+        (switchResponse.body as SessionResponse).session.activeContext.type,
+      ).toBe('system');
+    }
+
     return {
-      cookie: response.headers['set-cookie'][0],
-      csrfToken: (response.body as SessionResponse).session.csrfToken!,
-      userId: (response.body as SessionResponse).session.user!.id,
+      cookie,
+      csrfToken,
+      userId,
     };
   }
 
@@ -127,6 +153,7 @@ describe('identity lifecycle (e2e)', () => {
     const adminSession = await signInWithPassword(
       'admin@example.com',
       'setup-password-123',
+      { contextType: 'system' },
     );
 
     await request(getTestServer())
@@ -335,6 +362,7 @@ describe('identity lifecycle (e2e)', () => {
     const adminSession = await signInWithPassword(
       'admin@example.com',
       'setup-password-123',
+      { contextType: 'system' },
     );
 
     await request(getTestServer())
@@ -394,6 +422,7 @@ describe('identity lifecycle (e2e)', () => {
     const bootstrapAdmin = await signInWithPassword(
       'admin@example.com',
       'setup-password-123',
+      { contextType: 'system' },
     );
 
     const peerAdminLogin = await request(getTestServer())
@@ -463,6 +492,7 @@ describe('identity lifecycle (e2e)', () => {
     const adminSession = await signInWithPassword(
       'admin@example.com',
       'setup-password-123',
+      { contextType: 'system' },
     );
     const listResponse = await request(getTestServer())
       .get('/admin/users')

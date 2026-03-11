@@ -3,6 +3,7 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import { configureOpenApi } from './openapi';
 import { registerRequestContextHook } from './security/request-context.middleware';
 import { RequestContextStore } from './security/request-context.store';
 import { SessionService } from './security/session.service';
@@ -19,6 +20,7 @@ export function configureApiApp(app: NestFastifyApplication) {
     requestContextStore: app.get(RequestContextStore),
     sessionService: app.get(SessionService),
   });
+  configureOpenApi(app);
   app.enableShutdownHooks();
   app.useGlobalPipes(
     new ValidationPipe({

@@ -62,17 +62,25 @@ class CompleteSetupDto {
   integrations!: SetupIntegrationDto[];
 }
 
-@Public()
-@BootstrapRoute()
 @Controller('setup')
 export class SetupController {
   constructor(private readonly setupService: SetupService) {}
 
+  @Public()
+  @BootstrapRoute()
   @Get('state')
-  getState() {
+  async getState() {
+    if (await this.setupService.isSetupComplete()) {
+      throwBootstrapLocked(
+        'Initial setup has already completed for this deployment.',
+      );
+    }
+
     return this.setupService.getSetupState();
   }
 
+  @Public()
+  @BootstrapRoute()
   @Get('integrations')
   async getIntegrationOptions() {
     if (await this.setupService.isSetupComplete()) {
@@ -87,6 +95,8 @@ export class SetupController {
     };
   }
 
+  @Public()
+  @BootstrapRoute()
   @Post('complete')
   @HttpCode(201)
   @RateLimit({ keyScope: 'ip', limit: 5, windowMs: 60_000 })

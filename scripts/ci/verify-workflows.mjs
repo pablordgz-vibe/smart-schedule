@@ -11,6 +11,7 @@ const expectations = [
       "smoke-gate",
       "pnpm run format:check",
       "pnpm run typecheck",
+      "pnpm run design-system:check",
     ],
   },
   {
@@ -26,6 +27,7 @@ const expectations = [
     requiredSnippets: [
       "release-validation",
       "pnpm run migration:check",
+      "pnpm run design-system:check",
       "docker build",
     ],
   },

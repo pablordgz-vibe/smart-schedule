@@ -10,6 +10,7 @@ import { ApiRequest } from './request-context.types';
 import { RequestContextStore } from './request-context.store';
 import { SECURITY_POLICY_KEY } from './security-policy.decorator';
 import { BOOTSTRAP_ROUTE_KEY } from '../setup/bootstrap-route.decorator';
+import { SETUP_STATUS_ROUTE_KEY } from '../setup/setup-status-route.decorator';
 import { SetupService } from '../setup/setup.service';
 import { getHeaderValue } from './http-platform';
 import {
@@ -164,6 +165,7 @@ export class SecurityKernelGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext) {
+    const setupComplete = await this.setupService.isSetupComplete();
     const isBootstrapRoute = this.reflector.getAllAndOverride<boolean>(
       BOOTSTRAP_ROUTE_KEY,
       [context.getHandler(), context.getClass()],
@@ -172,10 +174,20 @@ export class SecurityKernelGuard implements CanActivate {
       PUBLIC_ROUTE_KEY,
       [context.getHandler(), context.getClass()],
     );
+    const isSetupStatusRoute = this.reflector.getAllAndOverride<boolean>(
+      SETUP_STATUS_ROUTE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
-    if (!(await this.setupService.isSetupComplete()) && !isBootstrapRoute) {
+    if (!setupComplete && !isBootstrapRoute && !isSetupStatusRoute) {
       throwBootstrapLocked(
         'This deployment is still in first-run setup. Only bootstrap routes are available.',
+      );
+    }
+
+    if (setupComplete && isBootstrapRoute && !isSetupStatusRoute) {
+      throwBootstrapLocked(
+        'Bootstrap routes are permanently locked after initial setup completes.',
       );
     }
 
