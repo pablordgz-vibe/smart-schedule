@@ -10,4 +10,9 @@ export type RuntimeEnvironmentContract = {
   OBJECT_STORAGE_BUCKET?: string;
   OBJECT_STORAGE_USE_SSL: boolean;
   JWT_SECRET: string;
+  SESSION_SECRET: string;
+  SESSION_COOKIE_NAME: string;
+  SESSION_TTL_SECONDS: number;
+  RATE_LIMIT_WINDOW_MS: number;
+  RATE_LIMIT_MAX: number;
 };
