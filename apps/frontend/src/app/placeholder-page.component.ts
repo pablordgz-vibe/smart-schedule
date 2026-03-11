@@ -34,6 +34,25 @@ import { DirtyStateService } from './dirty-state.service';
           </div>
         </div>
 
+        <div class="state-grid">
+          <article class="ui-banner ui-banner-warning">
+            <h2>Warning</h2>
+            <p>Advisory issues stay visually distinct from blocked actions.</p>
+          </article>
+          <article class="ui-banner ui-banner-approval">
+            <h2>Requires approval</h2>
+            <p>Approval-gated actions remain separate from hard permission denials.</p>
+          </article>
+          <article class="ui-banner ui-banner-denied">
+            <h2>Not permitted</h2>
+            <p>Authorization failures are rendered differently from advisories and approvals.</p>
+          </article>
+          <article class="ui-banner ui-banner-entitlement">
+            <h2>Entitlement limited</h2>
+            <p>Edition or plan limitations get their own state treatment in the shared shell.</p>
+          </article>
+        </div>
+
         <div class="ui-toolbar" *ngIf="mutationSurface()">
           <button
             class="ui-button ui-button-primary"
@@ -86,9 +105,19 @@ import { DirtyStateService } from './dirty-state.service';
         color: var(--text-secondary);
       }
 
+      .state-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-4);
+      }
+
       @media (max-width: 768px) {
         .hero-topline {
           flex-direction: column;
+        }
+
+        .state-grid {
+          grid-template-columns: 1fr;
         }
       }
     `,

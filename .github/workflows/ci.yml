@@ -35,6 +35,9 @@ jobs:
       - name: Boundary Check
         run: pnpm run boundary:check
 
+      - name: Design System Check
+        run: pnpm run design-system:check
+
       - name: Unit Tests
         run: pnpm run test
 

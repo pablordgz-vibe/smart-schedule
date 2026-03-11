@@ -1,13 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { AuthStateService } from '../auth-state.service';
 import { ContextService } from '../context.service';
 import { DirtyStateService } from '../dirty-state.service';
+import { SetupStateService } from '../setup/setup-state.service';
 import {
   endUserNavItems,
   orgAdminNavItems,
   quickCreateRoute,
+  searchableRoutes,
   systemAdminNavItems,
 } from '../route-catalog';
 
@@ -43,8 +46,31 @@ import {
               placeholder="Search or jump to a route"
               aria-label="Global search"
               data-testid="global-search"
+              [ngModel]="searchQuery()"
+              (ngModelChange)="updateSearch($event)"
+              [ngModelOptions]="{ standalone: true }"
+              (keydown.enter)="openFirstSearchResult($event)"
             />
           </label>
+          <section
+            class="search-results ui-card"
+            *ngIf="searchResults().length > 0"
+            data-testid="global-search-results"
+          >
+            <button
+              *ngFor="let result of searchResults(); let index = index"
+              class="search-result"
+              type="button"
+              (click)="openSearchResult(result.path)"
+              [attr.data-testid]="'search-result-' + index"
+            >
+              <span class="search-result-copy">
+                <strong>{{ result.label }}</strong>
+                <small>{{ result.description }}</small>
+              </span>
+              <span class="ui-chip search-result-area">{{ areaLabel(result.area) }}</span>
+            </button>
+          </section>
         </div>
 
         <div class="header-actions" data-testid="header-actions">
@@ -65,6 +91,7 @@ import {
             Notifications
           </button>
           <button
+            *ngIf="showAiEntry()"
             class="ui-icon-button"
             type="button"
             aria-label="AI assistant"
@@ -192,6 +219,7 @@ import {
         display: flex;
         align-items: center;
         gap: var(--spacing-3);
+        position: relative;
       }
 
       .header-actions {
@@ -251,6 +279,48 @@ import {
 
       .shell-main {
         min-width: 0;
+      }
+
+      .search-results {
+        position: absolute;
+        top: calc(100% + var(--spacing-2));
+        left: 0;
+        right: 0;
+        z-index: 10;
+        display: grid;
+        gap: var(--spacing-2);
+        padding: var(--spacing-3);
+      }
+
+      .search-result {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: var(--spacing-3);
+        padding: var(--spacing-3);
+        border: 1px solid transparent;
+        border-radius: var(--radius-lg);
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .search-result:hover {
+        border-color: rgb(14 165 233 / 0.2);
+        background: rgb(14 165 233 / 0.06);
+      }
+
+      .search-result-copy {
+        display: grid;
+        gap: 0.25rem;
+      }
+
+      .search-result-copy small {
+        color: var(--text-secondary);
+      }
+
+      .search-result-area {
+        flex-shrink: 0;
       }
 
       .shell-status {
@@ -341,8 +411,12 @@ import {
 })
 export class ShellComponent {
   private readonly router = inject(Router);
+  private readonly authState = inject(AuthStateService);
   private readonly contextService = inject(ContextService);
   private readonly dirtyState = inject(DirtyStateService);
+  private readonly setupState = inject(SetupStateService);
+
+  readonly searchQuery = signal('');
 
   readonly contexts = this.contextService.contexts;
   readonly activeContextId = computed(() => this.contextService.activeContext().id);
@@ -366,6 +440,33 @@ export class ShellComponent {
   readonly showSystemAdminNav = computed(() =>
     this.contextService.visibleSections().includes('system-admin'),
   );
+  readonly showAiEntry = computed(
+    () =>
+      this.setupState
+        .snapshot()
+        ?.configuredIntegrations.some(
+          (integration) => integration.enabled && integration.code === 'openai',
+        ) ?? false,
+  );
+  readonly searchResults = computed(() => {
+    const normalizedQuery = this.searchQuery().trim().toLowerCase();
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    return searchableRoutes
+      .filter((route) => {
+        if (!this.contextService.visibleSections().includes(route.area)) {
+          return false;
+        }
+
+        const haystack = [route.label, route.description, ...route.keywords]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(normalizedQuery);
+      })
+      .slice(0, 6);
+  });
   readonly mobileItems = computed(() => {
     if (this.showSystemAdminNav()) {
       return this.systemAdminItems.slice(0, 4);
@@ -378,17 +479,71 @@ export class ShellComponent {
     return this.endUserItems.filter((item) => item.mobile).slice(0, 4);
   });
 
-  switchContext(nextContextId: string): void {
+  async switchContext(nextContextId: string): Promise<void> {
     const contextId = nextContextId as 'personal' | 'organization' | 'system';
+    const previousContextId = this.contextService.activeContext().id;
     const nextRoute = this.contextService.resolveRouteForContext(contextId, this.router.url);
 
-    this.contextService.setActiveContext(contextId);
+    if (
+      this.authState.isAuthenticated() &&
+      (contextId === 'system' || previousContextId === 'system')
+    ) {
+      try {
+        const session = await this.authState.switchContext(
+          contextId === 'system' ? 'system' : 'personal',
+        );
+        this.contextService.syncToSessionContext(session.activeContext.type);
+      } catch {
+        this.contextService.setActiveContext(previousContextId);
+        return;
+      }
+    } else {
+      this.contextService.setActiveContext(contextId);
+    }
+
+    if (contextId === 'organization') {
+      this.contextService.setActiveContext('organization');
+    }
+
+    this.searchQuery.set('');
     void this.router.navigateByUrl(nextRoute);
   }
 
   openQuickCreate(): void {
     const nextRoute =
       this.contextService.activeContext().id === 'system' ? '/admin/setup' : quickCreateRoute;
+    this.searchQuery.set('');
     void this.router.navigateByUrl(nextRoute);
+  }
+
+  updateSearch(value: string): void {
+    this.searchQuery.set(value);
+  }
+
+  openFirstSearchResult(event: Event): void {
+    const firstResult = this.searchResults()[0];
+    if (!firstResult) {
+      return;
+    }
+
+    event.preventDefault();
+    this.openSearchResult(firstResult.path);
+  }
+
+  openSearchResult(path: string): void {
+    this.searchQuery.set('');
+    void this.router.navigateByUrl(path);
+  }
+
+  areaLabel(area: 'end-user' | 'org-admin' | 'system-admin'): string {
+    if (area === 'org-admin') {
+      return 'Organization admin';
+    }
+
+    if (area === 'system-admin') {
+      return 'System admin';
+    }
+
+    return 'End-user';
   }
 }

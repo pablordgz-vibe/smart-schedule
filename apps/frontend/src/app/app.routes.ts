@@ -1,6 +1,10 @@
 import { Routes } from '@angular/router';
+import { anonymousOnlyGuard } from './anonymous-only.guard';
+import { authenticatedGuard } from './authenticated.guard';
 import { routeAreaGuard } from './route-area.guard';
 import { ShellComponent } from './shell/shell.component';
+import { setupCompletionChildGuard, setupCompletionGuard } from './setup/setup-completion.guard';
+import { setupRouteGuard } from './setup/setup-route.guard';
 import { unsavedChangesGuard } from './unsaved-changes.guard';
 
 const loadPlaceholderPage = () =>
@@ -8,8 +12,57 @@ const loadPlaceholderPage = () =>
 
 export const routes: Routes = [
   {
+    path: 'auth',
+    canActivate: [anonymousOnlyGuard],
+    children: [
+      {
+        path: 'sign-in',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'sign-in' },
+      },
+      {
+        path: 'sign-up',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'sign-up' },
+      },
+      {
+        path: 'verify-email',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'verify-email' },
+      },
+      {
+        path: 'reset-password',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'reset-password' },
+      },
+      {
+        path: 'recover-account',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'recover-account' },
+      },
+      {
+        path: 'deactivated',
+        loadComponent: () =>
+          import('./auth-page.component').then((module) => module.AuthPageComponent),
+        data: { mode: 'deactivated' },
+      },
+      {
+        path: '',
+        redirectTo: 'sign-in',
+        pathMatch: 'full',
+      },
+    ],
+  },
+  {
     path: '',
     component: ShellComponent,
+    canActivate: [setupCompletionGuard, authenticatedGuard],
+    canActivateChild: [setupCompletionChildGuard],
     children: [
       { path: '', redirectTo: 'home', pathMatch: 'full' },
       {
@@ -105,7 +158,8 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./account-settings.component').then((module) => module.AccountSettingsComponent),
         data: {
           title: 'Settings',
           description: 'User settings shell for identity, preferences, and billing scaffolds.',
@@ -226,11 +280,12 @@ export const routes: Routes = [
       },
       {
         path: 'admin/users',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./admin-users.component').then((module) => module.AdminUsersComponent),
         canActivate: [routeAreaGuard],
         data: {
           title: 'Users',
-          description: 'System user management scaffold.',
+          description: 'System user lifecycle and authentication policy controls.',
           sectionLabel: 'System Administration',
           testId: 'page-admin-users',
           area: 'system-admin',
@@ -314,6 +369,7 @@ export const routes: Routes = [
   },
   {
     path: 'setup',
+    canActivate: [setupRouteGuard],
     loadComponent: () => import('./setup/setup.component').then((m) => m.SetupComponent),
   },
   {

@@ -17,3 +17,6 @@ export class ConfigService {
 }
 
 export const configService = new ConfigService();
+
+export { envSchema };
+export type { Env };

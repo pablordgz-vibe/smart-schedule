@@ -1,8 +1,3 @@
-:root {
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
-}
-
 .ui-page {
   display: grid;
   gap: var(--spacing-6);
@@ -88,6 +83,52 @@
   font-weight: 600;
 }
 
+.ui-state-grid {
+  display: grid;
+  gap: var(--spacing-3);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.ui-state {
+  padding: var(--spacing-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+}
+
+.ui-state h3 {
+  margin-bottom: var(--spacing-2);
+}
+
+.ui-state p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.ui-state-info {
+  border-color: rgb(14 165 233 / 0.18);
+  background: rgb(240 249 255 / 0.9);
+}
+
+.ui-state-warning {
+  border-color: rgb(245 158 11 / 0.22);
+  background: rgb(255 251 235 / 0.9);
+}
+
+.ui-state-approval {
+  border-color: rgb(59 130 246 / 0.2);
+  background: rgb(239 246 255 / 0.9);
+}
+
+.ui-state-denied {
+  border-color: rgb(248 113 113 / 0.24);
+  background: rgb(254 242 242 / 0.92);
+}
+
+.ui-state-entitlement {
+  border-color: rgb(168 85 247 / 0.2);
+  background: rgb(250 245 255 / 0.92);
+}
+
 .ui-kicker {
   margin: 0;
   color: var(--text-muted);
@@ -105,21 +146,94 @@
 
 .ui-field,
 .ui-search {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
+  gap: var(--spacing-2);
 }
 
+.ui-field > span {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ui-input,
 .ui-select,
 .ui-search input {
   min-height: 2.75rem;
-  border-radius: 999px;
+  width: 100%;
+  border-radius: 1rem;
   border: 1px solid rgb(148 163 184 / 0.22);
   background: white;
   padding: 0 0.9rem;
+  color: var(--text-primary);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
+}
+
+.ui-input:focus,
+.ui-select:focus,
+.ui-search input:focus {
+  outline: none;
+  border-color: rgb(14 165 233 / 0.45);
+  box-shadow: 0 0 0 4px rgb(14 165 233 / 0.14);
 }
 
 .ui-search input {
   min-width: 18rem;
+}
+
+.ui-banner {
+  display: grid;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
+  border: 1px solid var(--state-info-border);
+  border-radius: var(--radius-lg);
+  background: var(--state-info-bg);
+  color: var(--state-info-text);
+}
+
+.ui-banner h2,
+.ui-banner h3,
+.ui-banner p {
+  margin: 0;
+}
+
+.ui-banner-warning {
+  border-color: var(--state-warning-border);
+  background: var(--state-warning-bg);
+  color: var(--state-warning-text);
+}
+
+.ui-banner-approval {
+  border-color: var(--state-approval-border);
+  background: var(--state-approval-bg);
+  color: var(--state-approval-text);
+}
+
+.ui-banner-denied {
+  border-color: var(--state-denied-border);
+  background: var(--state-denied-bg);
+  color: var(--state-denied-text);
+}
+
+.ui-banner-entitlement {
+  border-color: var(--state-entitlement-border);
+  background: var(--state-entitlement-bg);
+  color: var(--state-entitlement-text);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 768px) {

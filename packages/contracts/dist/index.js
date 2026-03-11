@@ -62,7 +62,8 @@ var requestContextHeaderNames = {
   activeContextType: "x-active-context-type",
   correlationId: "x-correlation-id",
   requestId: "x-request-id",
-  tenantId: "x-tenant-id"
+  tenantId: "x-tenant-id",
+  csrfToken: "x-csrf-token"
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

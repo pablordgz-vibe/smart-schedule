@@ -13,6 +13,7 @@ export default [
   {
     ignores: [
       'eslint.config.mjs',
+      'tailwind.config.js',
       'dist/**',
       '.angular/**',
       'playwright-report/**',

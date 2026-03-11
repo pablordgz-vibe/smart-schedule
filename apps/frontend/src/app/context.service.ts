@@ -17,6 +17,20 @@ export class ContextService {
     this.activeContextId.set(contextId);
   }
 
+  syncToSessionContext(contextType: 'organization' | 'personal' | 'public' | 'system'): void {
+    if (contextType === 'system') {
+      this.activeContextId.set('system');
+      return;
+    }
+
+    if (contextType === 'organization') {
+      this.activeContextId.set('organization');
+      return;
+    }
+
+    this.activeContextId.set('personal');
+  }
+
   isAreaAllowed(area: AppArea): boolean {
     return this.activeContext().allowedAreas.includes(area);
   }

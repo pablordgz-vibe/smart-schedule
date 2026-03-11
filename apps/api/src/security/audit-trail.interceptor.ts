@@ -8,6 +8,7 @@ import {
 import type { AuditEnvelope } from '@smart-schedule/contracts';
 import { Observable, catchError, tap, throwError } from 'rxjs';
 import { ApiRequest } from './request-context.types';
+import { getRequestResource } from './http-platform';
 import { RequestContextStore } from './request-context.store';
 
 @Injectable()
@@ -20,7 +21,7 @@ export class AuditTrailInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<ApiRequest>();
     const requestContext =
       request.requestContext ?? this.requestContextStore.get();
-    const resource = `${request.method} ${request.originalUrl}`;
+    const resource = getRequestResource(request);
 
     return next.handle().pipe(
       tap(() => {

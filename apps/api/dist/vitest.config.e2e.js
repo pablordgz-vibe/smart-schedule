@@ -11,6 +11,9 @@ exports.default = (0, config_1.defineConfig)({
         root: './',
         include: ['test/**/*.e2e-spec.ts'],
         environment: 'node',
+        hookTimeout: 120_000,
+        setupFiles: ['test/setup-env.ts'],
+        testTimeout: 120_000,
     },
     plugins: [
         unplugin_swc_1.default.vite({
