@@ -55,6 +55,12 @@ export function throwRateLimited(
   );
 }
 
+export function throwBootstrapLocked(message: string) {
+  throw new ForbiddenException(
+    createSecurityError('BOOTSTRAP_LOCKED', 'bootstrap_locked', message),
+  );
+}
+
 function createSecurityError(
   code: SecurityErrorPayload['code'],
   kind: SecurityErrorPayload['kind'],

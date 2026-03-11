@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 import { ContextService } from '../context.service';
 import { routes } from '../app.routes';
+import { SetupStateService } from '../setup/setup-state.service';
 import { ShellComponent } from './shell.component';
 
 describe('ShellComponent', () => {
@@ -14,6 +15,17 @@ describe('ShellComponent', () => {
     });
 
     const contextService = TestBed.inject(ContextService);
+    const setupStateService = TestBed.inject(SetupStateService) as SetupStateService & {
+      readonly state: { set: (value: unknown) => void };
+    };
+    setupStateService['state'].set({
+      admin: null,
+      completedAt: '2026-03-11T00:00:00.000Z',
+      configuredIntegrations: [],
+      edition: 'community',
+      isComplete: true,
+      step: 'complete',
+    });
     contextService.setActiveContext('organization');
 
     const fixture = TestBed.createComponent(ShellComponent);
@@ -32,6 +44,17 @@ describe('ShellComponent', () => {
     });
 
     const router = TestBed.inject(Router);
+    const setupStateService = TestBed.inject(SetupStateService) as SetupStateService & {
+      readonly state: { set: (value: unknown) => void };
+    };
+    setupStateService['state'].set({
+      admin: null,
+      completedAt: '2026-03-11T00:00:00.000Z',
+      configuredIntegrations: [],
+      edition: 'community',
+      isComplete: true,
+      step: 'complete',
+    });
     const fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
     await router.navigateByUrl('/calendar');

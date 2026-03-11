@@ -70,6 +70,7 @@ export type SessionRecord = {
 };
 
 export type SecurityDenialKind =
+  | "bootstrap_locked"
   | "approval_required"
   | "authentication_required"
   | "context_mismatch"
@@ -111,4 +112,49 @@ export type RateLimitPolicy = {
   keyScope?: "actor-or-ip" | "ip";
   limit: number;
   windowMs: number;
+};
+
+export type AppEdition = "commercial" | "community";
+
+export type SetupIntegrationCredentialMode = "api-key" | "provider-login";
+
+export type SetupIntegrationProvider = {
+  category: "ai" | "calendar" | "holiday-data";
+  code: string;
+  credentialModes: SetupIntegrationCredentialMode[];
+  description: string;
+  displayName: string;
+};
+
+export type SetupIntegrationSelection = {
+  code: string;
+  credentials: Record<string, string>;
+  enabled: boolean;
+  mode: SetupIntegrationCredentialMode;
+};
+
+export type SetupAdminRecord = {
+  createdAt: string;
+  email: string;
+  id: string;
+  name: string;
+  role: "system-admin";
+};
+
+export type SetupStateSnapshot = {
+  admin: SetupAdminRecord | null;
+  completedAt: string | null;
+  configuredIntegrations: SetupIntegrationSelection[];
+  edition: AppEdition;
+  isComplete: boolean;
+  step: "admin" | "complete" | "integrations" | "review";
+};
+
+export type SetupBootstrapPayload = {
+  admin: {
+    email: string;
+    name: string;
+    password: string;
+  };
+  integrations: SetupIntegrationSelection[];
 };

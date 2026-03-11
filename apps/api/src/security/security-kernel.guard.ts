@@ -9,8 +9,11 @@ import { PUBLIC_ROUTE_KEY } from './public-route.decorator';
 import { ApiRequest } from './request-context.types';
 import { RequestContextStore } from './request-context.store';
 import { SECURITY_POLICY_KEY } from './security-policy.decorator';
+import { BOOTSTRAP_ROUTE_KEY } from '../setup/bootstrap-route.decorator';
+import { SetupService } from '../setup/setup.service';
 import {
   throwAuthenticationRequired,
+  throwBootstrapLocked,
   throwContextMismatch,
   throwInvalidCsrf,
   throwNotPermitted,
@@ -127,13 +130,24 @@ export class SecurityKernelGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly requestContextStore: RequestContextStore,
+    private readonly setupService: SetupService,
   ) {}
 
-  canActivate(context: ExecutionContext) {
+  async canActivate(context: ExecutionContext) {
+    const isBootstrapRoute = this.reflector.getAllAndOverride<boolean>(
+      BOOTSTRAP_ROUTE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
     const isPublicRoute = this.reflector.getAllAndOverride<boolean>(
       PUBLIC_ROUTE_KEY,
       [context.getHandler(), context.getClass()],
     );
+
+    if (!(await this.setupService.isSetupComplete()) && !isBootstrapRoute) {
+      throwBootstrapLocked(
+        'This deployment is still in first-run setup. Only bootstrap routes are available.',
+      );
+    }
 
     if (isPublicRoute) {
       return true;

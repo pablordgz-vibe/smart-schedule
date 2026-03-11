@@ -14,7 +14,7 @@ import type { Response } from 'express';
 import { Public } from './public-route.decorator';
 import { RateLimit } from './rate-limit.decorator';
 import { SecurityPolicy } from './security-policy.decorator';
-import { ApiRequest } from './request-context.types';
+import type { ApiRequest } from './request-context.types';
 import { SessionService } from './session.service';
 
 class SessionLoginDto {

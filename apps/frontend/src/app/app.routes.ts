@@ -1,6 +1,11 @@
 import { Routes } from '@angular/router';
 import { routeAreaGuard } from './route-area.guard';
 import { ShellComponent } from './shell/shell.component';
+import {
+  setupCompletionChildGuard,
+  setupCompletionGuard,
+} from './setup/setup-completion.guard';
+import { setupRouteGuard } from './setup/setup-route.guard';
 import { unsavedChangesGuard } from './unsaved-changes.guard';
 
 const loadPlaceholderPage = () =>
@@ -10,6 +15,8 @@ export const routes: Routes = [
   {
     path: '',
     component: ShellComponent,
+    canActivate: [setupCompletionGuard],
+    canActivateChild: [setupCompletionChildGuard],
     children: [
       { path: '', redirectTo: 'home', pathMatch: 'full' },
       {
@@ -314,6 +321,7 @@ export const routes: Routes = [
   },
   {
     path: 'setup',
+    canActivate: [setupRouteGuard],
     loadComponent: () => import('./setup/setup.component').then((m) => m.SetupComponent),
   },
   {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const envSchema = z.object({
+  APP_EDITION: z.enum(["commercial", "community"]).default("community"),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -26,6 +27,7 @@ export const envSchema = z.object({
     .default("development-session-secret-must-change-0001"),
   SESSION_COOKIE_NAME: z.string().default("smart_schedule_session"),
   SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(43200),
+  SETUP_STATE_FILE: z.string().default(".smart-schedule/setup-state.json"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
 });
