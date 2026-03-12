@@ -160,9 +160,11 @@ export class OrgOverviewComponent {
   readonly memberships = this.membershipsState.asReadonly();
   readonly orgInvitations = this.orgInvitationsState.asReadonly();
   readonly myInvitations = this.myInvitationsState.asReadonly();
-  readonly pageTitle = computed(() => (this.isEndUserRoute() ? 'Organizations' : 'Organization Overview'));
-  readonly pageTestId = computed(() =>
-    (this.route.snapshot.data['testId'] as string) ?? 'page-org-overview',
+  readonly pageTitle = computed(() =>
+    this.isEndUserRoute() ? 'Organizations' : 'Organization Overview',
+  );
+  readonly pageTestId = computed(
+    () => (this.route.snapshot.data['testId'] as string) ?? 'page-org-overview',
   );
   readonly sectionLabel = computed(() =>
     this.isEndUserRoute() ? 'End-User Workspace' : 'Organization Administration',

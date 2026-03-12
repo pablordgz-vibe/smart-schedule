@@ -104,7 +104,8 @@ export const routes: Routes = [
           import('./org-overview.component').then((module) => module.OrgOverviewComponent),
         data: {
           title: 'Organizations',
-          description: 'Create organizations, review invitations, and enter organization workspaces.',
+          description:
+            'Create organizations, review invitations, and enter organization workspaces.',
           sectionLabel: 'End-User Workspace',
           testId: 'page-organizations',
           area: 'end-user',

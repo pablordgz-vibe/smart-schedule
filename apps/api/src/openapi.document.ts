@@ -1616,7 +1616,8 @@ export function buildOpenApiDocument() {
           ],
           responses: {
             '200': {
-              description: 'Organization calendars visible in the active scope.',
+              description:
+                'Organization calendars visible in the active scope.',
               content: {
                 'application/json': {
                   schema: {
@@ -1691,43 +1692,46 @@ export function buildOpenApiDocument() {
           ],
           responses: {
             '201': {
-              description: 'Visibility grant recorded for an organization calendar.',
+              description:
+                'Visibility grant recorded for an organization calendar.',
             },
           },
         },
       },
-      '/org/organizations/{organizationId}/calendars/{calendarId}/visibility/{userId}': {
-        delete: {
-          operationId: 'revokeCalendarVisibility',
-          tags: ['organizations'],
-          security: authenticatedSecurity,
-          parameters: [
-            {
-              in: 'path',
-              name: 'organizationId',
-              required: true,
-              schema: { type: 'string' },
-            },
-            {
-              in: 'path',
-              name: 'calendarId',
-              required: true,
-              schema: { type: 'string' },
-            },
-            {
-              in: 'path',
-              name: 'userId',
-              required: true,
-              schema: { type: 'string' },
-            },
-          ],
-          responses: {
-            '200': {
-              description: 'Visibility grant revoked for an organization calendar.',
+      '/org/organizations/{organizationId}/calendars/{calendarId}/visibility/{userId}':
+        {
+          delete: {
+            operationId: 'revokeCalendarVisibility',
+            tags: ['organizations'],
+            security: authenticatedSecurity,
+            parameters: [
+              {
+                in: 'path',
+                name: 'organizationId',
+                required: true,
+                schema: { type: 'string' },
+              },
+              {
+                in: 'path',
+                name: 'calendarId',
+                required: true,
+                schema: { type: 'string' },
+              },
+              {
+                in: 'path',
+                name: 'userId',
+                required: true,
+                schema: { type: 'string' },
+              },
+            ],
+            responses: {
+              '200': {
+                description:
+                  'Visibility grant revoked for an organization calendar.',
+              },
             },
           },
         },
-      },
       '/cal/calendars': {
         get: {
           operationId: 'listCalendars',
@@ -1735,7 +1739,8 @@ export function buildOpenApiDocument() {
           security: authenticatedSecurity,
           responses: {
             '200': {
-              description: 'Calendars visible in the active personal or organization context.',
+              description:
+                'Calendars visible in the active personal or organization context.',
               content: {
                 'application/json': {
                   schema: {
