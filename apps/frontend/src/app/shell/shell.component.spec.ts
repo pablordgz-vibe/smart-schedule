@@ -8,9 +8,68 @@ import { AuthStateService } from '../auth-state.service';
 import { SetupStateService } from '../setup/setup-state.service';
 import type { SetupStateSnapshot } from '../setup/setup.types';
 import { ShellComponent } from './shell.component';
+import { AuthSessionSnapshot } from '../auth.types';
 
 function setSetupState(service: SetupStateService, snapshot: SetupStateSnapshot) {
   service.setSnapshot(snapshot);
+}
+
+function buildSession(input: {
+  active: 'personal' | 'organization' | 'system';
+  includeOrganization?: boolean;
+  includeSystem?: boolean;
+}): AuthSessionSnapshot {
+  return {
+    activeContext:
+      input.active === 'organization'
+        ? { id: 'org-1', tenantId: 'org-1', type: 'organization' }
+        : input.active === 'system'
+          ? { id: 'admin-1', tenantId: null, type: 'system' }
+          : { id: 'user-1', tenantId: null, type: 'personal' },
+    availableContexts: [
+      {
+        key: 'personal',
+        label: 'Personal',
+        membershipRole: null,
+        context: { id: 'user-1', tenantId: null, type: 'personal' },
+      },
+      ...(input.includeOrganization
+        ? [
+            {
+              key: 'org:org-1',
+              label: 'Organization: Atlas Ops',
+              membershipRole: 'admin' as const,
+              context: { id: 'org-1', tenantId: 'org-1', type: 'organization' as const },
+            },
+          ]
+        : []),
+      ...(input.includeSystem
+        ? [
+            {
+              key: 'system',
+              label: 'System Administration',
+              membershipRole: null,
+              context: { id: 'admin-1', tenantId: null, type: 'system' as const },
+            },
+          ]
+        : []),
+    ],
+    authenticated: true,
+    configuredSocialProviders: [],
+    csrfToken: 'csrf-token',
+    requireEmailVerification: false,
+    user: {
+      adminTier: input.includeSystem ? 0 : null,
+      authMethods: [{ kind: 'password', linkedAt: '2026-03-11T00:00:00.000Z' }],
+      email: input.includeSystem ? 'admin@example.com' : 'user@example.com',
+      emailVerified: true,
+      id: input.includeSystem ? 'admin-1' : 'user-1',
+      name: input.includeSystem ? 'Admin' : 'User',
+      recoverUntil: null,
+      roles: input.includeSystem ? ['system-admin', 'system-admin:tier:0'] : ['user'],
+      state: 'active',
+    },
+  };
 }
 
 describe('ShellComponent', () => {
@@ -30,7 +89,12 @@ describe('ShellComponent', () => {
       isComplete: true,
       step: 'complete',
     });
-    contextService.setActiveContext('organization');
+    contextService.applySessionSnapshot(
+      buildSession({
+        active: 'organization',
+        includeOrganization: true,
+      }),
+    );
 
     const fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
@@ -58,49 +122,18 @@ describe('ShellComponent', () => {
       isComplete: true,
       step: 'complete',
     });
-    authStateService.setSnapshot({
-      activeContext: {
-        id: 'admin-1',
-        tenantId: null,
-        type: 'personal',
-      },
-      authenticated: true,
-      configuredSocialProviders: [],
-      csrfToken: 'csrf-token',
-      requireEmailVerification: false,
-      user: {
-        adminTier: 0,
-        authMethods: [{ kind: 'password', linkedAt: '2026-03-11T00:00:00.000Z' }],
-        email: 'admin@example.com',
-        emailVerified: true,
-        id: 'admin-1',
-        name: 'Admin',
-        recoverUntil: null,
-        roles: ['system-admin', 'system-admin:tier:0'],
-        state: 'active',
-      },
-    });
+    authStateService.setSnapshot(
+      buildSession({
+        active: 'personal',
+        includeSystem: true,
+      }),
+    );
+    TestBed.inject(ContextService).applySessionSnapshot(authStateService.snapshot());
     vi.spyOn(authStateService, 'switchContext').mockResolvedValue({
-      activeContext: {
-        id: 'admin-1',
-        tenantId: null,
-        type: 'system',
-      },
-      authenticated: true,
-      configuredSocialProviders: [],
-      csrfToken: 'csrf-token',
-      requireEmailVerification: false,
-      user: {
-        adminTier: 0,
-        authMethods: [{ kind: 'password', linkedAt: '2026-03-11T00:00:00.000Z' }],
-        email: 'admin@example.com',
-        emailVerified: true,
-        id: 'admin-1',
-        name: 'Admin',
-        recoverUntil: null,
-        roles: ['system-admin', 'system-admin:tier:0'],
-        state: 'active',
-      },
+      ...buildSession({
+        active: 'system',
+        includeSystem: true,
+      }),
     });
     const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ShellComponent);
@@ -129,29 +162,8 @@ describe('ShellComponent', () => {
       isComplete: true,
       step: 'complete',
     });
-    authStateService.setSnapshot({
-      activeContext: {
-        id: 'user-1',
-        tenantId: null,
-        type: 'personal',
-      },
-      authenticated: true,
-      configuredSocialProviders: [],
-      csrfToken: 'csrf-token',
-      requireEmailVerification: false,
-      user: {
-        adminTier: null,
-        authMethods: [{ kind: 'password', linkedAt: '2026-03-11T00:00:00.000Z' }],
-        email: 'user@example.com',
-        emailVerified: true,
-        id: 'user-1',
-        name: 'User',
-        recoverUntil: null,
-        roles: ['user'],
-        state: 'active',
-      },
-    });
-    contextService.setActiveContext('personal');
+    authStateService.setSnapshot(buildSession({ active: 'personal' }));
+    contextService.applySessionSnapshot(authStateService.snapshot());
 
     const fixture = TestBed.createComponent(ShellComponent);
     fixture.detectChanges();
@@ -168,7 +180,12 @@ describe('ShellComponent', () => {
 
     expect(hostElement.querySelector('[data-testid="global-search-results"]')).toBeNull();
 
-    contextService.setActiveContext('system');
+    contextService.applySessionSnapshot(
+      buildSession({
+        active: 'system',
+        includeSystem: true,
+      }),
+    );
     fixture.componentInstance.updateSearch('users');
     fixture.detectChanges();
     await fixture.whenStable();

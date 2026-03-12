@@ -1172,7 +1172,6 @@ export class IdentityService {
 
       await client.query('delete from social_identities');
       await client.query('delete from identity_tokens');
-      await client.query('delete from users');
 
       for (const user of state.users) {
         await client.query(
@@ -1190,7 +1189,19 @@ export class IdentityService {
              state,
              updated_at
            )
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           on conflict (id) do update
+           set admin_tier = excluded.admin_tier,
+               created_at = excluded.created_at,
+               deleted_at = excluded.deleted_at,
+               email = excluded.email,
+               email_verified = excluded.email_verified,
+               name = excluded.name,
+               password_hash = excluded.password_hash,
+               recover_until = excluded.recover_until,
+               roles = excluded.roles,
+               state = excluded.state,
+               updated_at = excluded.updated_at`,
           [
             user.id,
             user.adminTier,
@@ -1225,6 +1236,51 @@ export class IdentityService {
           );
         }
       }
+
+      const retainedUserIds = state.users.map((user) => user.id);
+      await client.query(
+        `delete from users u
+         where not (u.id = any($1::text[]))
+           and not exists (
+             select 1
+             from organizations o
+             where o.created_by_user_id = u.id
+           )
+           and not exists (
+             select 1
+             from organization_memberships om
+             where om.user_id = u.id
+           )
+           and not exists (
+             select 1
+             from organization_invitations oi
+             where oi.invited_by_user_id = u.id
+                or oi.accepted_by_user_id = u.id
+           )
+           and not exists (
+             select 1
+             from organization_groups og
+             where og.created_by_user_id = u.id
+           )
+           and not exists (
+             select 1
+             from organization_group_members ogm
+             where ogm.user_id = u.id
+           )
+           and not exists (
+             select 1
+             from organization_calendars oc
+             where oc.owner_user_id = u.id
+                or oc.created_by_user_id = u.id
+           )
+           and not exists (
+             select 1
+             from organization_calendar_visibility_grants ocvg
+             where ocvg.user_id = u.id
+                or ocvg.granted_by_user_id = u.id
+           )`,
+        [retainedUserIds],
+      );
 
       for (const token of state.tokens) {
         await client.query(

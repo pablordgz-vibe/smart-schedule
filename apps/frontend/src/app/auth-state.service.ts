@@ -242,9 +242,12 @@ export class AuthStateService {
     this.sessionState.set(this.createAnonymousSession());
   }
 
-  async switchContext(contextType: 'personal' | 'system') {
+  async switchContext(input: {
+    contextType: 'organization' | 'personal' | 'system';
+    organizationId?: string;
+  }) {
     const result = await this.fetchJson<AuthMutationResult>('/api/auth/context', {
-      body: JSON.stringify({ contextType }),
+      body: JSON.stringify(input),
       headers: this.authHeaders(),
       method: 'POST',
     });
@@ -317,6 +320,7 @@ export class AuthStateService {
         tenantId: null,
         type: 'public',
       },
+      availableContexts: [],
       authenticated: false,
       configuredSocialProviders: this.providers(),
       csrfToken: null,

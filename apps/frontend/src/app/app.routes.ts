@@ -170,7 +170,8 @@ export const routes: Routes = [
       },
       {
         path: 'org/overview',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./org-overview.component').then((module) => module.OrgOverviewComponent),
         canActivate: [routeAreaGuard],
         data: {
           title: 'Organization Overview',
@@ -182,7 +183,8 @@ export const routes: Routes = [
       },
       {
         path: 'org/calendars',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./org-calendars.component').then((module) => module.OrgCalendarsComponent),
         canActivate: [routeAreaGuard],
         data: {
           title: 'Organization Calendars',
@@ -194,7 +196,8 @@ export const routes: Routes = [
       },
       {
         path: 'org/groups',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./org-groups.component').then((module) => module.OrgGroupsComponent),
         canActivate: [routeAreaGuard],
         data: {
           title: 'Groups',

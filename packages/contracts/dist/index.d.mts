@@ -164,8 +164,15 @@ type IdentityUserSummary = {
     roles: string[];
     state: AccountState;
 };
+type SessionBootstrapContext = {
+    key: string;
+    label: string;
+    membershipRole: "admin" | "member" | null;
+    context: SessionContext;
+};
 type AuthSessionSnapshot = {
     activeContext: SessionContext;
+    availableContexts: SessionBootstrapContext[];
     authenticated: boolean;
     configuredSocialProviders: SocialProviderDescriptor[];
     csrfToken: string | null;
@@ -228,4 +235,4 @@ type ServiceDiscoveryContract = {
     objectStorageConsoleUrl: string;
 };
 
-export { type AccountState, type ActiveContext, type ActiveContextType, type ActorType, type AppEdition, type AuditEnvelope, type AuthConfigurationSnapshot, type AuthMethodSummary, type AuthMutationResult, type AuthSessionSnapshot, type AuthTokenDelivery, type AuthorizationPolicy, type IdentityUserSummary, type RateLimitPolicy, type RequestActor, type RequestContext, type RequestFieldBinding, type RequestFieldBindingSource, type RuntimeEnvironmentContract, type RuntimeHealthResponse, type SecurityDenialKind, type SecurityErrorPayload, type ServiceDiscoveryContract, type SessionActor, type SessionContext, type SessionRecord, type SetupAdminRecord, type SetupBootstrapPayload, type SetupIntegrationCredentialMode, type SetupIntegrationProvider, type SetupIntegrationSelection, type SetupStateSnapshot, type SocialProviderCode, type SocialProviderDescriptor, requestContextHeaderNames, runtimeHealthRoutes, runtimeServices };
+export { type AccountState, type ActiveContext, type ActiveContextType, type ActorType, type AppEdition, type AuditEnvelope, type AuthConfigurationSnapshot, type AuthMethodSummary, type AuthMutationResult, type AuthSessionSnapshot, type AuthTokenDelivery, type AuthorizationPolicy, type IdentityUserSummary, type RateLimitPolicy, type RequestActor, type RequestContext, type RequestFieldBinding, type RequestFieldBindingSource, type RuntimeEnvironmentContract, type RuntimeHealthResponse, type SecurityDenialKind, type SecurityErrorPayload, type ServiceDiscoveryContract, type SessionActor, type SessionBootstrapContext, type SessionContext, type SessionRecord, type SetupAdminRecord, type SetupBootstrapPayload, type SetupIntegrationCredentialMode, type SetupIntegrationProvider, type SetupIntegrationSelection, type SetupStateSnapshot, type SocialProviderCode, type SocialProviderDescriptor, requestContextHeaderNames, runtimeHealthRoutes, runtimeServices };
