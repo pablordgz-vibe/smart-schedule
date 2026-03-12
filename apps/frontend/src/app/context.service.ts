@@ -1,10 +1,21 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { appContexts, AppContext, AppContextId, AppArea, routeAreaFromUrl } from './route-catalog';
+import { AuthSessionSnapshot } from './auth.types';
+import { AppArea, AppContext, routeAreaFromUrl } from './route-catalog';
+
+const personalFallbackContext: AppContext = {
+  id: 'personal',
+  contextType: 'personal',
+  label: 'Personal',
+  description: 'Personal schedules and tasks',
+  landingRoute: '/home',
+  allowedAreas: ['end-user'],
+  organizationId: null,
+};
 
 @Injectable({ providedIn: 'root' })
 export class ContextService {
-  private readonly availableContexts = signal(appContexts);
-  private readonly activeContextId = signal<AppContextId>('personal');
+  private readonly availableContexts = signal<AppContext[]>([personalFallbackContext]);
+  private readonly activeContextId = signal<string>(personalFallbackContext.id);
 
   readonly contexts = this.availableContexts.asReadonly();
   readonly activeContext = computed(
@@ -13,22 +24,52 @@ export class ContextService {
       this.availableContexts()[0],
   );
 
-  setActiveContext(contextId: AppContextId): void {
-    this.activeContextId.set(contextId);
+  applySessionSnapshot(snapshot: AuthSessionSnapshot | null): void {
+    if (!snapshot?.authenticated || !snapshot.user) {
+      this.availableContexts.set([personalFallbackContext]);
+      this.activeContextId.set(personalFallbackContext.id);
+      return;
+    }
+
+    const resolvedContexts: AppContext[] = snapshot.availableContexts
+      .filter((entry) => entry.context.type !== 'public')
+      .map((entry) => {
+        const contextType = entry.context.type;
+        const isOrgAdmin = contextType === 'organization' && entry.membershipRole === 'admin';
+        const allowedAreas: AppArea[] =
+          contextType === 'system'
+            ? ['system-admin']
+            : isOrgAdmin
+              ? ['end-user', 'org-admin']
+              : ['end-user'];
+
+        const landingRoute =
+          contextType === 'system' ? '/admin/setup' : isOrgAdmin ? '/org/overview' : '/home';
+
+        return {
+          id: entry.key,
+          contextType,
+          label: entry.label,
+          description:
+            contextType === 'organization'
+              ? 'Organization workspace and administration'
+              : contextType === 'system'
+                ? 'Deployment and platform governance'
+                : 'Personal schedules and tasks',
+          landingRoute,
+          allowedAreas,
+          organizationId: contextType === 'organization' ? entry.context.id : null,
+        } satisfies AppContext;
+      });
+
+    const withFallback = resolvedContexts.length > 0 ? resolvedContexts : [personalFallbackContext];
+    const activeKey = this.findContextKeyForSession(snapshot, withFallback);
+    this.availableContexts.set(withFallback);
+    this.activeContextId.set(activeKey);
   }
 
-  syncToSessionContext(contextType: 'organization' | 'personal' | 'public' | 'system'): void {
-    if (contextType === 'system') {
-      this.activeContextId.set('system');
-      return;
-    }
-
-    if (contextType === 'organization') {
-      this.activeContextId.set('organization');
-      return;
-    }
-
-    this.activeContextId.set('personal');
+  setActiveContext(contextId: string): void {
+    this.activeContextId.set(contextId);
   }
 
   isAreaAllowed(area: AppArea): boolean {
@@ -43,7 +84,7 @@ export class ContextService {
     return this.activeContext().allowedAreas;
   }
 
-  resolveRouteForContext(contextId: AppContextId, currentUrl: string): string {
+  resolveRouteForContext(contextId: string, currentUrl: string): string {
     const targetContext = this.availableContexts().find((context) => context.id === contextId);
     if (!targetContext) {
       return currentUrl;
@@ -54,7 +95,7 @@ export class ContextService {
       return currentUrl;
     }
 
-    if (contextId === 'organization' && targetArea === 'end-user') {
+    if (targetContext.contextType === 'organization' && targetArea === 'end-user') {
       return currentUrl;
     }
 
@@ -63,5 +104,24 @@ export class ContextService {
 
   getContextLabel(context: AppContext = this.activeContext()): string {
     return context.label;
+  }
+
+  private findContextKeyForSession(snapshot: AuthSessionSnapshot, contexts: AppContext[]) {
+    const active = snapshot.activeContext;
+
+    if (active.type === 'system') {
+      return contexts.find((context) => context.contextType === 'system')?.id ?? contexts[0].id;
+    }
+
+    if (active.type === 'organization' && active.id) {
+      return (
+        contexts.find(
+          (context) =>
+            context.contextType === 'organization' && context.organizationId === active.id,
+        )?.id ?? contexts[0].id
+      );
+    }
+
+    return contexts.find((context) => context.contextType === 'personal')?.id ?? contexts[0].id;
   }
 }

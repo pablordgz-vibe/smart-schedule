@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthStateService } from './auth-state.service';
 import type { SocialProviderCode } from './auth.types';
+import { PersonalTimePoliciesComponent } from './personal-time-policies.component';
 
 @Component({
   selector: 'app-account-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PersonalTimePoliciesComponent],
   template: `
     <section class="ui-page" data-testid="page-settings">
       <div class="ui-card settings-grid" *ngIf="user() as currentUser">
@@ -101,6 +102,8 @@ import type { SocialProviderCode } from './auth.types';
             </button>
           </div>
         </section>
+
+        <app-personal-time-policies />
       </div>
     </section>
   `,

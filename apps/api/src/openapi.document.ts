@@ -215,6 +215,34 @@ export function buildOpenApiDocument() {
               required: ['id', 'tenantId', 'type'],
               type: 'object',
             },
+            availableContexts: {
+              items: {
+                additionalProperties: false,
+                properties: {
+                  context: {
+                    additionalProperties: false,
+                    properties: {
+                      id: { nullable: true, type: 'string' },
+                      tenantId: { nullable: true, type: 'string' },
+                      type: {
+                        enum: ['organization', 'personal', 'public', 'system'],
+                        type: 'string',
+                      },
+                    },
+                    required: ['id', 'tenantId', 'type'],
+                    type: 'object',
+                  },
+                  key: { type: 'string' },
+                  label: { type: 'string' },
+                  membershipRole: {
+                    enum: ['admin', 'member', null],
+                  },
+                },
+                required: ['context', 'key', 'label', 'membershipRole'],
+                type: 'object',
+              },
+              type: 'array',
+            },
             authenticated: { type: 'boolean' },
             configuredSocialProviders: {
               items: {
@@ -245,6 +273,7 @@ export function buildOpenApiDocument() {
           },
           required: [
             'activeContext',
+            'availableContexts',
             'authenticated',
             'configuredSocialProviders',
             'csrfToken',
@@ -450,7 +479,7 @@ export function buildOpenApiDocument() {
           responses: {
             '201': {
               description:
-                'Session context switched between personal and system administration.',
+                'Session context switched between personal, organization, and system administration.',
             },
             '401': {
               description:

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -39,6 +40,7 @@ import type { ApiRequest } from '../security/request-context.types';
 import { SecurityPolicy } from '../security/security-policy.decorator';
 import { SessionService } from '../security/session.service';
 import { IdentityService } from './identity.service';
+import { OrgService } from '../org/org.service';
 
 class SignUpDto {
   @IsEmail()
@@ -118,8 +120,15 @@ class UpdateAuthConfigDto {
 }
 
 class SwitchContextDto {
-  @IsIn(['personal', 'system'])
-  contextType!: Extract<ActiveContextType, 'personal' | 'system'>;
+  @IsIn(['organization', 'personal', 'system'])
+  contextType!: Extract<
+    ActiveContextType,
+    'organization' | 'personal' | 'system'
+  >;
+
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
 }
 
 @Controller()
@@ -127,6 +136,7 @@ export class IdentityController {
   constructor(
     private readonly identityService: IdentityService,
     private readonly sessionService: SessionService,
+    private readonly orgService: OrgService,
   ) {}
 
   @Public()
@@ -165,13 +175,18 @@ export class IdentityController {
       await this.sessionService.revokeSession(request.sessionCookieValue);
     }
 
+    const context =
+      body.contextType === 'organization'
+        ? await this.resolveOrganizationContext(actorId, body.organizationId)
+        : {
+            id: actorId,
+            tenantId: null,
+            type: body.contextType,
+          };
+
     const createdSession = await this.sessionService.createSession({
       actorId,
-      context: {
-        id: actorId,
-        tenantId: null,
-        type: body.contextType,
-      },
+      context,
     });
 
     setSessionCookie(response, createdSession.cookieValue);
@@ -196,6 +211,7 @@ export class IdentityController {
           tenantId: null,
           type: 'public',
         },
+        availableContexts: [],
         authenticated: false,
         configuredSocialProviders:
           await this.identityService.getConfiguredSocialProviders(),
@@ -484,11 +500,35 @@ export class IdentityController {
         tenantId: null,
         type: 'public',
       },
+      availableContexts:
+        user && request.session
+          ? await this.orgService.listSessionContextsForActor({
+              actorId: user.id,
+              actorRoles: user.roles,
+            })
+          : [],
       authenticated: Boolean(user && request.session),
       configuredSocialProviders: config.supportedSocialProviders,
       csrfToken: request.session?.csrfToken ?? null,
       requireEmailVerification: config.requireEmailVerification,
       user,
     };
+  }
+
+  private async resolveOrganizationContext(
+    actorId: string,
+    organizationId?: string,
+  ) {
+    if (!organizationId) {
+      throw new BadRequestException(
+        'organizationId is required for organization context.',
+      );
+    }
+
+    const resolved = await this.orgService.resolveOrganizationContextForActor({
+      actorId,
+      organizationId,
+    });
+    return resolved.context;
   }
 }

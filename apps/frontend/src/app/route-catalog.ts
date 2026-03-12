@@ -1,12 +1,14 @@
 export type AppArea = 'end-user' | 'org-admin' | 'system-admin';
-export type AppContextId = 'personal' | 'organization' | 'system';
+export type AppContextType = 'organization' | 'personal' | 'public' | 'system';
 
 export type AppContext = {
-  id: AppContextId;
+  id: string;
+  contextType: AppContextType;
   label: string;
   description: string;
   landingRoute: string;
   allowedAreas: AppArea[];
+  organizationId: string | null;
 };
 
 export type NavItem = {
@@ -25,30 +27,6 @@ export type SearchRouteEntry = {
   label: string;
   path: string;
 };
-
-export const appContexts: AppContext[] = [
-  {
-    id: 'personal',
-    label: 'Personal',
-    description: 'Personal schedules and tasks',
-    landingRoute: '/home',
-    allowedAreas: ['end-user'],
-  },
-  {
-    id: 'organization',
-    label: 'Organization: Atlas Ops',
-    description: 'Organization workspace and admin views',
-    landingRoute: '/org/overview',
-    allowedAreas: ['end-user', 'org-admin'],
-  },
-  {
-    id: 'system',
-    label: 'System Administration',
-    description: 'Deployment and platform governance',
-    landingRoute: '/admin/setup',
-    allowedAreas: ['system-admin'],
-  },
-];
 
 export const endUserNavItems: NavItem[] = [
   {

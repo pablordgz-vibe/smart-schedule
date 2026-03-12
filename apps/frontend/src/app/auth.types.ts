@@ -28,12 +28,24 @@ export type IdentityUserSummary = {
   state: 'active' | 'deactivated' | 'deleted';
 };
 
+export type SessionBootstrapContext = {
+  key: string;
+  label: string;
+  membershipRole: 'admin' | 'member' | null;
+  context: {
+    id: string | null;
+    tenantId: string | null;
+    type: 'organization' | 'personal' | 'public' | 'system';
+  };
+};
+
 export type AuthSessionSnapshot = {
   activeContext: {
     id: string | null;
     tenantId: string | null;
     type: 'organization' | 'personal' | 'public' | 'system';
   };
+  availableContexts: SessionBootstrapContext[];
   authenticated: boolean;
   configuredSocialProviders: SocialProviderDescriptor[];
   csrfToken: string | null;

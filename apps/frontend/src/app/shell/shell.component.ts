@@ -480,29 +480,41 @@ export class ShellComponent {
   });
 
   async switchContext(nextContextId: string): Promise<void> {
-    const contextId = nextContextId as 'personal' | 'organization' | 'system';
-    const previousContextId = this.contextService.activeContext().id;
-    const nextRoute = this.contextService.resolveRouteForContext(contextId, this.router.url);
+    const selectedContext = this.contexts().find((context) => context.id === nextContextId);
+    if (!selectedContext) {
+      return;
+    }
 
     if (
-      this.authState.isAuthenticated() &&
-      (contextId === 'system' || previousContextId === 'system')
+      this.dirtyState.isDirty() &&
+      !window.confirm('You have unsaved changes. Leave this screen?')
     ) {
+      return;
+    }
+    if (this.dirtyState.isDirty()) {
+      this.dirtyState.approveNextNavigation();
+    }
+
+    const previousContextId = this.contextService.activeContext().id;
+    const nextRoute = this.contextService.resolveRouteForContext(
+      selectedContext.id,
+      this.router.url,
+    );
+
+    if (this.authState.isAuthenticated()) {
       try {
-        const session = await this.authState.switchContext(
-          contextId === 'system' ? 'system' : 'personal',
-        );
-        this.contextService.syncToSessionContext(session.activeContext.type);
+        const session = await this.authState.switchContext({
+          contextType:
+            selectedContext.contextType === 'public' ? 'personal' : selectedContext.contextType,
+          organizationId: selectedContext.organizationId ?? undefined,
+        });
+        this.contextService.applySessionSnapshot(session);
       } catch {
         this.contextService.setActiveContext(previousContextId);
         return;
       }
     } else {
-      this.contextService.setActiveContext(contextId);
-    }
-
-    if (contextId === 'organization') {
-      this.contextService.setActiveContext('organization');
+      this.contextService.setActiveContext(selectedContext.id);
     }
 
     this.searchQuery.set('');

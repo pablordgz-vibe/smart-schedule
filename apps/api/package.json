@@ -28,6 +28,7 @@
     "@nestjs/terminus": "^11.1.1",
     "@smart-schedule/config": "workspace:*",
     "@smart-schedule/contracts": "workspace:*",
+    "@smart-schedule/domain-time": "workspace:*",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "cookie": "^1.1.1",

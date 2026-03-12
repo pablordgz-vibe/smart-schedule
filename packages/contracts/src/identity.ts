@@ -31,8 +31,16 @@ export type IdentityUserSummary = {
   state: AccountState;
 };
 
+export type SessionBootstrapContext = {
+  key: string;
+  label: string;
+  membershipRole: "admin" | "member" | null;
+  context: SessionContext;
+};
+
 export type AuthSessionSnapshot = {
   activeContext: SessionContext;
+  availableContexts: SessionBootstrapContext[];
   authenticated: boolean;
   configuredSocialProviders: SocialProviderDescriptor[];
   csrfToken: string | null;

@@ -24,7 +24,7 @@ export const appConfig: ApplicationConfig = {
       const contextService = inject(ContextService);
       await setupState.load();
       await authState.loadIfReady(setupState.isComplete());
-      contextService.syncToSessionContext(authState.snapshot()?.activeContext.type ?? 'public');
+      contextService.applySessionSnapshot(authState.snapshot());
       if (authState.isAuthenticated() && router.url.startsWith('/auth/')) {
         await router.navigateByUrl(contextService.fallbackRoute());
       }

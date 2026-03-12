@@ -13,6 +13,9 @@ const identity_module_1 = require("./identity/identity.module");
 const persistence_module_1 = require("./persistence/persistence.module");
 const security_module_1 = require("./security/security.module");
 const setup_module_1 = require("./setup/setup.module");
+const org_module_1 = require("./org/org.module");
+const cal_module_1 = require("./cal/cal.module");
+const time_module_1 = require("./time/time.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -21,6 +24,9 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             persistence_module_1.PersistenceModule,
             identity_module_1.IdentityModule,
+            org_module_1.OrgModule,
+            cal_module_1.CalModule,
+            time_module_1.TimeModule,
             setup_module_1.SetupModule,
             security_module_1.SecurityModule,
             health_module_1.HealthModule,
