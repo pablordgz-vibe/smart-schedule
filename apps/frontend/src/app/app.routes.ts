@@ -78,7 +78,7 @@ export const routes: Routes = [
       },
       {
         path: 'calendar',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () => import('./calendar').then((module) => module.CalendarComponent),
         data: {
           title: 'Calendar',
           description: 'Schedule-first aggregate calendar with context-safe edits.',
@@ -89,7 +89,7 @@ export const routes: Routes = [
       },
       {
         path: 'tasks',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () => import('./tasks').then((module) => module.TasksComponent),
         data: {
           title: 'Tasks',
           description: 'Task overview and detail shell for the current context.',
@@ -223,11 +223,12 @@ export const routes: Routes = [
       },
       {
         path: 'org/time-policies',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./org-time-policies.component').then((module) => module.OrgTimePoliciesComponent),
         canActivate: [routeAreaGuard],
         data: {
           title: 'Time Policies',
-          description: 'Policy preview and precedence workspace scaffold.',
+          description: 'Policy preview and precedence workspace.',
           sectionLabel: 'Organization Administration',
           testId: 'page-org-time-policies',
           area: 'org-admin',
