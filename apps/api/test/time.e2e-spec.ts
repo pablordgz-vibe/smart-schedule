@@ -248,6 +248,165 @@ describe('time policies and advisory (e2e)', () => {
     expect(preview.categories.working_hours.rules.length).toBe(1);
   });
 
+  it('rejects invalid personal-context policy scope and delegation inputs', async () => {
+    await completeSetup();
+    await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
+    const owner = await signIn('owner@example.com', 'owner-password-123');
+
+    await request(getTestServer())
+      .get('/time/policies?scopeLevel=organization')
+      .set('cookie', owner.cookie)
+      .expect(400);
+
+    await request(getTestServer())
+      .post('/time/policies')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        policyType: 'working_hours',
+        scopeLevel: 'group',
+        targetGroupId: 'group-not-allowed',
+        title: 'Invalid personal scope',
+        daysOfWeek: [1, 2, 3, 4, 5],
+        startTime: '09:00',
+        endTime: '17:00',
+      })
+      .expect(400);
+
+    await request(getTestServer())
+      .post('/time/holidays/import')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        providerCode: 'gov-feed',
+        locationCode: 'ES-MD',
+        year: 2026,
+        scopeLevel: 'organization',
+      })
+      .expect(400);
+
+    await request(getTestServer())
+      .get('/time/policies/preview?targetUserId=someone-else')
+      .set('cookie', owner.cookie)
+      .expect(400);
+
+    await request(getTestServer())
+      .post('/time/advisory/evaluate')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        itemType: 'event',
+        title: 'Delegated candidate',
+        startAt: '2026-03-12T09:00:00.000Z',
+        endAt: '2026-03-12T10:00:00.000Z',
+        targetUserId: 'someone-else',
+      })
+      .expect(400);
+  });
+
+  it('evaluates org advisory activity for the target user based on visible org calendars, not creator ownership', async () => {
+    await completeSetup();
+    await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
+    await signUpAndVerify(
+      'member@example.com',
+      'Member',
+      'member-password-123',
+    );
+
+    const owner = await signIn('owner@example.com', 'owner-password-123');
+    const member = await signIn('member@example.com', 'member-password-123');
+
+    const organizationId = await createOrganizationAs(owner, 'Advisory Org');
+    await switchContext(owner, {
+      contextType: 'organization',
+      organizationId,
+    });
+
+    const ownerOrgHeaders = {
+      cookie: owner.cookie,
+      'x-csrf-token': owner.csrf,
+      'x-active-context-id': organizationId,
+      'x-active-context-type': 'organization',
+      'x-tenant-id': organizationId,
+    };
+
+    const inviteResponse = await request(getTestServer())
+      .post(`/org/organizations/${organizationId}/invitations`)
+      .set(ownerOrgHeaders)
+      .send({ email: 'member@example.com', role: 'member' })
+      .expect(201);
+
+    await request(getTestServer())
+      .post('/org/invitations/accept')
+      .set('cookie', member.cookie)
+      .set('x-csrf-token', member.csrf)
+      .send({
+        inviteCode: (
+          inviteResponse.body as { invitation: { previewInviteCode: string } }
+        ).invitation.previewInviteCode,
+      })
+      .expect(201);
+
+    const memberId = (
+      (
+        await request(getTestServer())
+          .get(`/org/organizations/${organizationId}/memberships`)
+          .set(ownerOrgHeaders)
+          .expect(200)
+      ).body as { memberships: Array<{ email: string; userId: string }> }
+    ).memberships.find((entry) => entry.email === 'member@example.com')!.userId;
+
+    const calendarId = (
+      (
+        await request(getTestServer())
+          .post(`/org/organizations/${organizationId}/calendars`)
+          .set(ownerOrgHeaders)
+          .send({ name: 'Member Duties', ownerUserId: memberId })
+          .expect(201)
+      ).body as { calendar: { id: string } }
+    ).calendar.id;
+
+    await request(getTestServer())
+      .post('/cal/events')
+      .set(ownerOrgHeaders)
+      .send({
+        calendarIds: [calendarId],
+        title: 'Assigned org shift',
+        startAt: '2026-03-12T09:00:00.000Z',
+        endAt: '2026-03-12T10:00:00.000Z',
+      })
+      .expect(201);
+
+    const advisoryResponse = await request(getTestServer())
+      .post('/time/advisory/evaluate')
+      .set(ownerOrgHeaders)
+      .send({
+        itemType: 'event',
+        title: 'Targeted org candidate',
+        startAt: '2026-03-12T09:30:00.000Z',
+        endAt: '2026-03-12T10:30:00.000Z',
+        targetUserId: memberId,
+      })
+      .expect(201);
+
+    const advisory = (
+      advisoryResponse.body as {
+        advisory: {
+          concerns: Array<{
+            category: string;
+            details: { overlapCount?: number };
+          }>;
+        };
+      }
+    ).advisory;
+
+    const overlapConcern = advisory.concerns.find(
+      (entry) => entry.category === 'overlap',
+    );
+
+    expect(overlapConcern?.details.overlapCount).toBe(1);
+  });
+
   it('keeps advisory conflicts non-blocking and returns alternatives', async () => {
     await completeSetup();
     await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
@@ -396,6 +555,105 @@ describe('time policies and advisory (e2e)', () => {
 
     expect(commuteConcern?.details.source).toBe('provider');
     expect(weatherConcern?.details.source).toBe('provider');
+  });
+
+  it('makes provider commute advisory depend on departure time', async () => {
+    await completeSetup();
+    await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
+    const owner = await signIn('owner@example.com', 'owner-password-123');
+
+    const calendarsResponse = await request(getTestServer())
+      .get('/cal/calendars')
+      .set('cookie', owner.cookie)
+      .expect(200);
+
+    const calendarId = (
+      calendarsResponse.body as { calendars: Array<{ id: string }> }
+    ).calendars[0].id;
+
+    await request(getTestServer())
+      .post('/cal/events')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        calendarIds: [calendarId],
+        title: 'Morning departure',
+        startAt: '2026-03-12T08:00:00.000Z',
+        endAt: '2026-03-12T09:00:00.000Z',
+        location: 'Office Hub',
+      })
+      .expect(201);
+
+    await request(getTestServer())
+      .post('/cal/events')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        calendarIds: [calendarId],
+        title: 'Late departure',
+        startAt: '2026-03-12T22:00:00.000Z',
+        endAt: '2026-03-12T23:00:00.000Z',
+        location: 'Office Hub',
+      })
+      .expect(201);
+
+    const rushHourResponse = await request(getTestServer())
+      .post('/time/advisory/evaluate')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        itemType: 'event',
+        title: 'Rush hour warehouse visit',
+        startAt: '2026-03-12T09:15:00.000Z',
+        endAt: '2026-03-12T09:45:00.000Z',
+        location: 'Warehouse Yard',
+      })
+      .expect(201);
+
+    const lateNightResponse = await request(getTestServer())
+      .post('/time/advisory/evaluate')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        itemType: 'event',
+        title: 'Late warehouse visit',
+        startAt: '2026-03-12T23:15:00.000Z',
+        endAt: '2026-03-12T23:45:00.000Z',
+        location: 'Warehouse Yard',
+      })
+      .expect(201);
+
+    const rushHourAdvisory = (
+      rushHourResponse.body as {
+        advisory: {
+          concerns: Array<{
+            category: string;
+            details: { commuteMinutesBefore?: number; source?: string };
+          }>;
+        };
+      }
+    ).advisory;
+    const lateNightAdvisory = (
+      lateNightResponse.body as {
+        advisory: {
+          concerns: Array<{
+            category: string;
+            details: { commuteMinutesBefore?: number; source?: string };
+          }>;
+        };
+      }
+    ).advisory;
+
+    const rushHourCommute = rushHourAdvisory.concerns.find(
+      (entry) => entry.category === 'commute',
+    );
+    const lateNightCommute = lateNightAdvisory.concerns.find(
+      (entry) => entry.category === 'commute',
+    );
+
+    expect(rushHourCommute).toBeUndefined();
+    expect(lateNightCommute?.details.source).toBe('provider');
+    expect(lateNightCommute?.details.commuteMinutesBefore).toBeLessThan(20);
   });
 
   it('evaluates weekly maximum-hour warnings using activities earlier in the same week', async () => {

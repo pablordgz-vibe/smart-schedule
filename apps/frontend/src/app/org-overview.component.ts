@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthStateService } from './auth-state.service';
 import { ContextService } from './context.service';
 import { OrgApiService } from './org-api.service';
@@ -10,12 +11,12 @@ import { OrgApiService } from './org-api.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-page" data-testid="page-org-overview">
+    <section class="ui-page" [attr.data-testid]="pageTestId()">
       <div class="ui-card stack">
-        <p class="ui-kicker">Organization Administration</p>
-        <h1>Organization Overview</h1>
+        <p class="ui-kicker">{{ sectionLabel() }}</p>
+        <h1>{{ pageTitle() }}</h1>
         <p class="ui-copy">
-          Manage organizations, memberships, and invitations for the active account.
+          {{ pageDescription() }}
         </p>
 
         <div class="ui-toolbar">
@@ -35,8 +36,20 @@ import { OrgApiService } from './org-api.service';
             <h2>My organizations</h2>
             <ul class="simple-list">
               <li *ngFor="let org of organizations()" data-testid="org-row">
-                <strong>{{ org.name }}</strong>
-                <span class="ui-chip">{{ org.membershipRole }}</span>
+                <div class="stack-tight">
+                  <strong>{{ org.name }}</strong>
+                  <span class="ui-chip">{{ org.membershipRole }}</span>
+                </div>
+                <button
+                  class="ui-button ui-button-secondary"
+                  type="button"
+                  (click)="enterOrganization(org.id)"
+                >
+                  {{ activeOrganizationId() === org.id ? 'Open admin view' : 'Enter workspace' }}
+                </button>
+              </li>
+              <li *ngIf="organizations().length === 0" class="ui-copy">
+                No organizations yet. Create one here to start an organization workspace.
               </li>
             </ul>
           </article>
@@ -62,7 +75,7 @@ import { OrgApiService } from './org-api.service';
           </article>
         </div>
 
-        <article class="ui-panel" *ngIf="activeOrganizationId()">
+        <article class="ui-panel" *ngIf="canAdministerActiveOrganization()">
           <h2>Active organization memberships</h2>
           <ul class="simple-list">
             <li *ngFor="let member of memberships()" data-testid="org-member-row">
@@ -105,6 +118,8 @@ import { OrgApiService } from './org-api.service';
   `,
 })
 export class OrgOverviewComponent {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly authState = inject(AuthStateService);
   private readonly contextService = inject(ContextService);
   private readonly orgApi = inject(OrgApiService);
@@ -138,10 +153,25 @@ export class OrgOverviewComponent {
   readonly errorMessage = signal<string | null>(null);
 
   readonly activeOrganizationId = computed(() => this.orgApi.activeOrganizationId());
+  readonly canAdministerActiveOrganization = computed(
+    () => Boolean(this.activeOrganizationId()) && this.contextService.isAreaAllowed('org-admin'),
+  );
   readonly organizations = this.organizationsState.asReadonly();
   readonly memberships = this.membershipsState.asReadonly();
   readonly orgInvitations = this.orgInvitationsState.asReadonly();
   readonly myInvitations = this.myInvitationsState.asReadonly();
+  readonly pageTitle = computed(() => (this.isEndUserRoute() ? 'Organizations' : 'Organization Overview'));
+  readonly pageTestId = computed(() =>
+    (this.route.snapshot.data['testId'] as string) ?? 'page-org-overview',
+  );
+  readonly sectionLabel = computed(() =>
+    this.isEndUserRoute() ? 'End-User Workspace' : 'Organization Administration',
+  );
+  readonly pageDescription = computed(() =>
+    this.isEndUserRoute()
+      ? 'Create organizations, review invitations, and enter organization workspaces from your account.'
+      : 'Manage memberships, invitations, and organization access for the active organization.',
+  );
 
   constructor() {
     effect(() => {
@@ -160,8 +190,13 @@ export class OrgOverviewComponent {
 
     try {
       this.errorMessage.set(null);
-      await this.orgApi.createOrganization(trimmedName);
+      const created = await this.orgApi.createOrganization(trimmedName);
       this.organizationName = '';
+      if (!this.activeOrganizationId()) {
+        await this.enterOrganization(created.organization.id);
+        return;
+      }
+
       await this.refreshSession();
       await this.reload();
     } catch (error) {
@@ -196,9 +231,26 @@ export class OrgOverviewComponent {
       await this.orgApi.acceptInvitation(inviteCode);
       await this.refreshSession();
       await this.reload();
+      this.errorMessage.set(null);
     } catch (error) {
       this.errorMessage.set(
         error instanceof Error ? error.message : 'Failed to accept invitation.',
+      );
+    }
+  }
+
+  async enterOrganization(organizationId: string) {
+    try {
+      this.errorMessage.set(null);
+      const session = await this.authState.switchContext({
+        contextType: 'organization',
+        organizationId,
+      });
+      this.contextService.applySessionSnapshot(session);
+      await this.router.navigateByUrl('/org/overview');
+    } catch (error) {
+      this.errorMessage.set(
+        error instanceof Error ? error.message : 'Failed to enter organization workspace.',
       );
     }
   }
@@ -213,7 +265,7 @@ export class OrgOverviewComponent {
       this.organizationsState.set(organizations);
       this.myInvitationsState.set(myInvitations);
 
-      if (this.activeOrganizationId()) {
+      if (this.canAdministerActiveOrganization()) {
         const [memberships, invitations] = await Promise.all([
           this.orgApi.listMemberships(this.activeOrganizationId()!),
           this.orgApi.listOrganizationInvitations(this.activeOrganizationId()!),
@@ -234,5 +286,9 @@ export class OrgOverviewComponent {
   private async refreshSession() {
     const session = await this.authState.loadSession();
     this.contextService.applySessionSnapshot(session);
+  }
+
+  private isEndUserRoute() {
+    return (this.route.snapshot.data['area'] as string | undefined) === 'end-user';
   }
 }

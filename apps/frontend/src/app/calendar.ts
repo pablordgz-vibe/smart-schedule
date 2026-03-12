@@ -53,6 +53,7 @@ type EventDetail = {
   attachments: AttachmentSummary[];
   calendars: Array<{ calendarId: string; calendarName: string }>;
   contacts: ImportedContact[];
+  durationMinutes: number | null;
   endAt: string | null;
   id: string;
   linkedTaskId: string | null;
@@ -90,11 +91,13 @@ type EventDraft = {
   allDayStartDate: string;
   calendarIds: string[];
   contactIds: string[];
+  durationMinutes: number | null;
   endAt: string;
   linkedTaskId: string;
   location: string;
   notes: string;
   startAt: string;
+  timedEntryMode: 'duration' | 'end';
   title: string;
   workRelated: boolean;
 };
@@ -180,6 +183,35 @@ function createAttachmentDraft(): AttachmentDraft {
               <li><span class="dot due"></span> Task due item</li>
             </ul>
           </div>
+
+          <div class="ui-panel" *ngIf="isPersonalContext()" data-testid="personal-calendar-panel">
+            <h2>Personal calendars</h2>
+            <p class="ui-copy">
+              Create additional calendars here and add them to your aggregate views immediately.
+            </p>
+            <div class="ui-toolbar">
+              <label class="ui-field grow">
+                <span>New personal calendar</span>
+                <input
+                  class="ui-input"
+                  [(ngModel)]="personalCalendarName"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </label>
+              <button
+                class="ui-button ui-button-secondary"
+                type="button"
+                (click)="createPersonalCalendar()"
+              >
+                Create calendar
+              </button>
+            </div>
+            <ul class="entry-list">
+              <li *ngFor="let calendar of personalCalendars()" class="entry-item">
+                <strong>{{ calendar.name }}</strong>
+              </li>
+            </ul>
+          </div>
         </div>
 
         <p class="ui-banner ui-banner-warning" *ngIf="error()">{{ error() }}</p>
@@ -225,12 +257,35 @@ function createAttachmentDraft(): AttachmentDraft {
                 type="datetime-local"
                 [(ngModel)]="eventDraft.startAt"
                 name="event-start"
+                (ngModelChange)="refreshLinkedTaskAllocation()"
               />
+              <select
+                class="ui-select"
+                [(ngModel)]="eventDraft.timedEntryMode"
+                name="event-timed-entry-mode"
+                (ngModelChange)="setEventTimingMode(eventDraft, $event)"
+              >
+                <option value="end">Use end time</option>
+                <option value="duration">Use duration</option>
+              </select>
               <input
+                *ngIf="eventDraft.timedEntryMode === 'end'"
                 class="ui-input"
                 type="datetime-local"
                 [(ngModel)]="eventDraft.endAt"
                 name="event-end"
+                (ngModelChange)="refreshLinkedTaskAllocation()"
+              />
+              <input
+                *ngIf="eventDraft.timedEntryMode === 'duration'"
+                class="ui-input"
+                type="number"
+                min="1"
+                max="1440"
+                [(ngModel)]="eventDraft.durationMinutes"
+                name="event-duration"
+                placeholder="Duration (minutes)"
+                (ngModelChange)="refreshLinkedTaskAllocation()"
               />
             </div>
             <div class="inline-grid" *ngIf="eventDraft.allDay">
@@ -495,12 +550,35 @@ function createAttachmentDraft(): AttachmentDraft {
                   type="datetime-local"
                   [(ngModel)]="eventEditDraft.startAt"
                   name="edit-event-start"
+                  (ngModelChange)="refreshEventEditAllocation()"
                 />
+                <select
+                  class="ui-select"
+                  [(ngModel)]="eventEditDraft.timedEntryMode"
+                  name="edit-event-timed-entry-mode"
+                  (ngModelChange)="setEventTimingMode(eventEditDraft, $event, true)"
+                >
+                  <option value="end">Use end time</option>
+                  <option value="duration">Use duration</option>
+                </select>
                 <input
+                  *ngIf="eventEditDraft.timedEntryMode === 'end'"
                   class="ui-input"
                   type="datetime-local"
                   [(ngModel)]="eventEditDraft.endAt"
                   name="edit-event-end"
+                  (ngModelChange)="refreshEventEditAllocation()"
+                />
+                <input
+                  *ngIf="eventEditDraft.timedEntryMode === 'duration'"
+                  class="ui-input"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  [(ngModel)]="eventEditDraft.durationMinutes"
+                  name="edit-event-duration"
+                  placeholder="Duration (minutes)"
+                  (ngModelChange)="refreshEventEditAllocation()"
                 />
               </div>
               <div class="inline-grid" *ngIf="eventEditDraft.allDay">
@@ -561,6 +639,9 @@ function createAttachmentDraft(): AttachmentDraft {
                   </option>
                 </select>
               </label>
+              <p class="ui-banner ui-banner-warning" *ngIf="eventEditAllocationWarning()">
+                {{ eventEditAllocationWarning() }}
+              </p>
               <div class="ui-toolbar">
                 <button class="ui-button ui-button-primary" type="submit">
                   Save event updates
@@ -747,8 +828,14 @@ export class CalendarComponent {
   readonly isOrganizationContext = computed(
     () => this.contextService.activeContext().contextType === 'organization',
   );
+  readonly isPersonalContext = computed(
+    () => this.contextService.activeContext().contextType === 'personal',
+  );
 
   readonly calendars = signal<CalendarSummary[]>([]);
+  readonly personalCalendars = computed(() =>
+    this.calendars().filter((calendar) => calendar.type === 'personal'),
+  );
   readonly contacts = signal<ImportedContact[]>([]);
   readonly selectedCalendarIds = signal<string[]>([]);
   readonly entries = signal<CalendarEntry[]>([]);
@@ -756,6 +843,7 @@ export class CalendarComponent {
   readonly message = signal<string | null>(null);
   readonly taskSummaries = signal<TaskSummary[]>([]);
   readonly linkedTaskAllocationWarning = signal<string | null>(null);
+  readonly eventEditAllocationWarning = signal<string | null>(null);
   readonly advisory = signal<AdvisoryResult | null>(null);
   readonly pendingCreate = signal<PendingCreate | null>(null);
   readonly showAlternatives = signal(false);
@@ -766,6 +854,7 @@ export class CalendarComponent {
 
   from = this.isoLocalValue(new Date(Date.now() - 24 * 60 * 60 * 1000));
   to = this.isoLocalValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+  personalCalendarName = '';
 
   eventDraft = this.createDefaultEventDraft();
   deadlineTaskDraft = this.createDefaultDeadlineTaskDraft();
@@ -789,11 +878,13 @@ export class CalendarComponent {
       allDayStartDate: '',
       calendarIds: [...defaultCalendarIds],
       contactIds: [],
+      durationMinutes: 60,
       endAt: this.isoLocalValue(new Date(Date.now() + 2 * 60 * 60 * 1000)),
       linkedTaskId: '',
       location: '',
       notes: '',
       startAt: this.isoLocalValue(new Date(Date.now() + 60 * 60 * 1000)),
+      timedEntryMode: 'end',
       title: '',
       workRelated: false,
     };
@@ -872,6 +963,41 @@ export class CalendarComponent {
     this.selectedCalendarIds.set(Array.from(new Set(next)));
   }
 
+  async createPersonalCalendar() {
+    if (!this.isPersonalContext()) {
+      return;
+    }
+
+    const trimmedName = this.personalCalendarName.trim();
+    if (!trimmedName) {
+      this.error.set('Personal calendar name is required.');
+      return;
+    }
+
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      const calendar = await this.calApi.createPersonalCalendar(trimmedName);
+      this.personalCalendarName = '';
+      this.calendars.update((current) =>
+        [...current, calendar].sort((left, right) => left.name.localeCompare(right.name)),
+      );
+      this.selectedCalendarIds.update((current) => Array.from(new Set([...current, calendar.id])));
+      this.eventDraft.calendarIds = Array.from(
+        new Set([...this.eventDraft.calendarIds, calendar.id]),
+      );
+      this.deadlineTaskDraft.calendarIds = Array.from(
+        new Set([...this.deadlineTaskDraft.calendarIds, calendar.id]),
+      );
+      this.message.set(`Personal calendar "${calendar.name}" created.`);
+      await this.loadView();
+    } catch (error) {
+      this.error.set(
+        error instanceof Error ? error.message : 'Failed to create personal calendar.',
+      );
+    }
+  }
+
   async selectEntry(entry: CalendarEntry) {
     this.selectedEntryId.set(entry.id);
     this.message.set(null);
@@ -887,14 +1013,17 @@ export class CalendarComponent {
           allDayStartDate: event.allDayStartDate ?? '',
           calendarIds: event.calendars.map((calendar) => calendar.calendarId),
           contactIds: event.contacts.map((contact) => contact.id),
+          durationMinutes: event.durationMinutes ?? null,
           endAt: event.endAt ? this.isoLocalValue(new Date(event.endAt)) : '',
           linkedTaskId: event.linkedTaskId ?? '',
           location: event.location ?? '',
           notes: event.notes ?? '',
           startAt: event.startAt ? this.isoLocalValue(new Date(event.startAt)) : '',
+          timedEntryMode: 'end',
           title: event.title,
           workRelated: event.workRelated,
         };
+        await this.refreshEventEditAllocation();
         this.eventAttachmentDraft = createAttachmentDraft();
       } catch (error) {
         this.error.set(error instanceof Error ? error.message : 'Failed to load event details.');
@@ -912,41 +1041,14 @@ export class CalendarComponent {
   }
 
   async refreshLinkedTaskAllocation() {
-    this.linkedTaskAllocationWarning.set(null);
-    if (!this.eventDraft.linkedTaskId) {
-      return;
-    }
+    await this.refreshAllocationWarningForDraft(this.eventDraft, this.linkedTaskAllocationWarning);
+  }
 
-    try {
-      const task = (await this.calApi.getTask(this.eventDraft.linkedTaskId)) as {
-        allocation: {
-          allocatedMinutes: number;
-          estimateMinutes: number | null;
-          overAllocated: boolean;
-        };
-      };
-
-      if (task.allocation.estimateMinutes != null) {
-        const eventMinutes = this.eventDraft.allDay
-          ? 0
-          : Math.max(
-              0,
-              (new Date(this.eventDraft.endAt).getTime() -
-                new Date(this.eventDraft.startAt).getTime()) /
-                60_000,
-            );
-        const projectedMinutes = task.allocation.allocatedMinutes + eventMinutes;
-        const estimate = task.allocation.estimateMinutes;
-        const warning = `${task.allocation.allocatedMinutes}m allocated of ${estimate}m estimate.`;
-        this.linkedTaskAllocationWarning.set(
-          projectedMinutes > estimate
-            ? `${warning} Saving this event projects ${projectedMinutes}m total and over-allocates the task.`
-            : `${warning} Saving this event projects ${projectedMinutes}m total.`,
-        );
-      }
-    } catch {
-      this.linkedTaskAllocationWarning.set('Could not load linked-task allocation details.');
-    }
+  async refreshEventEditAllocation() {
+    await this.refreshAllocationWarningForDraft(
+      this.eventEditDraft,
+      this.eventEditAllocationWarning,
+    );
   }
 
   async createEvent() {
@@ -975,15 +1077,21 @@ export class CalendarComponent {
         payload['allDayStartDate'] = this.eventDraft.allDayStartDate;
         payload['allDayEndDate'] = this.eventDraft.allDayEndDate;
       } else {
-        payload['startAt'] = new Date(this.eventDraft.startAt).toISOString();
-        payload['endAt'] = new Date(this.eventDraft.endAt).toISOString();
+        const timedValues = this.resolveTimedDraftValues(this.eventDraft);
+        payload['startAt'] = timedValues.startAt;
+        if (timedValues.endAt) {
+          payload['endAt'] = timedValues.endAt;
+        }
+        if (timedValues.durationMinutes != null) {
+          payload['durationMinutes'] = timedValues.durationMinutes;
+        }
       }
 
       const advisory = await this.timeApi.evaluateAdvisory({
         allDay: this.eventDraft.allDay,
         endAt: this.eventDraft.allDay
           ? new Date(`${this.eventDraft.allDayEndDate}T23:59:00.000Z`).toISOString()
-          : (payload['endAt'] as string),
+          : this.resolveDraftEndAt(this.eventDraft),
         itemType: 'event',
         location: this.eventDraft.location.trim() || undefined,
         startAt: this.eventDraft.allDay
@@ -1132,9 +1240,16 @@ export class CalendarComponent {
           : undefined,
         calendarIds: this.eventEditDraft.calendarIds,
         contactIds: this.eventEditDraft.contactIds,
+        durationMinutes: this.eventEditDraft.allDay
+          ? undefined
+          : this.eventEditDraft.timedEntryMode === 'duration'
+            ? this.requireDurationMinutes(this.eventEditDraft)
+            : undefined,
         endAt: this.eventEditDraft.allDay
           ? undefined
-          : new Date(this.eventEditDraft.endAt).toISOString(),
+          : this.eventEditDraft.timedEntryMode === 'end'
+            ? this.resolveDraftEndAt(this.eventEditDraft)
+            : undefined,
         linkedTaskId: this.eventEditDraft.linkedTaskId || null,
         location: this.eventEditDraft.location.trim() || null,
         notes: this.eventEditDraft.notes.trim() || null,
@@ -1156,6 +1271,114 @@ export class CalendarComponent {
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to update event.');
     }
+  }
+
+  setEventTimingMode(draft: EventDraft, mode: 'duration' | 'end', refreshEditWarning = false) {
+    draft.timedEntryMode = mode;
+    if (mode === 'duration' && (draft.durationMinutes == null || draft.durationMinutes <= 0)) {
+      draft.durationMinutes = this.calculateDraftEventMinutes(draft) ?? 60;
+    }
+
+    if (refreshEditWarning) {
+      void this.refreshEventEditAllocation();
+      return;
+    }
+
+    void this.refreshLinkedTaskAllocation();
+  }
+
+  private async refreshAllocationWarningForDraft(
+    draft: EventDraft,
+    target: typeof this.linkedTaskAllocationWarning,
+  ) {
+    target.set(null);
+    if (!draft.linkedTaskId) {
+      return;
+    }
+
+    try {
+      const task = (await this.calApi.getTask(draft.linkedTaskId)) as {
+        allocation: {
+          allocatedMinutes: number;
+          estimateMinutes: number | null;
+          overAllocated: boolean;
+        };
+      };
+
+      if (task.allocation.estimateMinutes != null) {
+        const eventMinutes = draft.allDay ? 0 : (this.calculateDraftEventMinutes(draft) ?? 0);
+        const projectedMinutes = task.allocation.allocatedMinutes + eventMinutes;
+        const estimate = task.allocation.estimateMinutes;
+        const warning = `${task.allocation.allocatedMinutes}m allocated of ${estimate}m estimate.`;
+        target.set(
+          projectedMinutes > estimate
+            ? `${warning} Saving this event projects ${projectedMinutes}m total and over-allocates the task.`
+            : `${warning} Saving this event projects ${projectedMinutes}m total.`,
+        );
+      }
+    } catch {
+      target.set('Could not load linked-task allocation details.');
+    }
+  }
+
+  private calculateDraftEventMinutes(draft: EventDraft) {
+    if (draft.allDay) {
+      return 0;
+    }
+
+    if (draft.timedEntryMode === 'duration') {
+      return draft.durationMinutes != null && draft.durationMinutes > 0
+        ? draft.durationMinutes
+        : null;
+    }
+
+    if (!draft.startAt || !draft.endAt) {
+      return null;
+    }
+
+    const diff = (new Date(draft.endAt).getTime() - new Date(draft.startAt).getTime()) / 60_000;
+    return Number.isFinite(diff) && diff > 0 ? Math.round(diff) : null;
+  }
+
+  private requireDurationMinutes(draft: EventDraft) {
+    const durationMinutes = draft.durationMinutes ?? 0;
+    if (durationMinutes <= 0) {
+      throw new Error('Event duration must be greater than zero.');
+    }
+
+    return durationMinutes;
+  }
+
+  private resolveDraftEndAt(draft: EventDraft) {
+    if (draft.timedEntryMode === 'duration') {
+      const startAt = new Date(draft.startAt);
+      return new Date(
+        startAt.getTime() + this.requireDurationMinutes(draft) * 60_000,
+      ).toISOString();
+    }
+
+    if (!draft.endAt) {
+      throw new Error('Event end time is required.');
+    }
+
+    return new Date(draft.endAt).toISOString();
+  }
+
+  private resolveTimedDraftValues(draft: EventDraft) {
+    const startAt = new Date(draft.startAt).toISOString();
+    if (draft.timedEntryMode === 'duration') {
+      return {
+        durationMinutes: this.requireDurationMinutes(draft),
+        endAt: undefined,
+        startAt,
+      };
+    }
+
+    return {
+      durationMinutes: undefined,
+      endAt: this.resolveDraftEndAt(draft),
+      startAt,
+    };
   }
 
   async deleteEvent() {

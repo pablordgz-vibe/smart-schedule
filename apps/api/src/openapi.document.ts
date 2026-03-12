@@ -3,6 +3,13 @@ const setupIntegrationModeSchema = {
   type: 'string',
 } as const;
 
+const authenticatedSecurity = [
+  {
+    sessionCookie: [],
+    csrfHeader: [],
+  },
+] as const;
+
 const identityUserSummarySchema = {
   additionalProperties: false,
   properties: {
@@ -49,6 +56,512 @@ const identityUserSummarySchema = {
   type: 'object',
 } as const;
 
+const organizationSummarySchema = {
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string' },
+    membershipRole: {
+      enum: ['admin', 'member'],
+      type: 'string',
+    },
+    name: { type: 'string' },
+  },
+  required: ['id', 'membershipRole', 'name'],
+  type: 'object',
+} as const;
+
+const membershipSummarySchema = {
+  additionalProperties: false,
+  properties: {
+    email: { format: 'email', type: 'string' },
+    name: { type: 'string' },
+    role: {
+      enum: ['admin', 'member'],
+      type: 'string',
+    },
+    userId: { type: 'string' },
+  },
+  required: ['email', 'name', 'role', 'userId'],
+  type: 'object',
+} as const;
+
+const invitationSummarySchema = {
+  additionalProperties: false,
+  properties: {
+    createdAt: {
+      format: 'date-time',
+      nullable: true,
+      type: 'string',
+    },
+    expiresAt: {
+      format: 'date-time',
+      nullable: true,
+      type: 'string',
+    },
+    id: { type: 'string' },
+    invitedEmail: { format: 'email', type: 'string' },
+    organizationId: {
+      nullable: true,
+      type: 'string',
+    },
+    organizationName: {
+      nullable: true,
+      type: 'string',
+    },
+    previewInviteCode: {
+      nullable: true,
+      type: 'string',
+    },
+    role: {
+      enum: ['admin', 'member'],
+      type: 'string',
+    },
+  },
+  required: ['id', 'invitedEmail', 'role'],
+  type: 'object',
+} as const;
+
+const groupSummarySchema = {
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string' },
+    members: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          email: { format: 'email', type: 'string' },
+          name: { type: 'string' },
+          userId: { type: 'string' },
+        },
+        required: ['email', 'name', 'userId'],
+        type: 'object',
+      },
+      type: 'array',
+    },
+    name: { type: 'string' },
+  },
+  required: ['id', 'members', 'name'],
+  type: 'object',
+} as const;
+
+const calendarSummarySchema = {
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    ownerUserId: {
+      nullable: true,
+      type: 'string',
+    },
+    type: {
+      enum: ['organization', 'personal'],
+      nullable: true,
+      type: 'string',
+    },
+  },
+  required: ['id', 'name', 'ownerUserId'],
+  type: 'object',
+} as const;
+
+const importedContactSchema = {
+  additionalProperties: false,
+  properties: {
+    displayName: { type: 'string' },
+    email: {
+      format: 'email',
+      nullable: true,
+      type: 'string',
+    },
+    id: { type: 'string' },
+    phone: {
+      nullable: true,
+      type: 'string',
+    },
+    providerCode: { type: 'string' },
+    providerContactId: { type: 'string' },
+  },
+  required: [
+    'displayName',
+    'email',
+    'id',
+    'phone',
+    'providerCode',
+    'providerContactId',
+  ],
+  type: 'object',
+} as const;
+
+const attachmentSummarySchema = {
+  additionalProperties: false,
+  properties: {
+    fileName: { type: 'string' },
+    fileSizeBytes: { type: 'integer' },
+    id: { type: 'string' },
+    mimeType: { type: 'string' },
+    state: {
+      enum: ['created', 'quarantined', 'ready', 'rejected'],
+      type: 'string',
+    },
+    storageKey: { type: 'string' },
+  },
+  required: [
+    'fileName',
+    'fileSizeBytes',
+    'id',
+    'mimeType',
+    'state',
+    'storageKey',
+  ],
+  type: 'object',
+} as const;
+
+const taskSummarySchema = {
+  additionalProperties: false,
+  properties: {
+    allocation: {
+      additionalProperties: false,
+      properties: {
+        allocatedMinutes: { type: 'integer' },
+        estimateMinutes: {
+          nullable: true,
+          type: 'integer',
+        },
+        overAllocated: { type: 'boolean' },
+        remainingMinutes: {
+          nullable: true,
+          type: 'integer',
+        },
+      },
+      required: [
+        'allocatedMinutes',
+        'estimateMinutes',
+        'overAllocated',
+        'remainingMinutes',
+      ],
+      type: 'object',
+    },
+    dueAt: {
+      format: 'date-time',
+      nullable: true,
+      type: 'string',
+    },
+    estimatedDurationMinutes: {
+      nullable: true,
+      type: 'integer',
+    },
+    id: { type: 'string' },
+    priority: {
+      enum: ['low', 'medium', 'high', 'urgent'],
+      type: 'string',
+    },
+    status: {
+      enum: ['todo', 'in_progress', 'blocked', 'completed'],
+      type: 'string',
+    },
+    subtaskSummary: {
+      additionalProperties: false,
+      properties: {
+        completed: { type: 'integer' },
+        total: { type: 'integer' },
+      },
+      required: ['completed', 'total'],
+      type: 'object',
+    },
+    taskDependencyCount: { type: 'integer' },
+    title: { type: 'string' },
+    workRelated: { type: 'boolean' },
+  },
+  required: [
+    'allocation',
+    'dueAt',
+    'estimatedDurationMinutes',
+    'id',
+    'priority',
+    'status',
+    'subtaskSummary',
+    'taskDependencyCount',
+    'title',
+    'workRelated',
+  ],
+  type: 'object',
+} as const;
+
+const eventDetailSchema = {
+  additionalProperties: false,
+  properties: {
+    allDay: { type: 'boolean' },
+    allDayEndDate: {
+      nullable: true,
+      type: 'string',
+    },
+    allDayStartDate: {
+      nullable: true,
+      type: 'string',
+    },
+    allocation: taskSummarySchema.properties.allocation,
+    attachments: {
+      items: { $ref: '#/components/schemas/AttachmentSummary' },
+      type: 'array',
+    },
+    calendars: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          calendarId: { type: 'string' },
+          calendarName: { type: 'string' },
+        },
+        required: ['calendarId', 'calendarName'],
+        type: 'object',
+      },
+      type: 'array',
+    },
+    contacts: {
+      items: { $ref: '#/components/schemas/ImportedContact' },
+      type: 'array',
+    },
+    createdAt: {
+      format: 'date-time',
+      type: 'string',
+    },
+    durationMinutes: {
+      nullable: true,
+      type: 'integer',
+    },
+    endAt: {
+      format: 'date-time',
+      nullable: true,
+      type: 'string',
+    },
+    id: { type: 'string' },
+    lifecycleState: {
+      enum: ['active', 'deleted'],
+      type: 'string',
+    },
+    linkedTaskId: {
+      nullable: true,
+      type: 'string',
+    },
+    location: {
+      nullable: true,
+      type: 'string',
+    },
+    notes: {
+      nullable: true,
+      type: 'string',
+    },
+    provenance: {
+      anyOf: [
+        {
+          additionalProperties: false,
+          properties: {
+            copiedAt: {
+              format: 'date-time',
+              type: 'string',
+            },
+            sourceContextType: {
+              enum: ['organization', 'personal'],
+              type: 'string',
+            },
+            sourceItemId: { type: 'string' },
+            sourceOrganizationId: {
+              nullable: true,
+              type: 'string',
+            },
+          },
+          required: [
+            'copiedAt',
+            'sourceContextType',
+            'sourceItemId',
+            'sourceOrganizationId',
+          ],
+          type: 'object',
+        },
+        { type: 'null' },
+      ],
+    },
+    startAt: {
+      format: 'date-time',
+      nullable: true,
+      type: 'string',
+    },
+    timezone: { type: 'string' },
+    title: { type: 'string' },
+    updatedAt: {
+      format: 'date-time',
+      type: 'string',
+    },
+    workRelated: { type: 'boolean' },
+  },
+  required: [
+    'allDay',
+    'allDayEndDate',
+    'allDayStartDate',
+    'allocation',
+    'attachments',
+    'calendars',
+    'contacts',
+    'createdAt',
+    'durationMinutes',
+    'endAt',
+    'id',
+    'lifecycleState',
+    'linkedTaskId',
+    'location',
+    'notes',
+    'provenance',
+    'startAt',
+    'timezone',
+    'title',
+    'updatedAt',
+    'workRelated',
+  ],
+  type: 'object',
+} as const;
+
+const timePolicySummarySchema = {
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string' },
+    isActive: { type: 'boolean' },
+    policyType: {
+      enum: [
+        'working_hours',
+        'availability',
+        'unavailability',
+        'holiday',
+        'blackout',
+        'rest',
+        'max_hours',
+      ],
+      type: 'string',
+    },
+    rule: {
+      additionalProperties: true,
+      type: 'object',
+    },
+    scopeLevel: {
+      enum: ['organization', 'group', 'user'],
+      type: 'string',
+    },
+    sourceType: {
+      enum: ['custom', 'official'],
+      type: 'string',
+    },
+    targetGroupId: {
+      nullable: true,
+      type: 'string',
+    },
+    targetUserId: {
+      nullable: true,
+      type: 'string',
+    },
+    title: { type: 'string' },
+    updatedAt: {
+      format: 'date-time',
+      type: 'string',
+    },
+  },
+  required: [
+    'id',
+    'isActive',
+    'policyType',
+    'rule',
+    'scopeLevel',
+    'sourceType',
+    'targetGroupId',
+    'targetUserId',
+    'title',
+    'updatedAt',
+  ],
+  type: 'object',
+} as const;
+
+const advisoryResultSchema = {
+  additionalProperties: false,
+  properties: {
+    actions: {
+      items: {
+        enum: ['proceed', 'alternative_slots', 'ask_ai', 'cancel'],
+        type: 'string',
+      },
+      type: 'array',
+    },
+    alternativeSlots: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          endAt: {
+            format: 'date-time',
+            type: 'string',
+          },
+          reason: { type: 'string' },
+          startAt: {
+            format: 'date-time',
+            type: 'string',
+          },
+        },
+        required: ['endAt', 'reason', 'startAt'],
+        type: 'object',
+      },
+      type: 'array',
+    },
+    canProceed: { const: true, type: 'boolean' },
+    concerns: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          category: { type: 'string' },
+          code: { type: 'string' },
+          details: {
+            additionalProperties: true,
+            type: 'object',
+          },
+          level: { const: 'warning', type: 'string' },
+          message: { type: 'string' },
+        },
+        required: ['category', 'code', 'details', 'level', 'message'],
+        type: 'object',
+      },
+      type: 'array',
+    },
+    effectivePolicies: {
+      additionalProperties: false,
+      properties: {
+        categories: {
+          additionalProperties: {
+            additionalProperties: false,
+            properties: {
+              resolvedFromScope: {
+                enum: ['organization', 'group', 'user', null],
+              },
+              rules: {
+                items: {
+                  additionalProperties: true,
+                  type: 'object',
+                },
+                type: 'array',
+              },
+            },
+            required: ['resolvedFromScope', 'rules'],
+            type: 'object',
+          },
+          type: 'object',
+        },
+      },
+      required: ['categories'],
+      type: 'object',
+    },
+  },
+  required: [
+    'actions',
+    'alternativeSlots',
+    'canProceed',
+    'concerns',
+    'effectivePolicies',
+  ],
+  type: 'object',
+} as const;
+
 export function buildOpenApiDocument() {
   return {
     openapi: '3.1.0',
@@ -56,7 +569,7 @@ export function buildOpenApiDocument() {
       title: 'Smart Schedule API',
       version: 'v1',
       description:
-        'Sprint 1 platform contract for bootstrap, identity, session, and system-admin lifecycle APIs.',
+        'Sprint 2 contract for bootstrap, identity, organization context, calendars, tasks, events, and time-policy advisory APIs.',
     },
     servers: [{ url: '/' }, { url: '/api' }],
     tags: [
@@ -64,6 +577,9 @@ export function buildOpenApiDocument() {
       { name: 'setup' },
       { name: 'identity' },
       { name: 'admin-identity' },
+      { name: 'organizations' },
+      { name: 'calendar' },
+      { name: 'time' },
     ],
     components: {
       securitySchemes: {
@@ -311,6 +827,17 @@ export function buildOpenApiDocument() {
           ],
           type: 'object',
         },
+        OrganizationSummary: organizationSummarySchema,
+        MembershipSummary: membershipSummarySchema,
+        InvitationSummary: invitationSummarySchema,
+        GroupSummary: groupSummarySchema,
+        CalendarSummary: calendarSummarySchema,
+        ImportedContact: importedContactSchema,
+        AttachmentSummary: attachmentSummarySchema,
+        TaskSummary: taskSummarySchema,
+        EventDetail: eventDetailSchema,
+        TimePolicySummary: timePolicySummarySchema,
+        AdvisoryResult: advisoryResultSchema,
       },
     },
     paths: {
@@ -733,6 +1260,1018 @@ export function buildOpenApiDocument() {
           responses: {
             '201': {
               description: 'Target account reactivated.',
+            },
+          },
+        },
+      },
+      '/org/organizations': {
+        post: {
+          operationId: 'createOrganization',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description: 'Organization created from personal context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      organization: {
+                        $ref: '#/components/schemas/OrganizationSummary',
+                      },
+                    },
+                    required: ['organization'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/org/organizations/mine': {
+        get: {
+          operationId: 'listOwnOrganizations',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Organizations available to the current actor.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      organizations: {
+                        items: {
+                          $ref: '#/components/schemas/OrganizationSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['organizations'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/memberships': {
+        get: {
+          operationId: 'listMemberships',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description:
+                'Organization membership roster visible to authorized administrators.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      memberships: {
+                        items: {
+                          $ref: '#/components/schemas/MembershipSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['memberships'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/invitations': {
+        get: {
+          operationId: 'listOrganizationInvitations',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Pending invitations for an organization.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      invitations: {
+                        items: {
+                          $ref: '#/components/schemas/InvitationSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['invitations'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createOrganizationInvitation',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'Invitation issued for an organization member.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      invitation: {
+                        $ref: '#/components/schemas/InvitationSummary',
+                      },
+                    },
+                    required: ['invitation'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/org/invitations/mine': {
+        get: {
+          operationId: 'listMyInvitations',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description:
+                'Pending invitations for the currently authenticated actor.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      invitations: {
+                        items: {
+                          $ref: '#/components/schemas/InvitationSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['invitations'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/org/invitations/accept': {
+        post: {
+          operationId: 'acceptInvitation',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description: 'Invitation accepted by the current actor.',
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/groups': {
+        get: {
+          operationId: 'listGroups',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Organization groups and their current members.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      groups: {
+                        items: {
+                          $ref: '#/components/schemas/GroupSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['groups'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createGroup',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'Organization group created.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      group: {
+                        additionalProperties: false,
+                        properties: {
+                          id: { type: 'string' },
+                          name: { type: 'string' },
+                        },
+                        required: ['id', 'name'],
+                        type: 'object',
+                      },
+                    },
+                    required: ['group'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/groups/{groupId}/members': {
+        post: {
+          operationId: 'addGroupMember',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              in: 'path',
+              name: 'groupId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'User added to an organization group.',
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/groups/{groupId}/members/{userId}': {
+        delete: {
+          operationId: 'removeGroupMember',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              in: 'path',
+              name: 'groupId',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              in: 'path',
+              name: 'userId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'User removed from an organization group.',
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/calendars': {
+        get: {
+          operationId: 'listOrganizationCalendars',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Organization calendars visible in the active scope.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      calendars: {
+                        items: {
+                          $ref: '#/components/schemas/CalendarSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['calendars'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createOrganizationCalendar',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'Organization calendar created.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      calendar: {
+                        $ref: '#/components/schemas/CalendarSummary',
+                      },
+                    },
+                    required: ['calendar'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/calendars/{calendarId}/visibility': {
+        post: {
+          operationId: 'grantCalendarVisibility',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              in: 'path',
+              name: 'calendarId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'Visibility grant recorded for an organization calendar.',
+            },
+          },
+        },
+      },
+      '/org/organizations/{organizationId}/calendars/{calendarId}/visibility/{userId}': {
+        delete: {
+          operationId: 'revokeCalendarVisibility',
+          tags: ['organizations'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'organizationId',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              in: 'path',
+              name: 'calendarId',
+              required: true,
+              schema: { type: 'string' },
+            },
+            {
+              in: 'path',
+              name: 'userId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Visibility grant revoked for an organization calendar.',
+            },
+          },
+        },
+      },
+      '/cal/calendars': {
+        get: {
+          operationId: 'listCalendars',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Calendars visible in the active personal or organization context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      calendars: {
+                        items: {
+                          $ref: '#/components/schemas/CalendarSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['calendars'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createPersonalCalendar',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description: 'Personal calendar created.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      calendar: {
+                        $ref: '#/components/schemas/CalendarSummary',
+                      },
+                    },
+                    required: ['calendar'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/cal/contacts/imported': {
+        get: {
+          operationId: 'listImportedContacts',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Imported contacts available in the active context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      contacts: {
+                        items: {
+                          $ref: '#/components/schemas/ImportedContact',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['contacts'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createImportedContact',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description: 'Imported contact recorded in the active context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      contact: {
+                        $ref: '#/components/schemas/ImportedContact',
+                      },
+                    },
+                    required: ['contact'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/cal/calendar-view': {
+        get: {
+          operationId: 'listCalendarView',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description:
+                'Aggregate calendar view for the selected same-context calendars.',
+            },
+          },
+        },
+      },
+      '/cal/tasks': {
+        get: {
+          operationId: 'listTasks',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Task overview for the active context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      tasks: {
+                        items: {
+                          $ref: '#/components/schemas/TaskSummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['tasks'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createTask',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description: 'Task created in the active context.',
+            },
+          },
+        },
+      },
+      '/cal/tasks/{taskId}': {
+        get: {
+          operationId: 'getTaskById',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'taskId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Detailed task record for the active context.',
+            },
+          },
+        },
+        patch: {
+          operationId: 'updateTask',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'taskId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Task updated in the active context.',
+            },
+          },
+        },
+        delete: {
+          operationId: 'deleteTask',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'taskId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Task deleted in the active context.',
+            },
+          },
+        },
+      },
+      '/cal/events': {
+        post: {
+          operationId: 'createEvent',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description: 'Event created in the active context.',
+            },
+          },
+        },
+      },
+      '/cal/events/{eventId}': {
+        get: {
+          operationId: 'getEventById',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'eventId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Detailed event record for the active context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      event: { $ref: '#/components/schemas/EventDetail' },
+                    },
+                    required: ['event'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        patch: {
+          operationId: 'updateEvent',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'eventId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Event updated in the active context.',
+            },
+          },
+        },
+        delete: {
+          operationId: 'deleteEvent',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'eventId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Event deleted in the active context.',
+            },
+          },
+        },
+      },
+      '/cal/events/{eventId}/attachments': {
+        post: {
+          operationId: 'addEventAttachment',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'eventId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'Attachment metadata recorded for an event.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      attachment: {
+                        $ref: '#/components/schemas/AttachmentSummary',
+                      },
+                    },
+                    required: ['attachment'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/cal/tasks/{taskId}/attachments': {
+        post: {
+          operationId: 'addTaskAttachment',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'taskId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'Attachment metadata recorded for a task.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      attachment: {
+                        $ref: '#/components/schemas/AttachmentSummary',
+                      },
+                    },
+                    required: ['attachment'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/cal/items/{itemType}/{itemId}/copy-to-personal': {
+        post: {
+          operationId: 'copyItemToPersonal',
+          tags: ['calendar'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'itemType',
+              required: true,
+              schema: {
+                enum: ['event', 'task'],
+                type: 'string',
+              },
+            },
+            {
+              in: 'path',
+              name: 'itemId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '201': {
+              description: 'Organization item copied into personal context.',
+            },
+          },
+        },
+      },
+      '/time/policies': {
+        get: {
+          operationId: 'listPolicies',
+          tags: ['time'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Time policies visible in the active context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      policies: {
+                        items: {
+                          $ref: '#/components/schemas/TimePolicySummary',
+                        },
+                        type: 'array',
+                      },
+                    },
+                    required: ['policies'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createPolicy',
+          tags: ['time'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description: 'Time policy created in the active context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      policy: {
+                        $ref: '#/components/schemas/TimePolicySummary',
+                      },
+                    },
+                    required: ['policy'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/time/policies/{policyId}': {
+        patch: {
+          operationId: 'updatePolicy',
+          tags: ['time'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'policyId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Time policy updated.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      policy: {
+                        $ref: '#/components/schemas/TimePolicySummary',
+                      },
+                    },
+                    required: ['policy'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          operationId: 'deletePolicy',
+          tags: ['time'],
+          security: authenticatedSecurity,
+          parameters: [
+            {
+              in: 'path',
+              name: 'policyId',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'Time policy deleted.',
+            },
+          },
+        },
+      },
+      '/time/policies/preview': {
+        get: {
+          operationId: 'previewPolicies',
+          tags: ['time'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Effective time policy preview for a target user.',
+            },
+          },
+        },
+      },
+      '/time/advisory/evaluate': {
+        post: {
+          operationId: 'evaluateAdvisory',
+          tags: ['time'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description:
+                'Advisory result for a candidate event or task in the active context.',
+              content: {
+                'application/json': {
+                  schema: {
+                    additionalProperties: false,
+                    properties: {
+                      advisory: {
+                        $ref: '#/components/schemas/AdvisoryResult',
+                      },
+                    },
+                    required: ['advisory'],
+                    type: 'object',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/time/holidays/import': {
+        post: {
+          operationId: 'importOfficialHolidays',
+          tags: ['time'],
+          security: authenticatedSecurity,
+          responses: {
+            '201': {
+              description:
+                'Official holidays imported into the active personal or organization context.',
             },
           },
         },

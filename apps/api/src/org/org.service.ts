@@ -208,7 +208,9 @@ export class OrgService {
     return contexts;
   }
 
-  async listMemberships(organizationId: string) {
+  async listMemberships(input: { actorId: string; organizationId: string }) {
+    await this.assertOrganizationAdmin(input.organizationId, input.actorId);
+
     const result = await this.databaseService.query<{
       email: string;
       name: string;
@@ -225,7 +227,7 @@ export class OrgService {
          on u.id = m.user_id
        where m.organization_id = $1
        order by u.email asc`,
-      [organizationId],
+      [input.organizationId],
     );
 
     return result.rows.map((row) => ({

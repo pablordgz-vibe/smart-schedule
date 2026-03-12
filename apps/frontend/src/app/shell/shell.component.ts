@@ -161,7 +161,7 @@ import {
             <p class="ui-kicker">Shell status</p>
             <p>{{ dirtyStateLabel() }}</p>
             <p class="status-copy">
-              Route guards and context-aware fallbacks are active in the Sprint 0 shell scaffold.
+              Route guards, context-aware fallbacks, and protected context switching are active.
             </p>
           </section>
         </aside>

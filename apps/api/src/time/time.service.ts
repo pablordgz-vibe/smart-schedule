@@ -145,19 +145,34 @@ class InMemoryRouteAdvisoryProvider implements RouteAdvisoryContract {
     departureAt: string;
     departureLocation: string;
   }) {
-    void input.departureAt;
-
     const departure = normalizeLocationToken(input.departureLocation);
     const arrival = normalizeLocationToken(input.arrivalLocation);
     if (!departure || !arrival || departure === arrival) {
       return Promise.resolve({ minutes: null });
     }
 
+    const departureTime = new Date(input.departureAt);
+    const departureHour = Number.isNaN(departureTime.getTime())
+      ? null
+      : departureTime.getUTCHours();
     const variability =
       Math.abs(departure.length - arrival.length) +
       Math.abs(departure.charCodeAt(0) - arrival.charCodeAt(0));
 
-    return Promise.resolve({ minutes: 12 + (variability % 8) });
+    const timeOfDayAdjustment =
+      departureHour == null
+        ? 0
+        : departureHour >= 7 && departureHour < 10
+          ? 8
+          : departureHour >= 16 && departureHour < 19
+            ? 6
+            : departureHour >= 22 || departureHour < 6
+              ? -3
+              : 1;
+
+    return Promise.resolve({
+      minutes: Math.max(5, 12 + (variability % 8) + timeOfDayAdjustment),
+    });
   }
 }
 
@@ -201,6 +216,13 @@ export class TimeService {
     targetUserId?: string;
   }) {
     await this.assertCanReadPolicies(input.context, input.actorId);
+    this.assertValidScopeSelection({
+      actorId: input.actorId,
+      context: input.context,
+      scopeLevel: input.scopeLevel ?? null,
+      targetGroupId: input.targetGroupId ?? null,
+      targetUserId: input.targetUserId ?? null,
+    });
 
     const scope = this.scopeFromContext(input.context, input.actorId);
     const clauses = ['is_active = true'];
@@ -785,6 +807,13 @@ export class TimeService {
       ),
     ).toISOString();
 
+    const visibleCalendarIds = scope.organizationId
+      ? await this.listVisibleOrganizationCalendarIdsForTarget({
+          organizationId: scope.organizationId,
+          targetUserId: input.targetUserId,
+        })
+      : [];
+
     const eventRows = await this.databaseService.query<{
       end_at: string;
       id: string;
@@ -794,15 +823,27 @@ export class TimeService {
       work_related: boolean;
     }>(
       scope.organizationId
-        ? `select id, title, start_at, end_at, location, work_related
-           from calendar_events
-           where context_type = 'organization'
-             and organization_id = $1
-             and created_by_user_id = $2
-             and lifecycle_state = 'active'
-             and all_day = false
-             and start_at < $4
-             and end_at > $3`
+        ? `select
+             e.id,
+             e.title,
+             e.start_at,
+             e.end_at,
+             e.location,
+             e.work_related
+           from calendar_events e
+           where e.context_type = 'organization'
+             and e.organization_id = $1
+             and e.lifecycle_state = 'active'
+             and e.all_day = false
+             and e.start_at < $3
+             and e.end_at > $2
+             and exists (
+               select 1
+               from calendar_item_calendar_memberships m
+               where m.item_type = 'event'
+                 and m.item_id = e.id
+                 and m.calendar_id = any($4::text[])
+             )`
         : `select id, title, start_at, end_at, location, work_related
            from calendar_events
            where context_type = 'personal'
@@ -812,7 +853,7 @@ export class TimeService {
              and start_at < $3
              and end_at > $2`,
       scope.organizationId
-        ? [scope.organizationId, input.targetUserId, queryStart, queryEnd]
+        ? [scope.organizationId, queryStart, queryEnd, visibleCalendarIds]
         : [scope.personalOwnerUserId, queryStart, queryEnd],
     );
 
@@ -824,15 +865,26 @@ export class TimeService {
       work_related: boolean;
     }>(
       scope.organizationId
-        ? `select id, title, due_at, location, work_related
-           from calendar_tasks
-           where context_type = 'organization'
-             and organization_id = $1
-             and created_by_user_id = $2
-             and lifecycle_state = 'active'
-             and due_at is not null
-             and due_at >= $3
-             and due_at <= $4`
+        ? `select
+             t.id,
+             t.title,
+             t.due_at,
+             t.location,
+             t.work_related
+           from calendar_tasks t
+           where t.context_type = 'organization'
+             and t.organization_id = $1
+             and t.lifecycle_state = 'active'
+             and t.due_at is not null
+             and t.due_at >= $2
+             and t.due_at <= $3
+             and exists (
+               select 1
+               from calendar_item_calendar_memberships m
+               where m.item_type = 'task'
+                 and m.item_id = t.id
+                 and m.calendar_id = any($4::text[])
+             )`
         : `select id, title, due_at, location, work_related
            from calendar_tasks
            where context_type = 'personal'
@@ -842,7 +894,7 @@ export class TimeService {
              and due_at >= $2
              and due_at <= $3`,
       scope.organizationId
-        ? [scope.organizationId, input.targetUserId, queryStart, queryEnd]
+        ? [scope.organizationId, queryStart, queryEnd, visibleCalendarIds]
         : [scope.personalOwnerUserId, queryStart, queryEnd],
     );
 
@@ -971,6 +1023,54 @@ export class TimeService {
     );
 
     return result.rows.map((row) => row.group_id);
+  }
+
+  private async listVisibleOrganizationCalendarIdsForTarget(input: {
+    organizationId: string;
+    targetUserId: string;
+  }) {
+    const membership = await this.databaseService.query<{
+      can_view_all_calendars: boolean;
+      role: 'admin' | 'member';
+    }>(
+      `select role, can_view_all_calendars
+       from organization_memberships
+       where organization_id = $1
+         and user_id = $2`,
+      [input.organizationId, input.targetUserId],
+    );
+
+    const targetMembership = membership.rows[0];
+    if (!targetMembership) {
+      throw new BadRequestException(
+        'targetUserId is not an active organization member.',
+      );
+    }
+
+    const visibleCalendars = await this.databaseService.query<{ id: string }>(
+      targetMembership.role === 'admin' ||
+        targetMembership.can_view_all_calendars
+        ? `select id
+           from organization_calendars
+           where organization_id = $1`
+        : `select distinct c.id
+           from organization_calendars c
+           left join organization_calendar_visibility_grants g
+             on g.calendar_id = c.id
+             and g.user_id = $2
+           where c.organization_id = $1
+             and (
+               c.owner_user_id is null
+               or c.owner_user_id = $2
+               or g.user_id is not null
+             )`,
+      targetMembership.role === 'admin' ||
+        targetMembership.can_view_all_calendars
+        ? [input.organizationId]
+        : [input.organizationId, input.targetUserId],
+    );
+
+    return visibleCalendars.rows.map((row) => row.id);
   }
 
   private normalizeAndValidateRule(
@@ -1156,6 +1256,14 @@ export class TimeService {
     targetUserId: string | null;
   }) {
     if (input.context.context.type === 'personal') {
+      this.assertValidScopeSelection({
+        actorId: input.actorId,
+        context: input.context,
+        scopeLevel: input.scopeLevel,
+        targetGroupId: input.targetGroupId,
+        targetUserId: input.targetUserId,
+      });
+
       return {
         targetGroupId: null,
         targetUserId: input.actorId,
@@ -1228,6 +1336,12 @@ export class TimeService {
     requireOrgAdminForDelegation: boolean;
   }) {
     if (input.context.context.type === 'personal') {
+      if (input.targetUserId && input.targetUserId !== input.actorId) {
+        throw new BadRequestException(
+          'Personal context can only evaluate policies and advisory for the active user.',
+        );
+      }
+
       return input.actorId;
     }
 
@@ -1282,5 +1396,35 @@ export class TimeService {
 
   private organizationId(context: RequestContext) {
     return context.context.type === 'organization' ? context.context.id : null;
+  }
+
+  private assertValidScopeSelection(input: {
+    actorId: string;
+    context: RequestContext;
+    scopeLevel: TimePolicyScopeLevel | null;
+    targetGroupId: string | null;
+    targetUserId: string | null;
+  }) {
+    if (input.context.context.type !== 'personal') {
+      return;
+    }
+
+    if (input.scopeLevel && input.scopeLevel !== 'user') {
+      throw new BadRequestException(
+        'Personal context only supports user-scoped time policies.',
+      );
+    }
+
+    if (input.targetGroupId) {
+      throw new BadRequestException(
+        'Personal context does not support group-scoped time policies.',
+      );
+    }
+
+    if (input.targetUserId && input.targetUserId !== input.actorId) {
+      throw new BadRequestException(
+        'Personal context can only target the active user.',
+      );
+    }
   }
 }

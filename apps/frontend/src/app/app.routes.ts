@@ -92,9 +92,21 @@ export const routes: Routes = [
         loadComponent: () => import('./tasks').then((module) => module.TasksComponent),
         data: {
           title: 'Tasks',
-          description: 'Task overview and detail shell for the current context.',
+          description: 'Task overview and detail workspace for the current context.',
           sectionLabel: 'End-User Workspace',
           testId: 'page-tasks',
+          area: 'end-user',
+        },
+      },
+      {
+        path: 'organizations',
+        loadComponent: () =>
+          import('./org-overview.component').then((module) => module.OrgOverviewComponent),
+        data: {
+          title: 'Organizations',
+          description: 'Create organizations, review invitations, and enter organization workspaces.',
+          sectionLabel: 'End-User Workspace',
+          testId: 'page-organizations',
           area: 'end-user',
         },
       },
@@ -162,7 +174,7 @@ export const routes: Routes = [
           import('./account-settings.component').then((module) => module.AccountSettingsComponent),
         data: {
           title: 'Settings',
-          description: 'User settings shell for identity, preferences, and billing scaffolds.',
+          description: 'User settings for identity, preferences, and personal time policies.',
           sectionLabel: 'End-User Workspace',
           testId: 'page-settings',
           area: 'end-user',
@@ -175,7 +187,7 @@ export const routes: Routes = [
         canActivate: [routeAreaGuard],
         data: {
           title: 'Organization Overview',
-          description: 'Organization administration landing page scaffold.',
+          description: 'Organization administration overview, memberships, and invitations.',
           sectionLabel: 'Organization Administration',
           testId: 'page-org-overview',
           area: 'org-admin',
@@ -188,7 +200,7 @@ export const routes: Routes = [
         canActivate: [routeAreaGuard],
         data: {
           title: 'Organization Calendars',
-          description: 'Calendar administration shell for the active organization.',
+          description: 'Calendar administration for the active organization.',
           sectionLabel: 'Organization Administration',
           testId: 'page-org-calendars',
           area: 'org-admin',
@@ -201,7 +213,7 @@ export const routes: Routes = [
         canActivate: [routeAreaGuard],
         data: {
           title: 'Groups',
-          description: 'Membership and grouping workspace scaffold.',
+          description: 'Membership and grouping workspace for the active organization.',
           sectionLabel: 'Organization Administration',
           testId: 'page-org-groups',
           area: 'org-admin',

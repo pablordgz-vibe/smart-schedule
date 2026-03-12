@@ -54,6 +54,13 @@ export const endUserNavItems: NavItem[] = [
     mobile: true,
   },
   {
+    label: 'Organizations',
+    path: '/organizations',
+    icon: 'Organizations',
+    area: 'end-user',
+    testId: 'nav-organizations',
+  },
+  {
     label: 'Schedules',
     path: '/schedules',
     icon: 'Schedules',
@@ -223,6 +230,13 @@ export const searchableRoutes: SearchRouteEntry[] = [
   },
   {
     area: 'end-user',
+    description: 'Create organizations, review invitations, and enter organization workspaces.',
+    keywords: ['organization', 'invite', 'membership', 'join'],
+    label: 'Organizations',
+    path: '/organizations',
+  },
+  {
+    area: 'end-user',
     description: 'Schedule library with explicit context labeling.',
     keywords: ['templates', 'assignments', 'plans'],
     label: 'Schedules',
@@ -258,14 +272,14 @@ export const searchableRoutes: SearchRouteEntry[] = [
   },
   {
     area: 'end-user',
-    description: 'Identity, preferences, lifecycle, and billing settings.',
+    description: 'Identity, preferences, lifecycle, and personal time policies.',
     keywords: ['account', 'preferences', 'profile'],
     label: 'Settings',
     path: '/settings',
   },
   {
     area: 'org-admin',
-    description: 'Organization administration landing view.',
+    description: 'Organization administration overview, memberships, and invitations.',
     keywords: ['organization', 'overview', 'admin'],
     label: 'Organization Overview',
     path: '/org/overview',
