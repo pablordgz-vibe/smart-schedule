@@ -322,4 +322,157 @@ describe('time policies and advisory (e2e)', () => {
     ).toBe(true);
     expect(advisory.alternativeSlots.length).toBeGreaterThan(0);
   });
+
+  it('derives provider-backed commute and weather signals from adjacent activity locations', async () => {
+    await completeSetup();
+    await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
+    const owner = await signIn('owner@example.com', 'owner-password-123');
+
+    const calendarsResponse = await request(getTestServer())
+      .get('/cal/calendars')
+      .set('cookie', owner.cookie)
+      .expect(200);
+
+    const calendarId = (
+      calendarsResponse.body as { calendars: Array<{ id: string }> }
+    ).calendars[0].id;
+
+    await request(getTestServer())
+      .post('/cal/events')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        calendarIds: [calendarId],
+        title: 'Morning site visit',
+        startAt: '2026-03-12T08:30:00.000Z',
+        endAt: '2026-03-12T09:30:00.000Z',
+        location: 'Office Hub',
+      })
+      .expect(201);
+
+    await request(getTestServer())
+      .post('/cal/events')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        calendarIds: [calendarId],
+        title: 'Late delivery check',
+        startAt: '2026-03-12T11:00:00.000Z',
+        endAt: '2026-03-12T11:30:00.000Z',
+        location: 'Distribution Terminal',
+      })
+      .expect(201);
+
+    const advisoryResponse = await request(getTestServer())
+      .post('/time/advisory/evaluate')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        itemType: 'event',
+        title: 'Warehouse walkthrough',
+        startAt: '2026-03-12T10:00:00.000Z',
+        endAt: '2026-03-12T10:30:00.000Z',
+        location: 'Warehouse Yard',
+      })
+      .expect(201);
+
+    const advisory = (
+      advisoryResponse.body as {
+        advisory: {
+          concerns: Array<{
+            category: string;
+            details: Record<string, string | number | null>;
+          }>;
+        };
+      }
+    ).advisory;
+
+    const commuteConcern = advisory.concerns.find(
+      (entry) => entry.category === 'commute',
+    );
+    const weatherConcern = advisory.concerns.find(
+      (entry) => entry.category === 'weather_related_preparation',
+    );
+
+    expect(commuteConcern?.details.source).toBe('provider');
+    expect(weatherConcern?.details.source).toBe('provider');
+  });
+
+  it('evaluates weekly maximum-hour warnings using activities earlier in the same week', async () => {
+    await completeSetup();
+    await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
+    const owner = await signIn('owner@example.com', 'owner-password-123');
+
+    const calendarsResponse = await request(getTestServer())
+      .get('/cal/calendars')
+      .set('cookie', owner.cookie)
+      .expect(200);
+
+    const calendarId = (
+      calendarsResponse.body as { calendars: Array<{ id: string }> }
+    ).calendars[0].id;
+
+    await request(getTestServer())
+      .post('/cal/events')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        calendarIds: [calendarId],
+        title: 'Monday project block',
+        startAt: '2026-03-09T08:00:00.000Z',
+        endAt: '2026-03-09T16:00:00.000Z',
+        workRelated: true,
+      })
+      .expect(201);
+
+    await request(getTestServer())
+      .post('/cal/events')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        calendarIds: [calendarId],
+        title: 'Tuesday project block',
+        startAt: '2026-03-10T08:00:00.000Z',
+        endAt: '2026-03-10T16:00:00.000Z',
+        workRelated: true,
+      })
+      .expect(201);
+
+    await request(getTestServer())
+      .post('/time/policies')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        policyType: 'max_hours',
+        scopeLevel: 'user',
+        title: 'Weekly cap',
+        maxWeeklyMinutes: 960,
+      })
+      .expect(201);
+
+    const advisoryResponse = await request(getTestServer())
+      .post('/time/advisory/evaluate')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        itemType: 'event',
+        title: 'Wednesday project block',
+        startAt: '2026-03-11T09:00:00.000Z',
+        endAt: '2026-03-11T11:00:00.000Z',
+        workRelated: true,
+      })
+      .expect(201);
+
+    const advisory = (
+      advisoryResponse.body as {
+        advisory: {
+          concerns: Array<{ category: string }>;
+        };
+      }
+    ).advisory;
+
+    expect(
+      advisory.concerns.some((entry) => entry.category === 'maximum_hours'),
+    ).toBe(true);
+  });
 });

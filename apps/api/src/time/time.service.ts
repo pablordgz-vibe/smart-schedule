@@ -10,9 +10,11 @@ import {
   type AdvisoryActivity,
   type AdvisoryCandidate,
   type HolidayProviderContract,
+  type RouteAdvisoryContract,
   type TimePolicyCategory,
   type TimePolicyRecord,
   type TimePolicyScopeLevel,
+  type WeatherAdvisoryContract,
 } from '@smart-schedule/domain-time';
 import { randomUUID } from 'node:crypto';
 import type { RequestContext } from '@smart-schedule/contracts';
@@ -93,6 +95,31 @@ function safeIso(value: string) {
   return parsed.toISOString();
 }
 
+function startOfUtcWeek(value: string) {
+  const parsed = new Date(value);
+  parsed.setUTCDate(parsed.getUTCDate() - parsed.getUTCDay());
+  parsed.setUTCHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function endOfUtcWeek(value: string) {
+  const parsed = startOfUtcWeek(value);
+  parsed.setUTCDate(parsed.getUTCDate() + 7);
+  return parsed;
+}
+
+function shiftIso(value: string, minutes: number) {
+  return new Date(new Date(value).getTime() + minutes * 60_000).toISOString();
+}
+
+function normalizeLocationToken(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function toIsoString(value: Date | string) {
+  return new Date(value).toISOString();
+}
+
 class InMemoryHolidayProvider implements HolidayProviderContract {
   loadOfficialHolidays(input: {
     locationCode: string;
@@ -112,10 +139,56 @@ class InMemoryHolidayProvider implements HolidayProviderContract {
   }
 }
 
+class InMemoryRouteAdvisoryProvider implements RouteAdvisoryContract {
+  estimateCommute(input: {
+    arrivalLocation: string;
+    departureAt: string;
+    departureLocation: string;
+  }) {
+    void input.departureAt;
+
+    const departure = normalizeLocationToken(input.departureLocation);
+    const arrival = normalizeLocationToken(input.arrivalLocation);
+    if (!departure || !arrival || departure === arrival) {
+      return Promise.resolve({ minutes: null });
+    }
+
+    const variability =
+      Math.abs(departure.length - arrival.length) +
+      Math.abs(departure.charCodeAt(0) - arrival.charCodeAt(0));
+
+    return Promise.resolve({ minutes: 12 + (variability % 8) });
+  }
+}
+
+class InMemoryWeatherAdvisoryProvider implements WeatherAdvisoryContract {
+  getPreparationSignal(input: { at: string; location: string }) {
+    void input.at;
+
+    const normalizedLocation = normalizeLocationToken(input.location);
+    if (
+      !/(campus|depot|dock|field|outdoor|park|plant|site|terminal|warehouse|yard)/.test(
+        normalizedLocation,
+      )
+    ) {
+      return Promise.resolve(null);
+    }
+
+    return Promise.resolve({
+      preparationNote: `Weather-aware preparation is recommended for ${input.location}.`,
+      summary: `Weather watch for ${input.location}`,
+    });
+  }
+}
+
 @Injectable()
 export class TimeService {
   private readonly holidayProvider: HolidayProviderContract =
     new InMemoryHolidayProvider();
+  private readonly routeProvider: RouteAdvisoryContract =
+    new InMemoryRouteAdvisoryProvider();
+  private readonly weatherProvider: WeatherAdvisoryContract =
+    new InMemoryWeatherAdvisoryProvider();
 
   constructor(private readonly databaseService: DatabaseService) {}
 
@@ -415,12 +488,17 @@ export class TimeService {
       targetUserId,
     });
 
+    const providerSignals = await this.buildProviderSignals({
+      activities,
+      candidate: input.candidate,
+    });
+
     const advisory = evaluateAdvisory({
       activities,
       candidate: input.candidate,
-      commuteSignal: input.commuteSignal,
+      commuteSignal: input.commuteSignal ?? providerSignals.commuteSignal,
       effectivePolicies,
-      weatherSignal: input.weatherSignal,
+      weatherSignal: input.weatherSignal ?? providerSignals.weatherSignal,
     });
 
     const scope = this.scopeFromContext(input.context, input.actorId);
@@ -694,6 +772,18 @@ export class TimeService {
     const startAt = safeIso(input.startAt);
     const endAt = safeIso(input.endAt);
     const scope = this.scopeFromContext(input.context, input.targetUserId);
+    const queryStart = new Date(
+      Math.min(
+        startOfUtcWeek(startAt).getTime(),
+        new Date(shiftIso(startAt, -24 * 60)).getTime(),
+      ),
+    ).toISOString();
+    const queryEnd = new Date(
+      Math.max(
+        endOfUtcWeek(endAt).getTime(),
+        new Date(shiftIso(endAt, 24 * 60)).getTime(),
+      ),
+    ).toISOString();
 
     const eventRows = await this.databaseService.query<{
       end_at: string;
@@ -722,8 +812,8 @@ export class TimeService {
              and start_at < $3
              and end_at > $2`,
       scope.organizationId
-        ? [scope.organizationId, input.targetUserId, startAt, endAt]
-        : [scope.personalOwnerUserId, startAt, endAt],
+        ? [scope.organizationId, input.targetUserId, queryStart, queryEnd]
+        : [scope.personalOwnerUserId, queryStart, queryEnd],
     );
 
     const taskRows = await this.databaseService.query<{
@@ -752,17 +842,17 @@ export class TimeService {
              and due_at >= $2
              and due_at <= $3`,
       scope.organizationId
-        ? [scope.organizationId, input.targetUserId, startAt, endAt]
-        : [scope.personalOwnerUserId, startAt, endAt],
+        ? [scope.organizationId, input.targetUserId, queryStart, queryEnd]
+        : [scope.personalOwnerUserId, queryStart, queryEnd],
     );
 
     return [
       ...eventRows.rows.map((row) => ({
-        endAt: row.end_at,
+        endAt: toIsoString(row.end_at),
         id: row.id,
         location: row.location,
         source: 'event' as const,
-        startAt: row.start_at,
+        startAt: toIsoString(row.start_at),
         title: row.title,
         workRelated: row.work_related,
       })),
@@ -774,12 +864,93 @@ export class TimeService {
           id: row.id,
           location: row.location,
           source: 'task_due' as const,
-          startAt: row.due_at,
+          startAt: dueAt.toISOString(),
           title: row.title,
           workRelated: row.work_related,
         };
       }),
     ];
+  }
+
+  private async buildProviderSignals(input: {
+    activities: AdvisoryActivity[];
+    candidate: AdvisoryCandidate;
+  }) {
+    const [commuteSignal, weatherSignal] = await Promise.all([
+      this.deriveProviderCommuteSignal(input),
+      this.deriveProviderWeatherSignal(input.candidate),
+    ]);
+
+    return { commuteSignal, weatherSignal };
+  }
+
+  private async deriveProviderCommuteSignal(input: {
+    activities: AdvisoryActivity[];
+    candidate: AdvisoryCandidate;
+  }) {
+    if (!input.candidate.location) {
+      return null;
+    }
+
+    const adjacentActivities = [...input.activities].sort((left, right) =>
+      left.startAt.localeCompare(right.startAt),
+    );
+    const previous =
+      adjacentActivities
+        .filter((activity) => activity.endAt <= input.candidate.startAt)
+        .at(-1) ?? null;
+    const next =
+      adjacentActivities.find(
+        (activity) => activity.startAt >= input.candidate.endAt,
+      ) ?? null;
+
+    const [beforeEstimate, afterEstimate] = await Promise.all([
+      previous?.location
+        ? this.routeProvider.estimateCommute({
+            arrivalLocation: input.candidate.location,
+            departureAt: previous.endAt,
+            departureLocation: previous.location,
+          })
+        : Promise.resolve({ minutes: null }),
+      next?.location
+        ? this.routeProvider.estimateCommute({
+            arrivalLocation: next.location,
+            departureAt: input.candidate.endAt,
+            departureLocation: input.candidate.location,
+          })
+        : Promise.resolve({ minutes: null }),
+    ]);
+
+    if (beforeEstimate.minutes == null && afterEstimate.minutes == null) {
+      return null;
+    }
+
+    return {
+      commuteMinutesAfter: afterEstimate.minutes,
+      commuteMinutesBefore: beforeEstimate.minutes,
+      source: 'provider' as const,
+    };
+  }
+
+  private async deriveProviderWeatherSignal(candidate: AdvisoryCandidate) {
+    if (!candidate.location) {
+      return null;
+    }
+
+    const signal = await this.weatherProvider.getPreparationSignal({
+      at: candidate.startAt,
+      location: candidate.location,
+    });
+
+    if (!signal) {
+      return null;
+    }
+
+    return {
+      preparationNote: signal.preparationNote,
+      source: 'provider' as const,
+      summary: signal.summary,
+    };
   }
 
   private async listGroupIdsForUser(input: {

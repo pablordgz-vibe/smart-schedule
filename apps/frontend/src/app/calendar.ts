@@ -1,39 +1,129 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { CalApiService, type CalendarSummary } from './cal-api.service';
+import {
+  CalApiService,
+  type AttachmentSummary,
+  type CalendarSummary,
+  type ImportedContact,
+} from './cal-api.service';
 import { ContextService } from './context.service';
 import { TimeApiService, type AdvisoryResult } from './time-api.service';
 
 type CalendarEntry = {
-  id: string;
-  itemType: 'event' | 'task';
-  title: string;
   calendarEntryType: 'event' | 'linked_work_event' | 'task_due';
   calendarIds: string[];
-  startAt?: string | null;
-  endAt?: string | null;
   dueAt?: string | null;
+  endAt?: string | null;
+  id: string;
+  itemType: 'event' | 'task';
   linkedTaskId?: string | null;
+  startAt?: string | null;
   timezone?: string;
+  title: string;
 };
 
 type TaskSummary = {
-  id: string;
-  title: string;
   allocation?: {
     allocatedMinutes: number;
     estimateMinutes: number | null;
     overAllocated: boolean;
     remainingMinutes: number | null;
   };
+  id: string;
+  title: string;
 };
 
 type PendingCreate = {
   kind: 'event' | 'task';
   payload: Record<string, unknown>;
 };
+
+type EventDetail = {
+  allDay: boolean;
+  allDayEndDate: string | null;
+  allDayStartDate: string | null;
+  allocation: {
+    allocatedMinutes: number;
+    estimateMinutes: number | null;
+    overAllocated: boolean;
+    remainingMinutes: number | null;
+  };
+  attachments: AttachmentSummary[];
+  calendars: Array<{ calendarId: string; calendarName: string }>;
+  contacts: ImportedContact[];
+  endAt: string | null;
+  id: string;
+  linkedTaskId: string | null;
+  location: string | null;
+  notes: string | null;
+  provenance: {
+    copiedAt: string;
+    sourceContextType: 'organization' | 'personal';
+    sourceItemId: string;
+    sourceOrganizationId: string | null;
+  } | null;
+  startAt: string | null;
+  title: string;
+  workRelated: boolean;
+};
+
+type CalendarTaskDetail = {
+  contacts: ImportedContact[];
+  dueAt: string | null;
+  id: string;
+  location: string | null;
+  notes: string | null;
+  provenance: {
+    copiedAt: string;
+    sourceContextType: 'organization' | 'personal';
+    sourceItemId: string;
+  } | null;
+  title: string;
+  workRelated: boolean;
+};
+
+type EventDraft = {
+  allDay: boolean;
+  allDayEndDate: string;
+  allDayStartDate: string;
+  calendarIds: string[];
+  contactIds: string[];
+  endAt: string;
+  linkedTaskId: string;
+  location: string;
+  notes: string;
+  startAt: string;
+  title: string;
+  workRelated: boolean;
+};
+
+type DeadlineTaskDraft = {
+  calendarIds: string[];
+  contactIds: string[];
+  dueAt: string;
+  location: string;
+  notes: string;
+  title: string;
+  workRelated: boolean;
+};
+
+type AttachmentDraft = {
+  fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  storageKey: string;
+};
+
+function createAttachmentDraft(): AttachmentDraft {
+  return {
+    fileName: '',
+    fileSizeBytes: 1024,
+    mimeType: 'application/octet-stream',
+    storageKey: '',
+  };
+}
 
 @Component({
   selector: 'app-calendar',
@@ -93,6 +183,7 @@ type PendingCreate = {
         </div>
 
         <p class="ui-banner ui-banner-warning" *ngIf="error()">{{ error() }}</p>
+        <p class="ui-banner ui-banner-info" *ngIf="message()">{{ message() }}</p>
       </article>
 
       <article class="ui-card split-card">
@@ -107,49 +198,100 @@ type PendingCreate = {
               [(ngModel)]="eventDraft.title"
               name="event-title"
             />
-            <label class="ui-field compact-field">
-              <span>All day</span>
-              <input type="checkbox" [(ngModel)]="eventDraft.allDay" name="event-all-day" />
+            <textarea
+              class="ui-input"
+              rows="3"
+              placeholder="Notes"
+              [(ngModel)]="eventDraft.notes"
+              name="event-notes"
+            ></textarea>
+            <div class="inline-grid">
+              <label class="ui-field compact-field">
+                <span>All day</span>
+                <input type="checkbox" [(ngModel)]="eventDraft.allDay" name="event-all-day" />
+              </label>
+              <label class="ui-field compact-field">
+                <span>Work related</span>
+                <input
+                  type="checkbox"
+                  [(ngModel)]="eventDraft.workRelated"
+                  name="event-work-related"
+                />
+              </label>
+            </div>
+            <div class="inline-grid" *ngIf="!eventDraft.allDay">
+              <input
+                class="ui-input"
+                type="datetime-local"
+                [(ngModel)]="eventDraft.startAt"
+                name="event-start"
+              />
+              <input
+                class="ui-input"
+                type="datetime-local"
+                [(ngModel)]="eventDraft.endAt"
+                name="event-end"
+              />
+            </div>
+            <div class="inline-grid" *ngIf="eventDraft.allDay">
+              <input
+                class="ui-input"
+                type="date"
+                [(ngModel)]="eventDraft.allDayStartDate"
+                name="event-all-day-start"
+              />
+              <input
+                class="ui-input"
+                type="date"
+                [(ngModel)]="eventDraft.allDayEndDate"
+                name="event-all-day-end"
+              />
+            </div>
+            <div class="inline-grid">
+              <input
+                class="ui-input"
+                placeholder="Location"
+                [(ngModel)]="eventDraft.location"
+                name="event-location"
+              />
+              <select
+                class="ui-select"
+                [(ngModel)]="eventDraft.linkedTaskId"
+                name="event-linked-task"
+                (ngModelChange)="refreshLinkedTaskAllocation()"
+              >
+                <option value="">No linked task</option>
+                <option *ngFor="let task of taskSummaries()" [value]="task.id">
+                  {{ task.title }}
+                </option>
+              </select>
+            </div>
+            <label class="ui-field">
+              <span>Calendar memberships</span>
+              <select
+                class="ui-select"
+                multiple
+                [(ngModel)]="eventDraft.calendarIds"
+                name="event-calendars"
+              >
+                <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                  {{ calendar.name }}
+                </option>
+              </select>
             </label>
-            <input
-              *ngIf="!eventDraft.allDay"
-              class="ui-input"
-              type="datetime-local"
-              [(ngModel)]="eventDraft.startAt"
-              name="event-start"
-            />
-            <input
-              *ngIf="!eventDraft.allDay"
-              class="ui-input"
-              type="datetime-local"
-              [(ngModel)]="eventDraft.endAt"
-              name="event-end"
-            />
-            <input
-              *ngIf="eventDraft.allDay"
-              class="ui-input"
-              type="date"
-              [(ngModel)]="eventDraft.allDayStartDate"
-              name="event-all-day-start"
-            />
-            <input
-              *ngIf="eventDraft.allDay"
-              class="ui-input"
-              type="date"
-              [(ngModel)]="eventDraft.allDayEndDate"
-              name="event-all-day-end"
-            />
-            <select
-              class="ui-select"
-              [(ngModel)]="eventDraft.linkedTaskId"
-              name="event-linked-task"
-              (ngModelChange)="refreshLinkedTaskAllocation()"
-            >
-              <option value="">No linked task</option>
-              <option *ngFor="let task of taskSummaries()" [value]="task.id">
-                {{ task.title }}
-              </option>
-            </select>
+            <label class="ui-field">
+              <span>Contacts</span>
+              <select
+                class="ui-select"
+                multiple
+                [(ngModel)]="eventDraft.contactIds"
+                name="event-contacts"
+              >
+                <option *ngFor="let contact of contacts()" [value]="contact.id">
+                  {{ contact.displayName }}
+                </option>
+              </select>
+            </label>
             <p class="ui-banner ui-banner-warning" *ngIf="linkedTaskAllocationWarning()">
               {{ linkedTaskAllocationWarning() }}
             </p>
@@ -164,12 +306,61 @@ type PendingCreate = {
               [(ngModel)]="deadlineTaskDraft.title"
               name="deadline-task-title"
             />
-            <input
+            <textarea
               class="ui-input"
-              type="datetime-local"
-              [(ngModel)]="deadlineTaskDraft.dueAt"
-              name="deadline-task-due"
-            />
+              rows="2"
+              placeholder="Notes"
+              [(ngModel)]="deadlineTaskDraft.notes"
+              name="deadline-task-notes"
+            ></textarea>
+            <div class="inline-grid">
+              <input
+                class="ui-input"
+                type="datetime-local"
+                [(ngModel)]="deadlineTaskDraft.dueAt"
+                name="deadline-task-due"
+              />
+              <input
+                class="ui-input"
+                placeholder="Location"
+                [(ngModel)]="deadlineTaskDraft.location"
+                name="deadline-task-location"
+              />
+            </div>
+            <label class="ui-field compact-field">
+              <span>Work related</span>
+              <input
+                type="checkbox"
+                [(ngModel)]="deadlineTaskDraft.workRelated"
+                name="deadline-task-work-related"
+              />
+            </label>
+            <label class="ui-field">
+              <span>Calendar memberships</span>
+              <select
+                class="ui-select"
+                multiple
+                [(ngModel)]="deadlineTaskDraft.calendarIds"
+                name="deadline-task-calendars"
+              >
+                <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                  {{ calendar.name }}
+                </option>
+              </select>
+            </label>
+            <label class="ui-field">
+              <span>Contacts</span>
+              <select
+                class="ui-select"
+                multiple
+                [(ngModel)]="deadlineTaskDraft.contactIds"
+                name="deadline-task-contacts"
+              >
+                <option *ngFor="let contact of contacts()" [value]="contact.id">
+                  {{ contact.displayName }}
+                </option>
+              </select>
+            </label>
             <button class="ui-button ui-button-primary" type="submit">Create task</button>
           </form>
 
@@ -232,21 +423,213 @@ type PendingCreate = {
           <ul class="entry-list">
             <li
               *ngFor="let entry of entries()"
-              class="entry-item"
+              class="entry-item selectable"
               [attr.data-kind]="entry.calendarEntryType"
+              [class.selected]="selectedEntryId() === entry.id"
+              (click)="selectEntry(entry)"
             >
               <div>
                 <strong>{{ entry.title }}</strong>
                 <p class="ui-copy">
-                  {{ entry.calendarEntryType }} ·
-                  {{ entry.startAt || entry.dueAt || 'No date' }}
+                  {{ entry.calendarEntryType }} · {{ entry.startAt || entry.dueAt || 'No date' }}
                 </p>
               </div>
+              <button
+                *ngIf="isOrganizationContext()"
+                class="ui-button ui-button-secondary"
+                type="button"
+                (click)="copyEntryToPersonal(entry); $event.stopPropagation()"
+              >
+                Copy to Personal
+              </button>
             </li>
             <li *ngIf="entries().length === 0" class="ui-copy">
               No calendar-placeable items in range.
             </li>
           </ul>
+
+          <section class="ui-panel stack-tight" *ngIf="selectedEvent() as event">
+            <h3>Event details</h3>
+            <p class="ui-copy">{{ event.title }}</p>
+            <p class="ui-banner ui-banner-warning" *ngIf="event.provenance">
+              Copied from {{ event.provenance.sourceContextType }} item
+              {{ event.provenance.sourceItemId }} on {{ event.provenance.copiedAt }}.
+            </p>
+            <p class="ui-copy" *ngIf="event.linkedTaskId">
+              Allocation: {{ event.allocation.allocatedMinutes }}m of
+              {{ event.allocation.estimateMinutes ?? 'n/a' }}m.
+            </p>
+            <p class="ui-banner ui-banner-warning" *ngIf="event.allocation.overAllocated">
+              This linked event allocation exceeds the linked task estimate.
+            </p>
+
+            <form class="stack-tight" (ngSubmit)="saveEventUpdates()">
+              <input class="ui-input" [(ngModel)]="eventEditDraft.title" name="edit-event-title" />
+              <textarea
+                class="ui-input"
+                rows="3"
+                [(ngModel)]="eventEditDraft.notes"
+                name="edit-event-notes"
+              ></textarea>
+              <div class="inline-grid">
+                <label class="ui-field compact-field">
+                  <span>All day</span>
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="eventEditDraft.allDay"
+                    name="edit-event-all-day"
+                  />
+                </label>
+                <label class="ui-field compact-field">
+                  <span>Work related</span>
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="eventEditDraft.workRelated"
+                    name="edit-event-work-related"
+                  />
+                </label>
+              </div>
+              <div class="inline-grid" *ngIf="!eventEditDraft.allDay">
+                <input
+                  class="ui-input"
+                  type="datetime-local"
+                  [(ngModel)]="eventEditDraft.startAt"
+                  name="edit-event-start"
+                />
+                <input
+                  class="ui-input"
+                  type="datetime-local"
+                  [(ngModel)]="eventEditDraft.endAt"
+                  name="edit-event-end"
+                />
+              </div>
+              <div class="inline-grid" *ngIf="eventEditDraft.allDay">
+                <input
+                  class="ui-input"
+                  type="date"
+                  [(ngModel)]="eventEditDraft.allDayStartDate"
+                  name="edit-event-all-day-start"
+                />
+                <input
+                  class="ui-input"
+                  type="date"
+                  [(ngModel)]="eventEditDraft.allDayEndDate"
+                  name="edit-event-all-day-end"
+                />
+              </div>
+              <div class="inline-grid">
+                <input
+                  class="ui-input"
+                  [(ngModel)]="eventEditDraft.location"
+                  name="edit-event-location"
+                  placeholder="Location"
+                />
+                <select
+                  class="ui-select"
+                  [(ngModel)]="eventEditDraft.linkedTaskId"
+                  name="edit-event-linked-task"
+                >
+                  <option value="">No linked task</option>
+                  <option *ngFor="let task of taskSummaries()" [value]="task.id">
+                    {{ task.title }}
+                  </option>
+                </select>
+              </div>
+              <label class="ui-field">
+                <span>Calendar memberships</span>
+                <select
+                  class="ui-select"
+                  multiple
+                  [(ngModel)]="eventEditDraft.calendarIds"
+                  name="edit-event-calendars"
+                >
+                  <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                    {{ calendar.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="ui-field">
+                <span>Contacts</span>
+                <select
+                  class="ui-select"
+                  multiple
+                  [(ngModel)]="eventEditDraft.contactIds"
+                  name="edit-event-contacts"
+                >
+                  <option *ngFor="let contact of contacts()" [value]="contact.id">
+                    {{ contact.displayName }}
+                  </option>
+                </select>
+              </label>
+              <div class="ui-toolbar">
+                <button class="ui-button ui-button-primary" type="submit">
+                  Save event updates
+                </button>
+                <button class="ui-button" type="button" (click)="deleteEvent()">
+                  Delete event
+                </button>
+              </div>
+            </form>
+
+            <article class="ui-panel stack-tight">
+              <h4>Add attachment metadata</h4>
+              <div class="inline-grid">
+                <input
+                  class="ui-input"
+                  placeholder="File name"
+                  [(ngModel)]="eventAttachmentDraft.fileName"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+                <input
+                  class="ui-input"
+                  placeholder="MIME type"
+                  [(ngModel)]="eventAttachmentDraft.mimeType"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </div>
+              <div class="inline-grid">
+                <input
+                  class="ui-input"
+                  type="number"
+                  min="1"
+                  [(ngModel)]="eventAttachmentDraft.fileSizeBytes"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+                <input
+                  class="ui-input"
+                  placeholder="Storage key"
+                  [(ngModel)]="eventAttachmentDraft.storageKey"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </div>
+              <button
+                class="ui-button ui-button-secondary"
+                type="button"
+                (click)="addEventAttachment()"
+              >
+                Attach file metadata
+              </button>
+            </article>
+
+            <ul class="simple-list">
+              <li *ngFor="let attachment of event.attachments">
+                {{ attachment.fileName }} ({{ attachment.state }})
+              </li>
+              <li *ngIf="event.attachments.length === 0" class="ui-copy">No attachments.</li>
+            </ul>
+          </section>
+
+          <section class="ui-panel stack-tight" *ngIf="selectedTaskEntry() as taskEntry">
+            <h3>Task due details</h3>
+            <p class="ui-copy">{{ taskEntry.title }} · {{ taskEntry.dueAt || 'No deadline' }}</p>
+            <p class="ui-copy">{{ taskEntry.notes || 'No notes.' }}</p>
+            <p class="ui-copy" *ngIf="taskEntry.location">Location: {{ taskEntry.location }}</p>
+            <p class="ui-banner ui-banner-warning" *ngIf="taskEntry.provenance">
+              Copied from {{ taskEntry.provenance.sourceContextType }} item
+              {{ taskEntry.provenance.sourceItemId }} on {{ taskEntry.provenance.copiedAt }}.
+            </p>
+            <a class="ui-button ui-button-secondary" routerLink="/tasks">Open in Tasks</a>
+          </section>
         </section>
       </article>
     </section>
@@ -267,9 +650,13 @@ type PendingCreate = {
         gap: var(--spacing-6);
       }
 
-      .stack {
+      .stack,
+      .stack-tight {
         display: grid;
         gap: var(--spacing-3);
+      }
+
+      .stack {
         align-items: stretch;
         margin-bottom: var(--spacing-6);
       }
@@ -289,11 +676,25 @@ type PendingCreate = {
         gap: var(--spacing-2);
       }
 
+      .inline-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-3);
+      }
+
       .entry-item {
         border: 1px solid rgb(148 163 184 / 0.2);
         border-left-width: 5px;
         border-radius: var(--radius-lg);
         padding: var(--spacing-3);
+      }
+
+      .entry-item.selectable {
+        cursor: pointer;
+      }
+
+      .entry-item.selected {
+        box-shadow: 0 0 0 3px rgb(2 132 199 / 0.15);
       }
 
       .entry-item[data-kind='event'] {
@@ -329,7 +730,8 @@ type PendingCreate = {
       }
 
       @media (max-width: 900px) {
-        .split-card {
+        .split-card,
+        .inline-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -342,49 +744,92 @@ export class CalendarComponent {
   private readonly timeApi = inject(TimeApiService);
 
   readonly contextLabel = computed(() => this.contextService.getContextLabel());
+  readonly isOrganizationContext = computed(
+    () => this.contextService.activeContext().contextType === 'organization',
+  );
 
   readonly calendars = signal<CalendarSummary[]>([]);
+  readonly contacts = signal<ImportedContact[]>([]);
   readonly selectedCalendarIds = signal<string[]>([]);
   readonly entries = signal<CalendarEntry[]>([]);
   readonly error = signal<string | null>(null);
+  readonly message = signal<string | null>(null);
   readonly taskSummaries = signal<TaskSummary[]>([]);
   readonly linkedTaskAllocationWarning = signal<string | null>(null);
   readonly advisory = signal<AdvisoryResult | null>(null);
   readonly pendingCreate = signal<PendingCreate | null>(null);
   readonly showAlternatives = signal(false);
   readonly aiMessage = signal<string | null>(null);
+  readonly selectedEntryId = signal<string | null>(null);
+  readonly selectedEvent = signal<EventDetail | null>(null);
+  readonly selectedTaskEntry = signal<CalendarTaskDetail | null>(null);
 
   from = this.isoLocalValue(new Date(Date.now() - 24 * 60 * 60 * 1000));
   to = this.isoLocalValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
-  eventDraft = {
-    allDay: false,
-    allDayEndDate: '',
-    allDayStartDate: '',
-    endAt: this.isoLocalValue(new Date(Date.now() + 2 * 60 * 60 * 1000)),
-    linkedTaskId: '',
-    startAt: this.isoLocalValue(new Date(Date.now() + 60 * 60 * 1000)),
-    title: '',
-  };
-
-  deadlineTaskDraft = {
-    dueAt: this.isoLocalValue(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
-    title: '',
-  };
+  eventDraft = this.createDefaultEventDraft();
+  deadlineTaskDraft = this.createDefaultDeadlineTaskDraft();
+  eventEditDraft = this.createDefaultEventDraft();
+  eventAttachmentDraft = createAttachmentDraft();
 
   constructor() {
-    void this.bootstrap();
+    effect(() => {
+      const contextKey = this.contextService.activeContext().id;
+      void contextKey;
+      void this.bootstrap();
+    });
+  }
+
+  private createDefaultEventDraft(): EventDraft {
+    const defaultCalendarIds =
+      this.selectedCalendarIds().length > 0 ? this.selectedCalendarIds() : [];
+    return {
+      allDay: false,
+      allDayEndDate: '',
+      allDayStartDate: '',
+      calendarIds: [...defaultCalendarIds],
+      contactIds: [],
+      endAt: this.isoLocalValue(new Date(Date.now() + 2 * 60 * 60 * 1000)),
+      linkedTaskId: '',
+      location: '',
+      notes: '',
+      startAt: this.isoLocalValue(new Date(Date.now() + 60 * 60 * 1000)),
+      title: '',
+      workRelated: false,
+    };
+  }
+
+  private createDefaultDeadlineTaskDraft(): DeadlineTaskDraft {
+    const defaultCalendarIds =
+      this.selectedCalendarIds().length > 0 ? this.selectedCalendarIds() : [];
+    return {
+      calendarIds: [...defaultCalendarIds],
+      contactIds: [],
+      dueAt: this.isoLocalValue(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
+      location: '',
+      notes: '',
+      title: '',
+      workRelated: false,
+    };
   }
 
   async bootstrap() {
     this.error.set(null);
     try {
-      const [calendars, tasks] = await Promise.all([
+      const [calendars, contacts, tasks] = await Promise.all([
         this.calApi.listCalendars(),
+        this.calApi.listImportedContacts(),
         this.calApi.listTasks({ deadlinePeriod: 'all', priority: 'all', status: 'all' }),
       ]);
       this.calendars.set(calendars);
-      this.selectedCalendarIds.set(calendars.map((calendar) => calendar.id));
+      this.contacts.set(contacts);
+      const activeSelections =
+        this.selectedCalendarIds().length > 0
+          ? this.selectedCalendarIds().filter((id) =>
+              calendars.some((calendar) => calendar.id === id),
+            )
+          : calendars.map((calendar) => calendar.id);
+      this.selectedCalendarIds.set(activeSelections);
       this.taskSummaries.set(
         (tasks as TaskSummary[]).map((task) => ({
           allocation: task.allocation,
@@ -392,6 +837,12 @@ export class CalendarComponent {
           title: task.title,
         })),
       );
+      if (this.eventDraft.calendarIds.length === 0) {
+        this.eventDraft.calendarIds = [...activeSelections];
+      }
+      if (this.deadlineTaskDraft.calendarIds.length === 0) {
+        this.deadlineTaskDraft.calendarIds = [...activeSelections];
+      }
       await this.loadView();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to load calendar view.');
@@ -421,6 +872,45 @@ export class CalendarComponent {
     this.selectedCalendarIds.set(Array.from(new Set(next)));
   }
 
+  async selectEntry(entry: CalendarEntry) {
+    this.selectedEntryId.set(entry.id);
+    this.message.set(null);
+    this.error.set(null);
+    if (entry.itemType === 'event') {
+      try {
+        const event = (await this.calApi.getEvent(entry.id)) as EventDetail;
+        this.selectedEvent.set(event);
+        this.selectedTaskEntry.set(null);
+        this.eventEditDraft = {
+          allDay: event.allDay,
+          allDayEndDate: event.allDayEndDate ?? '',
+          allDayStartDate: event.allDayStartDate ?? '',
+          calendarIds: event.calendars.map((calendar) => calendar.calendarId),
+          contactIds: event.contacts.map((contact) => contact.id),
+          endAt: event.endAt ? this.isoLocalValue(new Date(event.endAt)) : '',
+          linkedTaskId: event.linkedTaskId ?? '',
+          location: event.location ?? '',
+          notes: event.notes ?? '',
+          startAt: event.startAt ? this.isoLocalValue(new Date(event.startAt)) : '',
+          title: event.title,
+          workRelated: event.workRelated,
+        };
+        this.eventAttachmentDraft = createAttachmentDraft();
+      } catch (error) {
+        this.error.set(error instanceof Error ? error.message : 'Failed to load event details.');
+      }
+      return;
+    }
+
+    try {
+      const task = (await this.calApi.getTask(entry.id)) as CalendarTaskDetail;
+      this.selectedTaskEntry.set(task);
+      this.selectedEvent.set(null);
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Failed to load task details.');
+    }
+  }
+
   async refreshLinkedTaskAllocation() {
     this.linkedTaskAllocationWarning.set(null);
     if (!this.eventDraft.linkedTaskId) {
@@ -433,16 +923,25 @@ export class CalendarComponent {
           allocatedMinutes: number;
           estimateMinutes: number | null;
           overAllocated: boolean;
-          remainingMinutes: number | null;
         };
       };
 
       if (task.allocation.estimateMinutes != null) {
-        const warning = `${task.allocation.allocatedMinutes}m allocated of ${task.allocation.estimateMinutes}m estimate.`;
+        const eventMinutes = this.eventDraft.allDay
+          ? 0
+          : Math.max(
+              0,
+              (new Date(this.eventDraft.endAt).getTime() -
+                new Date(this.eventDraft.startAt).getTime()) /
+                60_000,
+            );
+        const projectedMinutes = task.allocation.allocatedMinutes + eventMinutes;
+        const estimate = task.allocation.estimateMinutes;
+        const warning = `${task.allocation.allocatedMinutes}m allocated of ${estimate}m estimate.`;
         this.linkedTaskAllocationWarning.set(
-          task.allocation.overAllocated
-            ? `${warning} This task is already over-allocated.`
-            : warning,
+          projectedMinutes > estimate
+            ? `${warning} Saving this event projects ${projectedMinutes}m total and over-allocates the task.`
+            : `${warning} Saving this event projects ${projectedMinutes}m total.`,
         );
       }
     } catch {
@@ -452,15 +951,24 @@ export class CalendarComponent {
 
   async createEvent() {
     this.error.set(null);
+    this.message.set(null);
     try {
       if (!this.eventDraft.title.trim()) {
         throw new Error('Event title is required.');
       }
+      if (this.eventDraft.calendarIds.length === 0) {
+        throw new Error('Select at least one calendar.');
+      }
 
       const payload: Record<string, unknown> = {
         allDay: this.eventDraft.allDay,
-        calendarIds: this.selectedCalendarIds(),
-        title: this.eventDraft.title,
+        calendarIds: this.eventDraft.calendarIds,
+        contactIds: this.eventDraft.contactIds,
+        linkedTaskId: this.eventDraft.linkedTaskId || undefined,
+        location: this.eventDraft.location.trim() || undefined,
+        notes: this.eventDraft.notes.trim() || undefined,
+        title: this.eventDraft.title.trim(),
+        workRelated: this.eventDraft.workRelated,
       };
 
       if (this.eventDraft.allDay) {
@@ -471,21 +979,18 @@ export class CalendarComponent {
         payload['endAt'] = new Date(this.eventDraft.endAt).toISOString();
       }
 
-      if (this.eventDraft.linkedTaskId) {
-        payload['linkedTaskId'] = this.eventDraft.linkedTaskId;
-      }
-
       const advisory = await this.timeApi.evaluateAdvisory({
         allDay: this.eventDraft.allDay,
         endAt: this.eventDraft.allDay
           ? new Date(`${this.eventDraft.allDayEndDate}T23:59:00.000Z`).toISOString()
           : (payload['endAt'] as string),
         itemType: 'event',
+        location: this.eventDraft.location.trim() || undefined,
         startAt: this.eventDraft.allDay
           ? new Date(`${this.eventDraft.allDayStartDate}T00:00:00.000Z`).toISOString()
           : (payload['startAt'] as string),
         title: this.eventDraft.title,
-        workRelated: false,
+        workRelated: this.eventDraft.workRelated,
       });
 
       if (advisory.concerns.length > 0) {
@@ -496,11 +1001,10 @@ export class CalendarComponent {
       }
 
       await this.calApi.createEvent(payload);
-
-      this.eventDraft.title = '';
-      this.eventDraft.linkedTaskId = '';
+      this.eventDraft = this.createDefaultEventDraft();
       this.linkedTaskAllocationWarning.set(null);
       this.clearAdvisoryState();
+      this.message.set('Event created.');
       await this.bootstrap();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to create event.');
@@ -509,26 +1013,34 @@ export class CalendarComponent {
 
   async createDeadlineTask() {
     this.error.set(null);
+    this.message.set(null);
     try {
       if (!this.deadlineTaskDraft.title.trim()) {
         throw new Error('Task title is required.');
       }
-
       if (!this.deadlineTaskDraft.dueAt) {
         throw new Error('Calendar quick-create requires a task deadline.');
       }
+      if (this.deadlineTaskDraft.calendarIds.length === 0) {
+        throw new Error('Select at least one calendar.');
+      }
 
       const payload: Record<string, unknown> = {
-        calendarIds: this.selectedCalendarIds(),
-        title: this.deadlineTaskDraft.title,
+        calendarIds: this.deadlineTaskDraft.calendarIds,
+        contactIds: this.deadlineTaskDraft.contactIds,
+        dueAt: new Date(this.deadlineTaskDraft.dueAt).toISOString(),
+        location: this.deadlineTaskDraft.location.trim() || undefined,
+        notes: this.deadlineTaskDraft.notes.trim() || undefined,
+        title: this.deadlineTaskDraft.title.trim(),
+        workRelated: this.deadlineTaskDraft.workRelated,
       };
-      payload['dueAt'] = new Date(this.deadlineTaskDraft.dueAt).toISOString();
 
       const advisory = await this.timeApi.evaluateAdvisory({
         dueAt: payload['dueAt'],
         itemType: 'task',
+        location: this.deadlineTaskDraft.location.trim() || undefined,
         title: this.deadlineTaskDraft.title,
-        workRelated: false,
+        workRelated: this.deadlineTaskDraft.workRelated,
       });
 
       if (advisory.concerns.length > 0) {
@@ -539,9 +1051,9 @@ export class CalendarComponent {
       }
 
       await this.calApi.createTask(payload);
-
-      this.deadlineTaskDraft.title = '';
+      this.deadlineTaskDraft = this.createDefaultDeadlineTaskDraft();
       this.clearAdvisoryState();
+      this.message.set('Deadline task created.');
       await this.bootstrap();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to create task.');
@@ -555,17 +1067,18 @@ export class CalendarComponent {
     }
 
     this.error.set(null);
+    this.message.set(null);
     try {
       if (pending.kind === 'event') {
         await this.calApi.createEvent(pending.payload);
-        this.eventDraft.title = '';
-        this.eventDraft.linkedTaskId = '';
+        this.eventDraft = this.createDefaultEventDraft();
       } else {
         await this.calApi.createTask(pending.payload);
-        this.deadlineTaskDraft.title = '';
+        this.deadlineTaskDraft = this.createDefaultDeadlineTaskDraft();
       }
 
       this.clearAdvisoryState();
+      this.message.set(`${pending.kind === 'event' ? 'Event' : 'Task'} created.`);
       await this.bootstrap();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to create item.');
@@ -602,11 +1115,127 @@ export class CalendarComponent {
     this.clearAdvisoryState();
   }
 
+  async saveEventUpdates() {
+    const selected = this.selectedEvent();
+    if (!selected) {
+      return;
+    }
+
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      await this.calApi.updateEvent(selected.id, {
+        allDay: this.eventEditDraft.allDay,
+        allDayEndDate: this.eventEditDraft.allDay ? this.eventEditDraft.allDayEndDate : undefined,
+        allDayStartDate: this.eventEditDraft.allDay
+          ? this.eventEditDraft.allDayStartDate
+          : undefined,
+        calendarIds: this.eventEditDraft.calendarIds,
+        contactIds: this.eventEditDraft.contactIds,
+        endAt: this.eventEditDraft.allDay
+          ? undefined
+          : new Date(this.eventEditDraft.endAt).toISOString(),
+        linkedTaskId: this.eventEditDraft.linkedTaskId || null,
+        location: this.eventEditDraft.location.trim() || null,
+        notes: this.eventEditDraft.notes.trim() || null,
+        startAt: this.eventEditDraft.allDay
+          ? undefined
+          : new Date(this.eventEditDraft.startAt).toISOString(),
+        title: this.eventEditDraft.title.trim(),
+        workRelated: this.eventEditDraft.workRelated,
+      });
+      this.message.set('Event updated.');
+      await this.selectEntry({
+        calendarEntryType: 'event',
+        calendarIds: this.eventEditDraft.calendarIds,
+        id: selected.id,
+        itemType: 'event',
+        title: this.eventEditDraft.title,
+      });
+      await this.loadView();
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Failed to update event.');
+    }
+  }
+
+  async deleteEvent() {
+    const selected = this.selectedEvent();
+    if (!selected) {
+      return;
+    }
+    if (!window.confirm(`Delete event "${selected.title}"?`)) {
+      return;
+    }
+
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      await this.calApi.deleteEvent(selected.id);
+      this.selectedEvent.set(null);
+      this.selectedEntryId.set(null);
+      this.message.set('Event deleted.');
+      await this.loadView();
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Failed to delete event.');
+    }
+  }
+
+  async addEventAttachment() {
+    const selected = this.selectedEvent();
+    if (!selected) {
+      return;
+    }
+
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      if (
+        !this.eventAttachmentDraft.fileName.trim() ||
+        !this.eventAttachmentDraft.storageKey.trim()
+      ) {
+        throw new Error('File name and storage key are required.');
+      }
+      await this.calApi.addEventAttachment(selected.id, {
+        fileName: this.eventAttachmentDraft.fileName.trim(),
+        fileSizeBytes: this.eventAttachmentDraft.fileSizeBytes,
+        mimeType: this.eventAttachmentDraft.mimeType.trim(),
+        storageKey: this.eventAttachmentDraft.storageKey.trim(),
+      });
+      this.eventAttachmentDraft = createAttachmentDraft();
+      this.message.set('Event attachment metadata added.');
+      await this.selectEntry({
+        calendarEntryType: 'event',
+        calendarIds: selected.calendars.map((calendar) => calendar.calendarId),
+        id: selected.id,
+        itemType: 'event',
+        title: selected.title,
+      });
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Failed to attach file metadata.');
+    }
+  }
+
   private clearAdvisoryState() {
     this.advisory.set(null);
     this.pendingCreate.set(null);
     this.showAlternatives.set(false);
     this.aiMessage.set(null);
+  }
+
+  async copyEntryToPersonal(entry: CalendarEntry) {
+    this.error.set(null);
+    this.message.set(null);
+
+    try {
+      const copied = (await this.calApi.copyToPersonal({
+        calendarIds: [],
+        itemId: entry.id,
+        itemType: entry.itemType,
+      })) as { id: string };
+      this.message.set(`Copied ${entry.itemType} to personal context as ${copied.id}.`);
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Failed to copy item to personal.');
+    }
   }
 
   private isoLocalValue(date: Date) {

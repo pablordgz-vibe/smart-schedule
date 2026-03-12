@@ -1641,16 +1641,23 @@ export class CalService {
     itemId: string;
     itemType: 'event' | 'task';
     personalCalendarIds: string[];
-    personalScope: ActiveScope;
   }) {
-    if (input.personalScope.contextType !== 'personal') {
-      throw new ForbiddenException('Copy target must be personal context.');
-    }
+    const personalScope: ActiveScope = {
+      contextType: 'personal',
+      organizationId: null,
+      personalOwnerUserId: input.actorId,
+    };
+
+    const dedupedCalendarIds = dedupe(input.personalCalendarIds);
+    const targetCalendarIds =
+      dedupedCalendarIds.length > 0
+        ? dedupedCalendarIds
+        : [await this.resolveDefaultPersonalCalendarId(input.actorId)];
 
     const personalCalendarRefs = await this.resolveCalendarRefs(
-      input.personalScope,
+      personalScope,
       input.actorId,
-      input.personalCalendarIds,
+      targetCalendarIds,
     );
 
     if (input.itemType === 'event') {
@@ -1772,7 +1779,7 @@ export class CalService {
       return this.getEventById({
         actorId: input.actorId,
         eventId: copiedId,
-        scope: input.personalScope,
+        scope: personalScope,
       });
     }
 
@@ -1891,9 +1898,31 @@ export class CalService {
 
     return this.getTaskById({
       actorId: input.actorId,
-      scope: input.personalScope,
+      scope: personalScope,
       taskId: copiedTaskId,
     });
+  }
+
+  private async resolveDefaultPersonalCalendarId(actorId: string) {
+    await this.ensureDefaultPersonalCalendar(actorId);
+
+    const result = await this.databaseService.query<{ id: string }>(
+      `select id
+       from personal_calendars
+       where owner_user_id = $1
+       order by created_at asc, id asc
+       limit 1`,
+      [actorId],
+    );
+
+    const calendarId = result.rows[0]?.id;
+    if (!calendarId) {
+      throw new BadRequestException(
+        'No personal calendar is available for copy target.',
+      );
+    }
+
+    return calendarId;
   }
 
   private async ensureScopeAccess(scope: ActiveScope, actorId: string) {

@@ -1,10 +1,10 @@
-export const CAL_MOD = 'cal';
+export const CAL_MOD = "cal";
 
-export type CalendarContextType = 'organization' | 'personal';
-export type CalendarItemType = 'event' | 'task';
+export type CalendarContextType = "organization" | "personal";
+export type CalendarItemType = "event" | "task";
 
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
-export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'completed';
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type TaskStatus = "todo" | "in_progress" | "blocked" | "completed";
 
 export type CalendarContext = {
   contextType: CalendarContextType;
@@ -30,7 +30,7 @@ export function resolveEventEnd(input: {
 
   const durationMinutes = input.durationMinutes ?? 0;
   if (durationMinutes <= 0) {
-    throw new Error('Event duration must be greater than zero.');
+    throw new Error("Event duration must be greater than zero.");
   }
 
   return new Date(input.startAt.getTime() + durationMinutes * 60_000);

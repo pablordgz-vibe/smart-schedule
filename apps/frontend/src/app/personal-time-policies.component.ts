@@ -1,11 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { OrgApiService } from './org-api.service';
+import { ContextService } from './context.service';
 import {
   TimeApiService,
   type TimePolicyCategory,
-  type TimePolicyScopeLevel,
   type TimePolicySummary,
 } from './time-api.service';
 
@@ -14,25 +13,53 @@ type TimeTab = {
   label: string;
 };
 
+type PolicyFormState = {
+  date: string;
+  daysOfWeekToken: string;
+  endAt: string;
+  endTime: string;
+  holidayName: string;
+  locationCode: string;
+  maxDailyMinutes: number | null;
+  maxWeeklyMinutes: number | null;
+  minRestMinutes: number | null;
+  providerCode: string;
+  startAt: string;
+  startTime: string;
+  title: string;
+};
+
+function createFormState(): PolicyFormState {
+  return {
+    date: '',
+    daysOfWeekToken: '1,2,3,4,5',
+    endAt: '',
+    endTime: '17:00',
+    holidayName: '',
+    locationCode: 'ES-M',
+    maxDailyMinutes: 480,
+    maxWeeklyMinutes: 2400,
+    minRestMinutes: 60,
+    providerCode: 'public-holidays',
+    startAt: '',
+    startTime: '09:00',
+    title: '',
+  };
+}
+
 @Component({
-  selector: 'app-org-time-policies',
+  selector: 'app-personal-time-policies',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-page" data-testid="page-org-time-policies">
-      <article class="ui-card stack">
-        <p class="ui-kicker">Organization Administration</p>
-        <h1>Time Policies</h1>
-        <p class="ui-copy">
-          Configure working hours, availability, unavailability, holidays, blackout periods, rest
-          rules, and maximum hours.
-        </p>
+    <section class="ui-panel stack-tight">
+      <h2>Personal Time Policies</h2>
+      <p class="ui-copy">
+        Define personal working hours, availability, holidays, blackout periods, rest rules, and
+        maximum-hour warnings used by scheduling assistance.
+      </p>
 
-        <div class="ui-panel precedence-panel">
-          <h2>Precedence</h2>
-          <p class="ui-copy">User overrides group overrides organization.</p>
-        </div>
-
+      <ng-container *ngIf="isPersonalContext(); else wrongContext">
         <div class="tabs">
           <button
             *ngFor="let tab of tabs"
@@ -45,38 +72,12 @@ type TimeTab = {
           </button>
         </div>
 
-        <p *ngIf="errorMessage()" class="ui-banner ui-banner-denied">{{ errorMessage() }}</p>
+        <p class="ui-banner ui-banner-warning" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+        <p class="ui-banner ui-banner-info" *ngIf="message()">{{ message() }}</p>
 
-        <div class="grid two" *ngIf="organizationId(); else noContext">
+        <div class="two-column">
           <section class="ui-panel stack-tight">
-            <h2>Rule editor</h2>
-            <label class="ui-field">
-              <span>Scope</span>
-              <select [(ngModel)]="form.scopeLevel" [ngModelOptions]="{ standalone: true }">
-                <option value="organization">organization</option>
-                <option value="group">group</option>
-                <option value="user">user</option>
-              </select>
-            </label>
-
-            <label class="ui-field" *ngIf="form.scopeLevel === 'group'">
-              <span>Target group</span>
-              <select [(ngModel)]="form.targetGroupId" [ngModelOptions]="{ standalone: true }">
-                <option value="">Select group</option>
-                <option *ngFor="let group of groups()" [value]="group.id">{{ group.name }}</option>
-              </select>
-            </label>
-
-            <label class="ui-field" *ngIf="form.scopeLevel === 'user'">
-              <span>Target user</span>
-              <select [(ngModel)]="form.targetUserId" [ngModelOptions]="{ standalone: true }">
-                <option value="">Select user</option>
-                <option *ngFor="let user of memberships()" [value]="user.userId">
-                  {{ user.name }}
-                </option>
-              </select>
-            </label>
-
+            <h3>Create rule</h3>
             <label class="ui-field">
               <span>Title</span>
               <input [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
@@ -114,7 +115,7 @@ type TimeTab = {
               <ng-container *ngSwitchCase="'availability'">
                 <div class="inline-fields">
                   <label class="ui-field">
-                    <span>Days (0-6 comma separated)</span>
+                    <span>Days</span>
                     <input
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
@@ -142,7 +143,7 @@ type TimeTab = {
               <ng-container *ngSwitchCase="'unavailability'">
                 <div class="inline-fields">
                   <label class="ui-field">
-                    <span>Days (0-6 comma separated)</span>
+                    <span>Days</span>
                     <input
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
@@ -245,32 +246,26 @@ type TimeTab = {
             </ng-container>
 
             <button class="ui-button ui-button-primary" type="button" (click)="createPolicy()">
-              Save policy
+              Save personal rule
             </button>
           </section>
 
           <section class="ui-panel stack-tight">
-            <h2>Official holiday import selector</h2>
+            <h3>Official holiday import</h3>
             <div class="inline-fields">
               <label class="ui-field">
                 <span>Provider</span>
-                <input
-                  [(ngModel)]="holidayImport.providerCode"
-                  [ngModelOptions]="{ standalone: true }"
-                />
+                <input [(ngModel)]="form.providerCode" [ngModelOptions]="{ standalone: true }" />
               </label>
               <label class="ui-field">
                 <span>Location</span>
-                <input
-                  [(ngModel)]="holidayImport.locationCode"
-                  [ngModelOptions]="{ standalone: true }"
-                />
+                <input [(ngModel)]="form.locationCode" [ngModelOptions]="{ standalone: true }" />
               </label>
               <label class="ui-field">
                 <span>Year</span>
                 <input
                   type="number"
-                  [(ngModel)]="holidayImport.year"
+                  [(ngModel)]="holidayYear"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </label>
@@ -278,42 +273,25 @@ type TimeTab = {
             <button class="ui-button ui-button-secondary" type="button" (click)="importHolidays()">
               Import official holidays
             </button>
-            <p class="ui-copy" *ngIf="lastImportMessage()">{{ lastImportMessage() }}</p>
 
-            <h2>Effective policy preview</h2>
-            <label class="ui-field">
-              <span>Preview user</span>
-              <select
-                [(ngModel)]="previewUserId"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="loadPreview()"
-              >
-                <option value="">Current actor</option>
-                <option *ngFor="let user of memberships()" [value]="user.userId">
-                  {{ user.name }}
-                </option>
-              </select>
-            </label>
-
+            <h3>Effective preview</h3>
             <ul class="simple-list">
-              <li *ngFor="let item of previewRows()">
-                <strong>{{ item.category }}</strong>
-                <span class="ui-chip">{{ item.scope }}</span>
-                <span class="ui-copy">rules: {{ item.ruleCount }}</span>
+              <li *ngFor="let row of previewRows()">
+                <strong>{{ row.category }}</strong>
+                <span class="ui-chip">{{ row.scope || 'none' }}</span>
+                <span class="ui-copy">rules: {{ row.ruleCount }}</span>
               </li>
             </ul>
           </section>
         </div>
 
-        <article class="ui-panel" *ngIf="organizationId()">
-          <h2>Current {{ activeTabLabel() }} rules</h2>
+        <section class="ui-panel stack-tight">
+          <h3>Current {{ activeTabLabel() }} rules</h3>
           <ul class="simple-list">
-            <li *ngFor="let policy of filteredPolicies()" data-testid="time-policy-row">
+            <li *ngFor="let policy of filteredPolicies()">
               <div>
                 <strong>{{ policy.title }}</strong>
-                <p class="ui-copy">
-                  {{ policy.scopeLevel }} · {{ policy.sourceType }} · {{ policy.updatedAt }}
-                </p>
+                <p class="ui-copy">{{ policy.sourceType }} · {{ policy.updatedAt }}</p>
               </div>
               <button class="ui-button" type="button" (click)="removePolicy(policy.id)">
                 Delete
@@ -323,26 +301,16 @@ type TimeTab = {
               No rules in this tab yet.
             </li>
           </ul>
-        </article>
+        </section>
+      </ng-container>
 
-        <ng-template #noContext>
-          <article class="ui-panel">
-            <h2>Organization context required</h2>
-            <p class="ui-copy">
-              Switch into an organization admin context to manage time policies.
-            </p>
-          </article>
-        </ng-template>
-      </article>
+      <ng-template #wrongContext>
+        <p class="ui-copy">Switch into personal context to manage personal time policies.</p>
+      </ng-template>
     </section>
   `,
   styles: [
     `
-      .stack {
-        display: grid;
-        gap: var(--spacing-4);
-      }
-
       .stack-tight {
         display: grid;
         gap: var(--spacing-3);
@@ -354,17 +322,24 @@ type TimeTab = {
         flex-wrap: wrap;
       }
 
+      .two-column {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-4);
+      }
+
       .inline-fields {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: var(--spacing-3);
       }
 
-      .precedence-panel {
-        border-left: 4px solid rgb(14 116 144 / 0.7);
+      .ui-copy {
+        color: var(--text-secondary);
       }
 
-      @media (max-width: 1100px) {
+      @media (max-width: 960px) {
+        .two-column,
         .inline-fields {
           grid-template-columns: 1fr;
         }
@@ -372,8 +347,8 @@ type TimeTab = {
     `,
   ],
 })
-export class OrgTimePoliciesComponent {
-  private readonly orgApi = inject(OrgApiService);
+export class PersonalTimePoliciesComponent {
+  private readonly contextService = inject(ContextService);
   private readonly timeApi = inject(TimeApiService);
 
   readonly tabs: TimeTab[] = [
@@ -381,91 +356,50 @@ export class OrgTimePoliciesComponent {
     { id: 'availability', label: 'Availability' },
     { id: 'unavailability', label: 'Unavailability' },
     { id: 'holiday', label: 'Holidays' },
-    { id: 'blackout', label: 'Blackout Periods' },
+    { id: 'blackout', label: 'Blackouts' },
     { id: 'rest', label: 'Rest Rules' },
     { id: 'max_hours', label: 'Maximum Hours' },
   ];
 
   readonly activeTab = signal<TimePolicyCategory>('working_hours');
-  readonly organizationId = computed(() => this.orgApi.activeOrganizationId());
   readonly errorMessage = signal<string | null>(null);
-  readonly lastImportMessage = signal<string | null>(null);
-
-  private readonly policiesState = signal<TimePolicySummary[]>([]);
-  readonly policies = this.policiesState.asReadonly();
-
-  private readonly membershipsState = signal<
-    Array<{ userId: string; name: string; email: string; role: 'admin' | 'member' }>
-  >([]);
-  readonly memberships = this.membershipsState.asReadonly();
-
-  private readonly groupsState = signal<Array<{ id: string; name: string }>>([]);
-  readonly groups = this.groupsState.asReadonly();
-
-  previewUserId = '';
-  private readonly previewState = signal<
-    Record<string, { resolvedFromScope: TimePolicyScopeLevel | null; rules: Array<{ id: string }> }>
+  readonly message = signal<string | null>(null);
+  readonly isPersonalContext = computed(
+    () => this.contextService.activeContext().contextType === 'personal',
+  );
+  readonly policiesState = signal<TimePolicySummary[]>([]);
+  readonly previewState = signal<
+    Record<string, { resolvedFromScope: string | null; rules: unknown[] }>
   >({});
 
-  form: {
-    title: string;
-    scopeLevel: TimePolicyScopeLevel;
-    targetGroupId: string;
-    targetUserId: string;
-    daysOfWeekToken: string;
-    startTime: string;
-    endTime: string;
-    date: string;
-    holidayName: string;
-    startAt: string;
-    endAt: string;
-    minRestMinutes: number;
-    maxDailyMinutes: number;
-    maxWeeklyMinutes: number;
-  } = {
-    date: '',
-    daysOfWeekToken: '1,2,3,4,5',
-    endAt: '',
-    endTime: '17:00',
-    holidayName: '',
-    maxDailyMinutes: 480,
-    maxWeeklyMinutes: 2400,
-    minRestMinutes: 720,
-    scopeLevel: 'organization',
-    startAt: '',
-    startTime: '09:00',
-    targetGroupId: '',
-    targetUserId: '',
-    title: 'New policy',
-  };
-
-  holidayImport = {
-    locationCode: 'US',
-    providerCode: 'public-holidays',
-    year: new Date().getUTCFullYear(),
-  };
-
+  readonly policies = this.policiesState.asReadonly();
   readonly filteredPolicies = computed(() =>
     this.policies().filter((policy) => policy.policyType === this.activeTab()),
   );
-
   readonly previewRows = computed(() =>
-    Object.entries(this.previewState()).map(([category, entry]) => ({
+    Object.entries(this.previewState()).map(([category, details]) => ({
       category,
-      ruleCount: entry.rules.length,
-      scope: entry.resolvedFromScope ?? 'none',
+      ruleCount: details.rules.length,
+      scope: details.resolvedFromScope,
     })),
   );
-
   readonly activeTabLabel = computed(
-    () => this.tabs.find((tab) => tab.id === this.activeTab())?.label ?? this.activeTab(),
+    () => this.tabs.find((tab) => tab.id === this.activeTab())?.label ?? 'Policies',
   );
+
+  form = createFormState();
+  holidayYear = new Date().getUTCFullYear();
 
   constructor() {
     effect(() => {
-      const organizationId = this.organizationId();
-      void organizationId;
-      void this.reload();
+      const contextKey = this.contextService.activeContext().id;
+      void contextKey;
+      if (this.isPersonalContext()) {
+        void this.reload();
+      } else {
+        this.policiesState.set([]);
+        this.previewState.set({});
+      }
     });
   }
 
@@ -474,143 +408,83 @@ export class OrgTimePoliciesComponent {
   }
 
   async createPolicy() {
-    if (!this.organizationId()) {
+    if (!this.isPersonalContext()) {
       return;
     }
 
     try {
       this.errorMessage.set(null);
-      await this.timeApi.createPolicy(this.buildPolicyPayload());
-      await this.reloadPolicies();
+      this.message.set(null);
+      await this.timeApi.createPolicy({
+        date: this.form.date || undefined,
+        daysOfWeek: this.parseDaysOfWeek(),
+        endAt: this.form.endAt ? new Date(this.form.endAt).toISOString() : undefined,
+        endTime: this.form.endTime || undefined,
+        holidayName: this.form.holidayName || undefined,
+        isActive: true,
+        locationCode: this.form.locationCode || undefined,
+        maxDailyMinutes: this.form.maxDailyMinutes ?? undefined,
+        maxWeeklyMinutes: this.form.maxWeeklyMinutes ?? undefined,
+        minRestMinutes: this.form.minRestMinutes ?? undefined,
+        policyType: this.activeTab(),
+        providerCode: this.form.providerCode || undefined,
+        scopeLevel: 'user',
+        startAt: this.form.startAt ? new Date(this.form.startAt).toISOString() : undefined,
+        startTime: this.form.startTime || undefined,
+        title: this.form.title.trim() || `${this.activeTabLabel()} Rule`,
+      });
+      this.form = createFormState();
+      this.message.set('Personal time rule saved.');
+      await this.reload();
     } catch (error) {
-      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to create policy.');
+      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to save rule.');
     }
   }
 
   async removePolicy(policyId: string) {
     try {
       this.errorMessage.set(null);
+      this.message.set(null);
       await this.timeApi.deletePolicy(policyId);
-      await this.reloadPolicies();
+      this.message.set('Policy deleted.');
+      await this.reload();
     } catch (error) {
-      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to delete policy.');
+      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to delete rule.');
     }
   }
 
   async importHolidays() {
     try {
       this.errorMessage.set(null);
-      this.lastImportMessage.set(null);
-
+      this.message.set(null);
       const result = await this.timeApi.importOfficialHolidays({
-        locationCode: this.holidayImport.locationCode,
-        providerCode: this.holidayImport.providerCode,
-        scopeLevel: this.form.scopeLevel,
-        targetGroupId:
-          this.form.scopeLevel === 'group' ? this.form.targetGroupId || undefined : undefined,
-        targetUserId:
-          this.form.scopeLevel === 'user' ? this.form.targetUserId || undefined : undefined,
-        year: this.holidayImport.year,
+        locationCode: this.form.locationCode.trim(),
+        providerCode: this.form.providerCode.trim(),
+        scopeLevel: 'user',
+        year: this.holidayYear,
       });
-
-      this.lastImportMessage.set(`${result.imported} official holidays imported.`);
-      await this.reloadPolicies();
-      await this.loadPreview();
+      this.message.set(`Imported ${result.imported} official holidays.`);
+      await this.reload();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to import holidays.');
     }
   }
 
-  async loadPreview() {
-    try {
-      const preview = await this.timeApi.previewEffectivePolicies(this.previewUserId || undefined);
-      this.previewState.set(preview.categories);
-    } catch (error) {
-      this.errorMessage.set(
-        error instanceof Error ? error.message : 'Failed to load policy preview.',
-      );
-    }
-  }
-
   private async reload() {
-    if (!this.organizationId()) {
-      this.membershipsState.set([]);
-      this.groupsState.set([]);
-      this.policiesState.set([]);
-      this.previewState.set({});
-      return;
-    }
-
-    try {
-      this.errorMessage.set(null);
-      const [memberships, groups] = await Promise.all([
-        this.orgApi.listMemberships(this.organizationId()!),
-        this.orgApi.listGroups(this.organizationId()!),
-      ]);
-      this.membershipsState.set(memberships);
-      this.groupsState.set(groups.map((group) => ({ id: group.id, name: group.name })));
-
-      await this.reloadPolicies();
-      await this.loadPreview();
-    } catch (error) {
-      this.errorMessage.set(
-        error instanceof Error ? error.message : 'Failed to load organization time policies.',
-      );
-    }
+    const [policies, preview] = await Promise.all([
+      this.timeApi.listPolicies(),
+      this.timeApi.previewEffectivePolicies(),
+    ]);
+    this.policiesState.set(policies);
+    this.previewState.set(preview.categories);
   }
 
-  private async reloadPolicies() {
-    this.policiesState.set(await this.timeApi.listPolicies());
-  }
+  private parseDaysOfWeek() {
+    const values = this.form.daysOfWeekToken
+      .split(',')
+      .map((token) => Number(token.trim()))
+      .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6);
 
-  private buildPolicyPayload() {
-    const payload: Record<string, unknown> = {
-      isActive: true,
-      policyType: this.activeTab(),
-      scopeLevel: this.form.scopeLevel,
-      title: this.form.title,
-    };
-
-    if (this.form.scopeLevel === 'group') {
-      payload['targetGroupId'] = this.form.targetGroupId;
-    }
-
-    if (this.form.scopeLevel === 'user') {
-      payload['targetUserId'] = this.form.targetUserId;
-    }
-
-    if (
-      this.activeTab() === 'working_hours' ||
-      this.activeTab() === 'availability' ||
-      this.activeTab() === 'unavailability'
-    ) {
-      payload['daysOfWeek'] = this.form.daysOfWeekToken
-        .split(',')
-        .map((value) => Number(value.trim()))
-        .filter((value) => Number.isInteger(value));
-      payload['startTime'] = this.form.startTime;
-      payload['endTime'] = this.form.endTime;
-    }
-
-    if (this.activeTab() === 'holiday') {
-      payload['date'] = this.form.date;
-      payload['holidayName'] = this.form.holidayName;
-    }
-
-    if (this.activeTab() === 'blackout') {
-      payload['startAt'] = new Date(this.form.startAt).toISOString();
-      payload['endAt'] = new Date(this.form.endAt).toISOString();
-    }
-
-    if (this.activeTab() === 'rest') {
-      payload['minRestMinutes'] = this.form.minRestMinutes;
-    }
-
-    if (this.activeTab() === 'max_hours') {
-      payload['maxDailyMinutes'] = this.form.maxDailyMinutes;
-      payload['maxWeeklyMinutes'] = this.form.maxWeeklyMinutes;
-    }
-
-    return payload;
+    return values.length > 0 ? Array.from(new Set(values)) : undefined;
   }
 }

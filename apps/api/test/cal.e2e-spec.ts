@@ -336,21 +336,19 @@ describe('calendars, events, tasks, and copy model (e2e)', () => {
     const orgTaskId = (orgTaskResponse.body as { task: { id: string } }).task
       .id;
 
-    await switchContext(owner, {
-      contextType: 'personal',
-    });
-
-    const personalCalendarId = await getDefaultPersonalCalendar(owner);
-
     const copyResponse = await request(getTestServer())
       .post(`/cal/items/task/${orgTaskId}/copy-to-personal`)
       .set('cookie', owner.cookie)
       .set('x-csrf-token', owner.csrf)
-      .send({ calendarIds: [personalCalendarId] })
+      .send({ calendarIds: [] })
       .expect(201);
 
     const copiedTaskId = (copyResponse.body as { item: { id: string } }).item
       .id;
+
+    await switchContext(owner, {
+      contextType: 'personal',
+    });
 
     await request(getTestServer())
       .patch(`/cal/tasks/${copiedTaskId}`)

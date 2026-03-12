@@ -5,6 +5,10 @@ import { DirtyStateService } from './dirty-state.service';
 export const unsavedChangesGuard: CanDeactivateFn<unknown> = () => {
   const dirtyState = inject(DirtyStateService);
 
+  if (dirtyState.consumeApprovedNavigation()) {
+    return true;
+  }
+
   if (!dirtyState.isDirty()) {
     return true;
   }

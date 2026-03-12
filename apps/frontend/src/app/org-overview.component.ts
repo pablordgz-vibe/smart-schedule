@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthStateService } from './auth-state.service';
 import { ContextService } from './context.service';
@@ -144,7 +144,11 @@ export class OrgOverviewComponent {
   readonly myInvitations = this.myInvitationsState.asReadonly();
 
   constructor() {
-    void this.reload();
+    effect(() => {
+      const organizationId = this.activeOrganizationId();
+      void organizationId;
+      void this.reload();
+    });
   }
 
   async createOrganization() {

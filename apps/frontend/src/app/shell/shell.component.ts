@@ -491,6 +491,9 @@ export class ShellComponent {
     ) {
       return;
     }
+    if (this.dirtyState.isDirty()) {
+      this.dirtyState.approveNextNavigation();
+    }
 
     const previousContextId = this.contextService.activeContext().id;
     const nextRoute = this.contextService.resolveRouteForContext(

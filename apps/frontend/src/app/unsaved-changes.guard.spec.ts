@@ -28,4 +28,22 @@ describe('unsavedChangesGuard', () => {
 
     confirmSpy.mockRestore();
   });
+
+  it('allows one approved dirty navigation without prompting again', () => {
+    TestBed.configureTestingModule({});
+    const dirtyState = TestBed.inject(DirtyStateService);
+    dirtyState.markDirty();
+    dirtyState.approveNextNavigation();
+
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    const result = TestBed.runInInjectionContext(() =>
+      unsavedChangesGuard({} as never, {} as never, {} as never),
+    );
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(result).toBe(true);
+    expect(dirtyState.isDirty()).toBe(false);
+
+    confirmSpy.mockRestore();
+  });
 });

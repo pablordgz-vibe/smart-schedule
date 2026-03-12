@@ -22,6 +22,15 @@ export type ImportedContact = {
   phone: string | null;
 };
 
+export type AttachmentSummary = {
+  fileName: string;
+  fileSizeBytes: number;
+  id: string;
+  mimeType: string;
+  state: string;
+  storageKey: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class CalApiService {
   private readonly authState = inject(AuthStateService);
@@ -147,6 +156,13 @@ export class CalApiService {
     return response.task;
   }
 
+  async deleteTask(taskId: string) {
+    return this.fetchJson<{ result: { ok: true } }>(`/api/cal/tasks/${taskId}`, {
+      headers: this.authHeaders(),
+      method: 'DELETE',
+    });
+  }
+
   async createEvent(payload: Record<string, unknown>) {
     const response = await this.fetchJson<{ event: unknown }>(`/api/cal/events`, {
       body: JSON.stringify(payload),
@@ -173,6 +189,39 @@ export class CalApiService {
     });
 
     return response.event;
+  }
+
+  async deleteEvent(eventId: string) {
+    return this.fetchJson<{ result: { ok: true } }>(`/api/cal/events/${eventId}`, {
+      headers: this.authHeaders(),
+      method: 'DELETE',
+    });
+  }
+
+  async addEventAttachment(eventId: string, payload: Record<string, unknown>) {
+    const response = await this.fetchJson<{ attachment: AttachmentSummary }>(
+      `/api/cal/events/${eventId}/attachments`,
+      {
+        body: JSON.stringify(payload),
+        headers: this.authHeaders(),
+        method: 'POST',
+      },
+    );
+
+    return response.attachment;
+  }
+
+  async addTaskAttachment(taskId: string, payload: Record<string, unknown>) {
+    const response = await this.fetchJson<{ attachment: AttachmentSummary }>(
+      `/api/cal/tasks/${taskId}/attachments`,
+      {
+        body: JSON.stringify(payload),
+        headers: this.authHeaders(),
+        method: 'POST',
+      },
+    );
+
+    return response.attachment;
   }
 
   async copyToPersonal(input: {

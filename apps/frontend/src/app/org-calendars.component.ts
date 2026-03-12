@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OrgApiService } from './org-api.service';
 
@@ -12,7 +12,9 @@ import { OrgApiService } from './org-api.service';
       <div class="ui-card stack">
         <p class="ui-kicker">Organization Administration</p>
         <h1>Organization Calendars</h1>
-        <p class="ui-copy">Create organization calendars and manage user visibility grants.</p>
+        <p class="ui-copy">
+          Create organization calendars and manage user visibility grants and revocations.
+        </p>
 
         <div class="ui-toolbar" *ngIf="organizationId()">
           <label class="ui-field grow">
@@ -45,7 +47,7 @@ import { OrgApiService } from './org-api.service';
           </article>
 
           <article class="ui-panel">
-            <h2>Grant visibility</h2>
+            <h2>Manage visibility</h2>
             <label class="ui-field">
               <span>Calendar id</span>
               <input [(ngModel)]="grantCalendarId" [ngModelOptions]="{ standalone: true }" />
@@ -56,6 +58,9 @@ import { OrgApiService } from './org-api.service';
             </label>
             <button class="ui-button ui-button-secondary" type="button" (click)="grantVisibility()">
               Grant calendar visibility
+            </button>
+            <button class="ui-button" type="button" (click)="revokeVisibility()">
+              Revoke calendar visibility
             </button>
           </article>
         </div>
@@ -89,7 +94,11 @@ export class OrgCalendarsComponent {
   readonly calendars = this.calendarsState.asReadonly();
 
   constructor() {
-    void this.reload();
+    effect(() => {
+      const organizationId = this.organizationId();
+      void organizationId;
+      void this.reload();
+    });
   }
 
   async createCalendar() {
@@ -127,6 +136,26 @@ export class OrgCalendarsComponent {
       await this.reload();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to grant visibility.');
+    }
+  }
+
+  async revokeVisibility() {
+    if (!this.organizationId()) {
+      return;
+    }
+
+    try {
+      this.errorMessage.set(null);
+      await this.orgApi.revokeCalendarVisibility(
+        this.organizationId()!,
+        this.grantCalendarId.trim(),
+        this.grantUserId.trim(),
+      );
+      await this.reload();
+    } catch (error) {
+      this.errorMessage.set(
+        error instanceof Error ? error.message : 'Failed to revoke visibility.',
+      );
     }
   }
 

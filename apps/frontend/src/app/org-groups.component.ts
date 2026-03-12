@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OrgApiService } from './org-api.service';
 
@@ -94,7 +94,11 @@ export class OrgGroupsComponent {
   readonly groups = this.groupsState.asReadonly();
 
   constructor() {
-    void this.reload();
+    effect(() => {
+      const organizationId = this.organizationId();
+      void organizationId;
+      void this.reload();
+    });
   }
 
   async createGroup() {

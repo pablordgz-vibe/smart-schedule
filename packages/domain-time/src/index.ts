@@ -157,6 +157,187 @@ function isoDateToken(isoDateTime: string) {
   return toDate(isoDateTime).toISOString().slice(0, 10);
 }
 
+function sortRules(left: TimePolicyRecord, right: TimePolicyRecord) {
+  const updatedAtSort = left.updatedAt.localeCompare(right.updatedAt);
+  if (updatedAtSort !== 0) {
+    return updatedAtSort;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function cloneRule(
+  record: TimePolicyRecord,
+  patch: Partial<TimePolicyRecord["rule"]>,
+): TimePolicyRecord {
+  return {
+    ...record,
+    rule: {
+      ...record.rule,
+      ...patch,
+    },
+  };
+}
+
+function resolveWindowPolicies(scoped: {
+  organization: TimePolicyRecord[];
+  group: TimePolicyRecord[];
+  user: TimePolicyRecord[];
+}) {
+  const coveredDays = new Set<number>();
+  const selected: TimePolicyRecord[] = [];
+
+  for (const scope of precedenceOrder) {
+    for (const record of [...scoped[scope]].sort(sortRules)) {
+      const days = record.rule.daysOfWeek ?? [];
+      if (days.length === 0) {
+        if (selected.length === 0) {
+          selected.push(record);
+        }
+        continue;
+      }
+
+      const remainingDays = days.filter((day) => !coveredDays.has(day));
+      if (remainingDays.length === 0) {
+        continue;
+      }
+
+      for (const day of remainingDays) {
+        coveredDays.add(day);
+      }
+
+      selected.push(
+        remainingDays.length === days.length
+          ? record
+          : cloneRule(record, { daysOfWeek: remainingDays }),
+      );
+    }
+  }
+
+  return selected;
+}
+
+function resolveHolidayPolicies(scoped: {
+  organization: TimePolicyRecord[];
+  group: TimePolicyRecord[];
+  user: TimePolicyRecord[];
+}) {
+  const coveredDates = new Set<string>();
+  const selected: TimePolicyRecord[] = [];
+
+  for (const scope of precedenceOrder) {
+    for (const record of [...scoped[scope]].sort(sortRules)) {
+      const date = record.rule.date;
+      if (!date) {
+        continue;
+      }
+
+      if (coveredDates.has(date)) {
+        continue;
+      }
+
+      coveredDates.add(date);
+      selected.push(record);
+    }
+  }
+
+  return selected;
+}
+
+function resolveBlackoutPolicies(scoped: {
+  organization: TimePolicyRecord[];
+  group: TimePolicyRecord[];
+  user: TimePolicyRecord[];
+}) {
+  const selected: TimePolicyRecord[] = [];
+
+  for (const scope of precedenceOrder) {
+    for (const record of [...scoped[scope]].sort(sortRules)) {
+      const startAt = record.rule.startAt;
+      const endAt = record.rule.endAt;
+      if (!startAt || !endAt) {
+        continue;
+      }
+
+      const conflicts = selected.some((existing) => {
+        if (!existing.rule.startAt || !existing.rule.endAt) {
+          return false;
+        }
+
+        return isWindowOverlap(
+          { startAt, endAt },
+          { startAt: existing.rule.startAt, endAt: existing.rule.endAt },
+        );
+      });
+
+      if (!conflicts) {
+        selected.push(record);
+      }
+    }
+  }
+
+  return selected;
+}
+
+function resolveRestPolicies(scoped: {
+  organization: TimePolicyRecord[];
+  group: TimePolicyRecord[];
+  user: TimePolicyRecord[];
+}) {
+  for (const scope of precedenceOrder) {
+    const matching = [...scoped[scope]]
+      .sort(sortRules)
+      .filter((record) => typeof record.rule.minRestMinutes === "number");
+    if (matching.length > 0) {
+      return matching.slice(0, 1);
+    }
+  }
+
+  return [];
+}
+
+function resolveMaxHourPolicies(scoped: {
+  organization: TimePolicyRecord[];
+  group: TimePolicyRecord[];
+  user: TimePolicyRecord[];
+}) {
+  const selected: TimePolicyRecord[] = [];
+  let dailyCovered = false;
+  let weeklyCovered = false;
+
+  for (const scope of precedenceOrder) {
+    for (const record of [...scoped[scope]].sort(sortRules)) {
+      const patch: Partial<TimePolicyRecord["rule"]> = {};
+
+      if (
+        !dailyCovered &&
+        typeof record.rule.maxDailyMinutes === "number" &&
+        record.rule.maxDailyMinutes > 0
+      ) {
+        patch.maxDailyMinutes = record.rule.maxDailyMinutes;
+        dailyCovered = true;
+      }
+
+      if (
+        !weeklyCovered &&
+        typeof record.rule.maxWeeklyMinutes === "number" &&
+        record.rule.maxWeeklyMinutes > 0
+      ) {
+        patch.maxWeeklyMinutes = record.rule.maxWeeklyMinutes;
+        weeklyCovered = true;
+      }
+
+      if (Object.keys(patch).length === 0) {
+        continue;
+      }
+
+      selected.push(cloneRule(record, patch));
+    }
+  }
+
+  return selected;
+}
+
 export function resolveEffectivePolicies(input: {
   records: TimePolicyRecord[];
   targetGroupIds: string[];
@@ -218,18 +399,20 @@ export function resolveEffectivePolicies(input: {
     categories.map((category) => {
       const scoped = byCategory.get(category)!;
 
+      const rules =
+        category === "holiday"
+          ? resolveHolidayPolicies(scoped)
+          : category === "blackout"
+            ? resolveBlackoutPolicies(scoped)
+            : category === "rest"
+              ? resolveRestPolicies(scoped)
+              : category === "max_hours"
+                ? resolveMaxHourPolicies(scoped)
+                : resolveWindowPolicies(scoped);
       const resolvedScope =
-        precedenceOrder.find((scope) => scoped[scope].length > 0) ?? null;
-      const rules = resolvedScope
-        ? [...scoped[resolvedScope]].sort((left, right) => {
-            const updatedAtSort = left.updatedAt.localeCompare(right.updatedAt);
-            if (updatedAtSort !== 0) {
-              return updatedAtSort;
-            }
-
-            return left.id.localeCompare(right.id);
-          })
-        : [];
+        precedenceOrder.find((scope) =>
+          rules.some((rule) => rule.scopeLevel === scope),
+        ) ?? null;
 
       return [
         category,

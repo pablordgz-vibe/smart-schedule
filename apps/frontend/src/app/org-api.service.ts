@@ -190,6 +190,16 @@ export class OrgApiService {
     );
   }
 
+  async revokeCalendarVisibility(organizationId: string, calendarId: string, userId: string) {
+    return this.fetchJson(
+      `/api/org/organizations/${organizationId}/calendars/${calendarId}/visibility/${userId}`,
+      {
+        headers: this.authHeaders(),
+        method: 'DELETE',
+      },
+    );
+  }
+
   private authHeaders() {
     return {
       'content-type': 'application/json',

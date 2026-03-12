@@ -385,9 +385,9 @@ class AddAttachmentDto {
 
 class CopyToPersonalDto {
   @IsArray()
-  @ArrayMinSize(1)
   @IsString({ each: true })
-  calendarIds!: string[];
+  @IsOptional()
+  calendarIds?: string[];
 }
 
 @Controller('cal')
@@ -783,7 +783,7 @@ export class CalController {
 
   @SecurityPolicy({
     allowedActorTypes: ['user'],
-    allowedContextTypes: ['personal'],
+    allowedContextTypes: ['organization', 'personal'],
     requireContextId: true,
   })
   @Post('items/:itemType/:itemId/copy-to-personal')
@@ -802,8 +802,7 @@ export class CalController {
         actorId: request.requestContext!.actor.id!,
         itemId,
         itemType,
-        personalCalendarIds: body.calendarIds,
-        personalScope: this.getScope(request),
+        personalCalendarIds: body.calendarIds ?? [],
       }),
     };
   }

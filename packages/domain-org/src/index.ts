@@ -1,6 +1,6 @@
-export const ORG_MOD = 'org';
+export const ORG_MOD = "org";
 
-export type OrganizationRole = 'admin' | 'member';
+export type OrganizationRole = "admin" | "member";
 
 export type Organization = {
   id: string;
