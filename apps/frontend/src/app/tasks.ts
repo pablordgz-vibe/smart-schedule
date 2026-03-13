@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import {
   CalApiService,
   type AttachmentSummary,
@@ -800,6 +801,7 @@ function parseSubtasks(value: string) {
 export class TasksComponent {
   private readonly calApi = inject(CalApiService);
   private readonly contextService = inject(ContextService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly contextLabel = computed(() => this.contextService.getContextLabel());
   readonly isOrganizationContext = computed(
@@ -852,6 +854,7 @@ export class TasksComponent {
         this.draft.calendarIds = calendars.map((calendar) => calendar.id);
       }
       await this.loadTasks();
+      await this.selectRequestedTaskFromRoute();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to load tasks workspace.');
     }
@@ -861,6 +864,11 @@ export class TasksComponent {
     this.error.set(null);
     try {
       this.tasks.set((await this.calApi.listTasks(this.filters)) as TaskRow[]);
+      const requestedTaskId = this.route.snapshot.queryParamMap.get('taskId');
+      if (requestedTaskId) {
+        await this.selectTask(requestedTaskId);
+        return;
+      }
       const selectedTaskId = this.selectedTaskId();
       if (selectedTaskId) {
         await this.selectTask(selectedTaskId);
@@ -1081,6 +1089,19 @@ export class TasksComponent {
 
   dependencyLabel(taskId: string) {
     return this.tasks().find((task) => task.id === taskId)?.title ?? taskId;
+  }
+
+  private async selectRequestedTaskFromRoute() {
+    const requestedTaskId = this.route.snapshot.queryParamMap.get('taskId');
+    if (!requestedTaskId) {
+      return;
+    }
+
+    if (this.selectedTaskId() === requestedTaskId) {
+      return;
+    }
+
+    await this.selectTask(requestedTaskId);
   }
 
   private isoLocalValue(date: Date) {

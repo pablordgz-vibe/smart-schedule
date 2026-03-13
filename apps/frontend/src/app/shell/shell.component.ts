@@ -93,7 +93,7 @@ import {
                 (click)="openQuickCreate()"
                 data-testid="quick-create"
               >
-                Quick Create
+                Open Calendar
               </button>
               <button class="btn btn-ghost btn-sm" type="button" data-testid="notifications-button">
                 Notifications

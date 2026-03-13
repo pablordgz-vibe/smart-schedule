@@ -204,7 +204,7 @@ export const systemAdminNavItems: NavItem[] = [
   },
 ];
 
-export const quickCreateRoute = '/schedules/builder';
+export const quickCreateRoute = '/calendar';
 
 export const searchableRoutes: SearchRouteEntry[] = [
   {
@@ -244,8 +244,8 @@ export const searchableRoutes: SearchRouteEntry[] = [
   },
   {
     area: 'end-user',
-    description: 'Dedicated schedule builder used by quick create.',
-    keywords: ['builder', 'create', 'quick create', 'new schedule'],
+    description: 'Dedicated schedule builder for reusable schedules and assignments.',
+    keywords: ['builder', 'schedule', 'new schedule', 'templates'],
     label: 'Schedule Builder',
     path: '/schedules/builder',
   },
