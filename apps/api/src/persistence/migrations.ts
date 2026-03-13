@@ -11,6 +11,7 @@ type MigrationFile = {
 };
 
 const schemaMigrationsTable = 'schema_migrations';
+const migrationsLockId = 'smart_schedule_schema_migrations';
 
 function isPool(connection: DatabaseClient): connection is Pool {
   return connection instanceof Pool;
@@ -54,8 +55,12 @@ export async function applyMigrations(
   const client = isPool(databaseClient)
     ? await databaseClient.connect()
     : databaseClient;
+  let lockAcquired = false;
 
   try {
+    await client.query(`select pg_advisory_lock(hashtext($1))`, [migrationsLockId]);
+    lockAcquired = true;
+
     await client.query(`
     create table if not exists ${schemaMigrationsTable} (
       id text primary key,
@@ -96,6 +101,12 @@ export async function applyMigrations(
 
     return executed;
   } finally {
+    if (lockAcquired) {
+      await client.query(`select pg_advisory_unlock(hashtext($1))`, [
+        migrationsLockId,
+      ]);
+    }
+
     if (isPool(databaseClient)) {
       (client as PoolClient).release();
     }

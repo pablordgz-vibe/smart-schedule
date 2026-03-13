@@ -9,6 +9,29 @@ import type {
   SetupStateSnapshot,
 } from './setup.types';
 
+type SmtpConfigStyle = 'connection-uri' | 'smtp-details';
+type SmtpPresetId = 'custom' | 'gmail' | 'amazon-ses' | 'sendgrid';
+
+type IntegrationSelection = {
+  enabled: boolean;
+  mode: SetupIntegrationCredentialMode;
+  secret: string;
+  smtpConfig: SmtpConfigState | null;
+};
+
+type SmtpConfigState = {
+  fromAddress: string;
+  host: string;
+  password: string;
+  port: string;
+  preset: SmtpPresetId;
+  revealPassword: boolean;
+  secure: boolean;
+  style: SmtpConfigStyle;
+  uri: string;
+  username: string;
+};
+
 @Component({
   standalone: true,
   selector: 'app-setup',
@@ -95,15 +118,139 @@ import type {
                   </label>
 
                   <label class="ui-field">
-                    <span>{{ secretFieldLabel(modeFor(provider.code)) }}</span>
-                    <input
-                      class="ui-input"
-                      [ngModel]="secretFor(provider.code)"
-                      (ngModelChange)="setSecret(provider.code, $event)"
-                      [ngModelOptions]="{ standalone: true }"
-                      [placeholder]="secretPlaceholder(modeFor(provider.code))"
-                    />
+                    <ng-container *ngIf="provider.code === 'smtp' && smtpConfigFor(provider.code) as smtpConfig; else genericSecretField">
+                      <span>SMTP setup style</span>
+                      <select
+                        class="ui-select"
+                        [ngModel]="smtpConfig.style"
+                        (ngModelChange)="setSmtpStyle(provider.code, $event)"
+                        [ngModelOptions]="{ standalone: true }"
+                      >
+                        <option value="connection-uri">Connection URI</option>
+                        <option value="smtp-details">SMTP account details</option>
+                      </select>
+                    </ng-container>
+                    <ng-template #genericSecretField>
+                      <span>{{ secretFieldLabel(modeFor(provider.code)) }}</span>
+                      <input
+                        class="ui-input"
+                        [ngModel]="secretFor(provider.code)"
+                        (ngModelChange)="setSecret(provider.code, $event)"
+                        [ngModelOptions]="{ standalone: true }"
+                        [placeholder]="secretPlaceholder(modeFor(provider.code))"
+                      />
+                    </ng-template>
                   </label>
+
+                  <ng-container *ngIf="provider.code === 'smtp' && smtpConfigFor(provider.code) as smtpConfig">
+                    <div class="smtp-config-panel" *ngIf="smtpConfig.style === 'connection-uri'">
+                      <label class="ui-field">
+                        <span>SMTP connection URI</span>
+                        <input
+                          class="ui-input"
+                          [ngModel]="smtpConfig.uri"
+                          (ngModelChange)="setSmtpField(provider.code, 'uri', $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          [placeholder]="smtpUriPlaceholder()"
+                        />
+                      </label>
+                    </div>
+
+                    <div class="smtp-config-panel" *ngIf="smtpConfig.style === 'smtp-details'">
+                      <label class="ui-field">
+                        <span>Email provider preset</span>
+                        <select
+                          class="ui-select"
+                          [ngModel]="smtpConfig.preset"
+                          (ngModelChange)="applySmtpPreset(provider.code, $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                        >
+                          <option value="custom">Custom SMTP</option>
+                          <option value="gmail">Gmail</option>
+                          <option value="amazon-ses">Amazon SES</option>
+                          <option value="sendgrid">SendGrid SMTP</option>
+                        </select>
+                      </label>
+
+                      <label class="ui-field">
+                        <span>SMTP host</span>
+                        <input
+                          class="ui-input"
+                          [ngModel]="smtpConfig.host"
+                          (ngModelChange)="setSmtpField(provider.code, 'host', $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          placeholder="smtp.gmail.com"
+                        />
+                      </label>
+
+                      <label class="ui-field">
+                        <span>Port</span>
+                        <input
+                          class="ui-input"
+                          [ngModel]="smtpConfig.port"
+                          (ngModelChange)="setSmtpField(provider.code, 'port', $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          inputmode="numeric"
+                          placeholder="587"
+                        />
+                      </label>
+
+                      <label class="ui-field">
+                        <span>Username</span>
+                        <input
+                          class="ui-input"
+                          [ngModel]="smtpConfig.username"
+                          (ngModelChange)="setSmtpField(provider.code, 'username', $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          placeholder="your-email@gmail.com"
+                        />
+                      </label>
+
+                      <label class="ui-field">
+                        <span>Password or app password</span>
+                        <div class="smtp-password-row">
+                          <input
+                            class="ui-input"
+                            [ngModel]="smtpConfig.password"
+                            (ngModelChange)="setSmtpField(provider.code, 'password', $event)"
+                            [ngModelOptions]="{ standalone: true }"
+                            [type]="smtpConfig.revealPassword ? 'text' : 'password'"
+                            placeholder="Enter SMTP password"
+                          />
+                          <button
+                            class="ui-button ui-button-secondary"
+                            type="button"
+                            (click)="toggleSmtpPasswordVisibility(provider.code)"
+                          >
+                            {{ smtpConfig.revealPassword ? 'Hide' : 'Show' }}
+                          </button>
+                        </div>
+                      </label>
+
+                      <label class="ui-field">
+                        <span>From address</span>
+                        <input
+                          class="ui-input"
+                          [ngModel]="smtpConfig.fromAddress"
+                          (ngModelChange)="setSmtpField(provider.code, 'fromAddress', $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          placeholder="your-email@gmail.com"
+                        />
+                      </label>
+
+                      <label class="provider-header smtp-checkbox">
+                        <span>
+                          <strong>Use secure SMTP</strong>
+                          <small>Turn this on for providers that require SSL/TLS on connect, such as port 465.</small>
+                        </span>
+                        <input
+                          type="checkbox"
+                          [checked]="smtpConfig.secure"
+                          (change)="setSmtpSecure(provider.code, $any($event.target).checked)"
+                        />
+                      </label>
+                    </div>
+                  </ng-container>
                 </div>
               </article>
             </section>
@@ -352,6 +499,27 @@ import type {
         margin-top: var(--spacing-4);
       }
 
+      .smtp-config-panel {
+        display: grid;
+        gap: var(--spacing-3);
+        padding: var(--spacing-3);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+      }
+
+      .smtp-checkbox {
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .smtp-password-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--spacing-2);
+        align-items: center;
+      }
+
       .wizard-actions {
         display: flex;
         justify-content: space-between;
@@ -392,14 +560,7 @@ export class SetupComponent {
   };
 
   private readonly selections = signal<
-    Record<
-      string,
-      {
-        enabled: boolean;
-        mode: SetupIntegrationCredentialMode;
-        secret: string;
-      }
-    >
+    Record<string, IntegrationSelection>
   >({});
 
   protected isEnabled(code: string): boolean {
@@ -419,6 +580,7 @@ export class SetupComponent {
       enabled,
       mode: this.modeFor(code),
       secret: this.secretFor(code),
+      smtpConfig: this.smtpConfigFor(code),
     });
   }
 
@@ -427,6 +589,7 @@ export class SetupComponent {
       enabled: this.isEnabled(code),
       mode,
       secret: this.secretFor(code),
+      smtpConfig: this.smtpConfigFor(code),
     });
   }
 
@@ -435,6 +598,84 @@ export class SetupComponent {
       enabled: this.isEnabled(code),
       mode: this.modeFor(code),
       secret,
+      smtpConfig: this.smtpConfigFor(code),
+    });
+  }
+
+  protected smtpConfigFor(code: string): SmtpConfigState | null {
+    return this.selections()[code]?.smtpConfig ?? (code === 'smtp' ? createEmptySmtpConfig() : null);
+  }
+
+  protected setSmtpStyle(code: string, style: SmtpConfigStyle) {
+    const smtpConfig = this.smtpConfigFor(code);
+    if (!smtpConfig) {
+      return;
+    }
+    this.updateSelection(code, {
+      enabled: this.isEnabled(code),
+      mode: this.modeFor(code),
+      secret: this.secretFor(code),
+      smtpConfig: { ...smtpConfig, style },
+    });
+  }
+
+  protected setSmtpField(
+    code: string,
+    field: 'fromAddress' | 'host' | 'password' | 'port' | 'uri' | 'username',
+    value: string,
+  ) {
+    const smtpConfig = this.smtpConfigFor(code);
+    if (!smtpConfig) {
+      return;
+    }
+    this.updateSelection(code, {
+      enabled: this.isEnabled(code),
+      mode: this.modeFor(code),
+      secret: this.secretFor(code),
+      smtpConfig: { ...smtpConfig, [field]: value },
+    });
+  }
+
+  protected setSmtpSecure(code: string, secure: boolean) {
+    const smtpConfig = this.smtpConfigFor(code);
+    if (!smtpConfig) {
+      return;
+    }
+    this.updateSelection(code, {
+      enabled: this.isEnabled(code),
+      mode: this.modeFor(code),
+      secret: this.secretFor(code),
+      smtpConfig: { ...smtpConfig, secure },
+    });
+  }
+
+  protected applySmtpPreset(code: string, preset: SmtpPresetId) {
+    const smtpConfig = this.smtpConfigFor(code);
+    if (!smtpConfig) {
+      return;
+    }
+    this.updateSelection(code, {
+      enabled: this.isEnabled(code),
+      mode: this.modeFor(code),
+      secret: this.secretFor(code),
+      smtpConfig: {
+        ...smtpConfig,
+        preset,
+        ...(preset === 'custom' ? {} : smtpPresetConfig(preset)),
+      },
+    });
+  }
+
+  protected toggleSmtpPasswordVisibility(code: string) {
+    const smtpConfig = this.smtpConfigFor(code);
+    if (!smtpConfig) {
+      return;
+    }
+    this.updateSelection(code, {
+      enabled: this.isEnabled(code),
+      mode: this.modeFor(code),
+      secret: this.secretFor(code),
+      smtpConfig: { ...smtpConfig, revealPassword: !smtpConfig.revealPassword },
     });
   }
 
@@ -446,6 +687,10 @@ export class SetupComponent {
     return mode === 'provider-login'
       ? 'Stored provider-login reference'
       : 'Paste the integration secret';
+  }
+
+  protected smtpUriPlaceholder(): string {
+    return 'smtp://user:pass@mail.example.com:587';
   }
 
   protected modeLabel(mode: SetupIntegrationCredentialMode): string {
@@ -471,7 +716,7 @@ export class SetupComponent {
 
     if (this.step() === 0) {
       const invalidSelection = this.selectedProviders().some(
-        (provider) => this.secretFor(provider.code).trim().length === 0,
+        (provider) => this.serializedSecretFor(provider.code).trim().length === 0,
       );
       if (invalidSelection) {
         this.errorMessage.set(
@@ -507,7 +752,7 @@ export class SetupComponent {
       integrations: this.providers().map((provider) => ({
         code: provider.code,
         credentials: this.isEnabled(provider.code)
-          ? { secret: this.secretFor(provider.code).trim() }
+          ? { secret: this.serializedSecretFor(provider.code).trim() }
           : ({} as Record<string, string>),
         enabled: this.isEnabled(provider.code),
         mode: this.modeFor(provider.code),
@@ -535,11 +780,75 @@ export class SetupComponent {
 
   private updateSelection(
     code: string,
-    nextValue: { enabled: boolean; mode: SetupIntegrationCredentialMode; secret: string },
+    nextValue: IntegrationSelection,
   ) {
     this.selections.update((current) => ({
       ...current,
       [code]: nextValue,
     }));
+  }
+
+  private serializedSecretFor(code: string): string {
+    const selection = this.selections()[code];
+    if (!selection) {
+      return '';
+    }
+
+    if (code !== 'smtp' || !selection.smtpConfig) {
+      return selection.secret;
+    }
+
+    if (selection.smtpConfig.style === 'connection-uri') {
+      return selection.smtpConfig.uri.trim();
+    }
+
+    const host = selection.smtpConfig.host.trim();
+    const port = selection.smtpConfig.port.trim();
+    const username = selection.smtpConfig.username.trim();
+    const password = selection.smtpConfig.password.trim();
+    const fromAddress = selection.smtpConfig.fromAddress.trim();
+
+    if (!host && !port && !username && !password && !fromAddress && !selection.smtpConfig.secure) {
+      return '';
+    }
+
+    return JSON.stringify({
+      auth: username || password ? { pass: password, user: username } : undefined,
+      fromAddress: fromAddress || undefined,
+      host,
+      port: port ? Number(port) : undefined,
+      secure: selection.smtpConfig.secure,
+    });
+  }
+}
+
+function createEmptySmtpConfig(): SmtpConfigState {
+  return {
+    fromAddress: '',
+    host: '',
+    password: '',
+    port: '',
+    preset: 'custom',
+    revealPassword: false,
+    secure: false,
+    style: 'connection-uri',
+    uri: '',
+    username: '',
+  };
+}
+
+function smtpPresetConfig(
+  preset: SmtpPresetId,
+): Pick<SmtpConfigState, 'host' | 'port' | 'secure'> {
+  switch (preset) {
+    case 'gmail':
+      return { host: 'smtp.gmail.com', port: '587', secure: false };
+    case 'amazon-ses':
+      return { host: 'email-smtp.us-east-1.amazonaws.com', port: '587', secure: false };
+    case 'sendgrid':
+      return { host: 'smtp.sendgrid.net', port: '587', secure: false };
+    case 'custom':
+    default:
+      return { host: '', port: '', secure: false };
   }
 }
