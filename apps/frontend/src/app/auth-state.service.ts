@@ -210,7 +210,7 @@ export class AuthStateService {
   async linkProvider(provider: SocialProviderCode, providerSubject: string) {
     await this.fetchJson('/api/auth/providers/link', {
       body: JSON.stringify({ provider, providerSubject }),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
     return this.loadSession();
@@ -248,7 +248,7 @@ export class AuthStateService {
   }) {
     const result = await this.fetchJson<AuthMutationResult>('/api/auth/context', {
       body: JSON.stringify(input),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
     this.sessionState.set(result.session);
@@ -266,7 +266,7 @@ export class AuthStateService {
   }) {
     return this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
       body: JSON.stringify(input),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'PATCH',
     });
   }
@@ -286,6 +286,12 @@ export class AuthStateService {
   }
 
   private authHeaders() {
+    return {
+      'x-csrf-token': this.csrfToken() ?? '',
+    };
+  }
+
+  private authJsonHeaders() {
     return {
       'content-type': 'application/json',
       'x-csrf-token': this.csrfToken() ?? '',

@@ -218,6 +218,37 @@ function createAttachmentDraft(): AttachmentDraft {
         <p class="ui-banner ui-banner-info" *ngIf="message()">{{ message() }}</p>
       </article>
 
+      <article class="ui-card stack">
+        <div>
+          <h2>Calendar grid</h2>
+          <p class="ui-copy">
+            Date buckets for the selected range and calendars in {{ contextLabel() }}.
+          </p>
+        </div>
+
+        <div class="calendar-grid">
+          <article class="calendar-day" *ngFor="let bucket of calendarBuckets()">
+            <div class="stack-tight">
+              <strong>{{ bucket.label }}</strong>
+              <span class="ui-copy">{{ bucket.entries.length }} items</span>
+            </div>
+
+            <ul class="entry-list">
+              <li
+                *ngFor="let entry of bucket.entries"
+                class="entry-item selectable"
+                [attr.data-kind]="entry.calendarEntryType"
+                (click)="selectEntry(entry)"
+              >
+                <strong>{{ entry.title }}</strong>
+                <p class="ui-copy">{{ entry.startAt || entry.dueAt || 'No time' }}</p>
+              </li>
+              <li *ngIf="bucket.entries.length === 0" class="ui-copy">No items scheduled.</li>
+            </ul>
+          </article>
+        </div>
+      </article>
+
       <article class="ui-card split-card">
         <section>
           <h2>Quick create</h2>
@@ -731,6 +762,19 @@ function createAttachmentDraft(): AttachmentDraft {
         gap: var(--spacing-6);
       }
 
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        gap: var(--spacing-3);
+      }
+
+      .calendar-day {
+        border: 1px solid rgb(148 163 184 / 0.2);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-3);
+        background: rgb(255 255 255 / 0.65);
+      }
+
       .stack,
       .stack-tight {
         display: grid;
@@ -1201,6 +1245,51 @@ export class CalendarComponent {
     this.showAlternatives.set(!this.showAlternatives());
   }
 
+  calendarBuckets() {
+    const fromDate = new Date(this.from);
+    const toDate = new Date(this.to);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
+      return [];
+    }
+
+    const buckets: Array<{
+      entries: CalendarEntry[];
+      key: string;
+      label: string;
+    }> = [];
+    const entriesByDay = new Map<string, CalendarEntry[]>();
+
+    for (const entry of this.entries()) {
+      const bucketKey = this.calendarBucketKey(entry);
+      const existing = entriesByDay.get(bucketKey) ?? [];
+      existing.push(entry);
+      entriesByDay.set(bucketKey, existing);
+    }
+
+    const cursor = new Date(fromDate);
+    cursor.setHours(0, 0, 0, 0);
+    const end = new Date(toDate);
+    end.setHours(0, 0, 0, 0);
+
+    while (cursor <= end && buckets.length < 31) {
+      const key = cursor.toISOString().slice(0, 10);
+      buckets.push({
+        entries: (entriesByDay.get(key) ?? []).sort((left, right) =>
+          (left.startAt || left.dueAt || '').localeCompare(right.startAt || right.dueAt || ''),
+        ),
+        key,
+        label: cursor.toLocaleDateString(undefined, {
+          day: 'numeric',
+          month: 'short',
+          weekday: 'short',
+        }),
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return buckets;
+  }
+
   askAi() {
     this.aiMessage.set(
       'AI consultation is available when an AI integration is enabled. Use suggested slots or proceed manually.',
@@ -1464,5 +1553,14 @@ export class CalendarComponent {
   private isoLocalValue(date: Date) {
     const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
     return offsetDate.toISOString().slice(0, 16);
+  }
+
+  private calendarBucketKey(entry: CalendarEntry) {
+    const rawValue = entry.startAt || entry.dueAt || entry.endAt;
+    if (!rawValue) {
+      return 'unscheduled';
+    }
+
+    return new Date(rawValue).toISOString().slice(0, 10);
   }
 }

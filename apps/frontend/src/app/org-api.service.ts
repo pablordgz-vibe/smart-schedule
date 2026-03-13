@@ -8,7 +8,7 @@ type OrganizationSummary = {
   name: string;
 };
 
-type MembershipSummary = {
+export type MembershipSummary = {
   userId: string;
   name: string;
   email: string;
@@ -24,7 +24,7 @@ type InvitationSummary = {
   previewInviteCode?: string;
 };
 
-type GroupSummary = {
+export type GroupSummary = {
   id: string;
   name: string;
   members: Array<{ userId: string; name: string; email: string }>;
@@ -63,7 +63,7 @@ export class OrgApiService {
   async createOrganization(name: string) {
     return this.fetchJson<{ organization: OrganizationSummary }>('/api/org/organizations', {
       body: JSON.stringify({ name }),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
   }
@@ -85,7 +85,7 @@ export class OrgApiService {
       `/api/org/organizations/${input.organizationId}/invitations`,
       {
         body: JSON.stringify({ email: input.email, role: input.role }),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -116,7 +116,7 @@ export class OrgApiService {
   async acceptInvitation(inviteCode: string) {
     return this.fetchJson('/api/org/invitations/accept', {
       body: JSON.stringify({ inviteCode }),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
   }
@@ -134,7 +134,7 @@ export class OrgApiService {
       `/api/org/organizations/${organizationId}/groups`,
       {
         body: JSON.stringify({ name }),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -144,7 +144,7 @@ export class OrgApiService {
   async addGroupMember(organizationId: string, groupId: string, userId: string) {
     return this.fetchJson(`/api/org/organizations/${organizationId}/groups/${groupId}/members`, {
       body: JSON.stringify({ userId }),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
   }
@@ -172,7 +172,7 @@ export class OrgApiService {
       `/api/org/organizations/${input.organizationId}/calendars`,
       {
         body: JSON.stringify({ name: input.name, ownerUserId: input.ownerUserId }),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -184,7 +184,7 @@ export class OrgApiService {
       `/api/org/organizations/${organizationId}/calendars/${calendarId}/visibility`,
       {
         body: JSON.stringify({ userId }),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -201,6 +201,12 @@ export class OrgApiService {
   }
 
   private authHeaders() {
+    return {
+      'x-csrf-token': this.authState.csrfToken() ?? '',
+    };
+  }
+
+  private authJsonHeaders() {
     return {
       'content-type': 'application/json',
       'x-csrf-token': this.authState.csrfToken() ?? '',

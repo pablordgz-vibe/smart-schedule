@@ -31,6 +31,9 @@ export const envSchema = z.object({
     .string()
     .email()
     .default("no-reply@smart-schedule.local"),
+  MAIL_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  MAIL_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  MAIL_PROCESSING_TIMEOUT_MS: z.coerce.number().int().positive().default(300000),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
 });

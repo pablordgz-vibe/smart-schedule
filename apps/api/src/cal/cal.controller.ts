@@ -25,6 +25,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import type { ApiRequest } from '../security/request-context.types';
 import { SecurityPolicy } from '../security/security-policy.decorator';
 import { CalService } from './cal.service';
@@ -44,6 +45,13 @@ class ListCalendarViewQuery {
   to!: string;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value == null) {
+      return undefined;
+    }
+
+    return Array.isArray(value) ? value : [value];
+  })
   @IsArray()
   @IsString({ each: true })
   calendarIds?: string[];

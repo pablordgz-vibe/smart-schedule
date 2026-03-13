@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { OrgApiService } from './org-api.service';
+import { MembershipSummary, OrgApiService } from './org-api.service';
 
 @Component({
   selector: 'app-org-calendars',
@@ -22,8 +22,13 @@ import { OrgApiService } from './org-api.service';
             <input [(ngModel)]="calendarName" [ngModelOptions]="{ standalone: true }" />
           </label>
           <label class="ui-field">
-            <span>Owner user id (optional)</span>
-            <input [(ngModel)]="ownerUserId" [ngModelOptions]="{ standalone: true }" />
+            <span>Owner</span>
+            <select [(ngModel)]="ownerUserId" [ngModelOptions]="{ standalone: true }">
+              <option value="">Organization-owned</option>
+              <option *ngFor="let member of memberships()" [value]="member.userId">
+                {{ member.name }}
+              </option>
+            </select>
           </label>
           <button class="ui-button ui-button-primary" type="button" (click)="createCalendar()">
             Create calendar
@@ -38,7 +43,7 @@ import { OrgApiService } from './org-api.service';
             <ul class="simple-list">
               <li *ngFor="let calendar of calendars()" data-testid="org-calendar-row">
                 <strong>{{ calendar.name }}</strong>
-                <span class="ui-copy">owner: {{ calendar.ownerUserId ?? 'organization' }}</span>
+                <span class="ui-copy">owner: {{ ownerLabel(calendar.ownerUserId) }}</span>
               </li>
               <li *ngIf="calendars().length === 0" class="ui-copy">
                 No calendars in this context.
@@ -46,22 +51,34 @@ import { OrgApiService } from './org-api.service';
             </ul>
           </article>
 
-          <article class="ui-panel">
+          <article class="ui-panel stack-tight">
             <h2>Manage visibility</h2>
             <label class="ui-field">
-              <span>Calendar id</span>
-              <input [(ngModel)]="grantCalendarId" [ngModelOptions]="{ standalone: true }" />
+              <span>Calendar</span>
+              <select [(ngModel)]="grantCalendarId" [ngModelOptions]="{ standalone: true }">
+                <option value="">Select calendar</option>
+                <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                  {{ calendar.name }}
+                </option>
+              </select>
             </label>
             <label class="ui-field">
-              <span>User id</span>
-              <input [(ngModel)]="grantUserId" [ngModelOptions]="{ standalone: true }" />
+              <span>User</span>
+              <select [(ngModel)]="grantUserId" [ngModelOptions]="{ standalone: true }">
+                <option value="">Select user</option>
+                <option *ngFor="let member of memberships()" [value]="member.userId">
+                  {{ member.name }} · {{ member.email }}
+                </option>
+              </select>
             </label>
-            <button class="ui-button ui-button-secondary" type="button" (click)="grantVisibility()">
-              Grant calendar visibility
-            </button>
-            <button class="ui-button" type="button" (click)="revokeVisibility()">
-              Revoke calendar visibility
-            </button>
+            <div class="ui-toolbar">
+              <button class="ui-button ui-button-secondary" type="button" (click)="grantVisibility()">
+                Grant calendar visibility
+              </button>
+              <button class="ui-button" type="button" (click)="revokeVisibility()">
+                Revoke calendar visibility
+              </button>
+            </div>
           </article>
         </div>
 
@@ -88,10 +105,12 @@ export class OrgCalendarsComponent {
   private readonly calendarsState = signal<
     Array<{ id: string; name: string; ownerUserId: string | null }>
   >([]);
+  private readonly membershipsState = signal<MembershipSummary[]>([]);
   readonly errorMessage = signal<string | null>(null);
 
   readonly organizationId = computed(() => this.orgApi.activeOrganizationId());
   readonly calendars = this.calendarsState.asReadonly();
+  readonly memberships = this.membershipsState.asReadonly();
 
   constructor() {
     effect(() => {
@@ -126,12 +145,17 @@ export class OrgCalendarsComponent {
       return;
     }
 
+    if (!this.grantCalendarId || !this.grantUserId) {
+      this.errorMessage.set('Select both a calendar and a user.');
+      return;
+    }
+
     try {
       this.errorMessage.set(null);
       await this.orgApi.grantCalendarVisibility(
         this.organizationId()!,
-        this.grantCalendarId.trim(),
-        this.grantUserId.trim(),
+        this.grantCalendarId,
+        this.grantUserId,
       );
       await this.reload();
     } catch (error) {
@@ -144,12 +168,17 @@ export class OrgCalendarsComponent {
       return;
     }
 
+    if (!this.grantCalendarId || !this.grantUserId) {
+      this.errorMessage.set('Select both a calendar and a user.');
+      return;
+    }
+
     try {
       this.errorMessage.set(null);
       await this.orgApi.revokeCalendarVisibility(
         this.organizationId()!,
-        this.grantCalendarId.trim(),
-        this.grantUserId.trim(),
+        this.grantCalendarId,
+        this.grantUserId,
       );
       await this.reload();
     } catch (error) {
@@ -162,14 +191,28 @@ export class OrgCalendarsComponent {
   private async reload() {
     if (!this.organizationId()) {
       this.calendarsState.set([]);
+      this.membershipsState.set([]);
       return;
     }
 
     try {
       this.errorMessage.set(null);
-      this.calendarsState.set(await this.orgApi.listCalendars(this.organizationId()!));
+      const [calendars, memberships] = await Promise.all([
+        this.orgApi.listCalendars(this.organizationId()!),
+        this.orgApi.listMemberships(this.organizationId()!),
+      ]);
+      this.calendarsState.set(calendars);
+      this.membershipsState.set(memberships);
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to load calendars.');
     }
+  }
+
+  ownerLabel(userId: string | null) {
+    if (!userId) {
+      return 'Organization';
+    }
+
+    return this.membershipsState().find((member) => member.userId === userId)?.name ?? userId;
   }
 }

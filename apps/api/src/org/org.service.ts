@@ -272,6 +272,14 @@ export class OrgService {
     const expiresAt = new Date(
       Date.now() + 7 * 24 * 60 * 60 * 1000,
     ).toISOString();
+    const organizationResult = await this.databaseService.query<{ name: string }>(
+      `select name
+       from organizations
+       where id = $1`,
+      [input.organizationId],
+    );
+    const organizationName =
+      organizationResult.rows[0]?.name ?? 'your organization';
 
     const result = await this.databaseService.query<{
       id: string;
@@ -304,6 +312,14 @@ export class OrgService {
         timestamp,
       ],
     );
+
+    await this.queueInvitationMail({
+      email,
+      expiresAt,
+      inviteCode,
+      organizationName,
+      role: input.role,
+    });
 
     this.auditService.emit({
       action: 'org.invitation.created',
@@ -831,6 +847,43 @@ export class OrgService {
     );
 
     return { ok: true };
+  }
+
+  private async queueInvitationMail(input: {
+    email: string;
+    expiresAt: string;
+    inviteCode: string;
+    organizationName: string;
+    role: MembershipRole;
+  }) {
+    await this.databaseService.query(
+      `insert into mail_outbox (
+         id,
+         body,
+         created_at,
+         expires_at,
+         kind,
+         subject,
+         recipient_email
+       )
+       values ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        randomUUID(),
+        [
+          'From: no-reply@smart-schedule.local',
+          `To: ${input.email}`,
+          '',
+          `You have been invited to join ${input.organizationName} as ${input.role}.`,
+          `Use invite code: ${input.inviteCode}`,
+          `This invitation expires at ${input.expiresAt}.`,
+        ].join('\n'),
+        nowIso(),
+        input.expiresAt,
+        'organization-invitation',
+        `Invitation to join ${input.organizationName}`,
+        input.email,
+      ],
+    );
   }
 
   private async assertOrganizationAdmin(

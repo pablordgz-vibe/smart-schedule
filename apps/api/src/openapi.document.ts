@@ -709,6 +709,130 @@ export function buildOpenApiDocument() {
           ],
           type: 'object',
         },
+        SetupIntegrationProvider: {
+          additionalProperties: false,
+          properties: {
+            category: {
+              enum: ['calendar', 'holiday-data', 'email', 'ai'],
+              type: 'string',
+            },
+            code: { type: 'string' },
+            credentialModes: {
+              items: setupIntegrationModeSchema,
+              type: 'array',
+            },
+            description: { type: 'string' },
+            displayName: { type: 'string' },
+          },
+          required: ['category', 'code', 'credentialModes', 'description', 'displayName'],
+          type: 'object',
+        },
+        AdminConfiguredIntegration: {
+          additionalProperties: false,
+          properties: {
+            code: { type: 'string' },
+            enabled: { type: 'boolean' },
+            hasCredentials: { type: 'boolean' },
+            mode: setupIntegrationModeSchema,
+            updatedAt: {
+              format: 'date-time',
+              type: 'string',
+            },
+          },
+          required: ['code', 'enabled', 'hasCredentials', 'mode', 'updatedAt'],
+          type: 'object',
+        },
+        AdminGlobalIntegrationsResponse: {
+          additionalProperties: false,
+          properties: {
+            configuredIntegrations: {
+              items: { $ref: '#/components/schemas/AdminConfiguredIntegration' },
+              type: 'array',
+            },
+            edition: {
+              enum: ['commercial', 'community'],
+              type: 'string',
+            },
+            providers: {
+              items: { $ref: '#/components/schemas/SetupIntegrationProvider' },
+              type: 'array',
+            },
+          },
+          required: ['configuredIntegrations', 'edition', 'providers'],
+          type: 'object',
+        },
+        MailOutboxEntry: {
+          additionalProperties: false,
+          properties: {
+            attempts: { type: 'integer' },
+            createdAt: {
+              format: 'date-time',
+              type: 'string',
+            },
+            deliveredAt: {
+              format: 'date-time',
+              nullable: true,
+              type: 'string',
+            },
+            expiresAt: {
+              format: 'date-time',
+              type: 'string',
+            },
+            failedAt: {
+              format: 'date-time',
+              nullable: true,
+              type: 'string',
+            },
+            failureReason: {
+              nullable: true,
+              type: 'string',
+            },
+            id: { type: 'string' },
+            kind: { type: 'string' },
+            lastAttemptAt: {
+              format: 'date-time',
+              nullable: true,
+              type: 'string',
+            },
+            recipientEmail: {
+              format: 'email',
+              type: 'string',
+            },
+            status: {
+              enum: ['queued', 'retrying', 'failed', 'delivered'],
+              type: 'string',
+            },
+            subject: { type: 'string' },
+            transport: { type: 'string' },
+          },
+          required: [
+            'attempts',
+            'createdAt',
+            'deliveredAt',
+            'expiresAt',
+            'failedAt',
+            'failureReason',
+            'id',
+            'kind',
+            'lastAttemptAt',
+            'recipientEmail',
+            'status',
+            'subject',
+            'transport',
+          ],
+          type: 'object',
+        },
+        MailOutboxResponse: {
+          additionalProperties: false,
+          properties: {
+            messages: {
+              items: { $ref: '#/components/schemas/MailOutboxEntry' },
+              type: 'array',
+            },
+          },
+          required: ['messages'],
+          type: 'object',
+        },
         AuthSessionSnapshot: {
           additionalProperties: false,
           properties: {
@@ -961,6 +1085,72 @@ export function buildOpenApiDocument() {
                   },
                 },
               },
+            },
+          },
+        },
+      },
+      '/admin/global-integrations': {
+        get: {
+          operationId: 'getAdminGlobalIntegrations',
+          tags: ['setup'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Configured global integrations and available providers for system admins.',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/AdminGlobalIntegrationsResponse' },
+                },
+              },
+            },
+            '403': {
+              description: 'Only system administrators in system context may access this route.',
+            },
+          },
+        },
+        patch: {
+          operationId: 'updateAdminGlobalIntegrations',
+          tags: ['setup'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Global integration settings updated.',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/AdminGlobalIntegrationsResponse' },
+                },
+              },
+            },
+            '400': {
+              description: 'Validation failure.',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SecurityError' },
+                },
+              },
+            },
+            '403': {
+              description: 'Only system administrators in system context may access this route.',
+            },
+          },
+        },
+      },
+      '/admin/mail-outbox': {
+        get: {
+          operationId: 'getAdminMailOutbox',
+          tags: ['setup'],
+          security: authenticatedSecurity,
+          responses: {
+            '200': {
+              description: 'Queued and delivered mail summary for system administrators.',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/MailOutboxResponse' },
+                },
+              },
+            },
+            '403': {
+              description: 'Only system administrators in system context may access this route.',
             },
           },
         },

@@ -104,7 +104,7 @@ type RateLimitPolicy = {
 type AppEdition = "commercial" | "community";
 type SetupIntegrationCredentialMode = "api-key" | "provider-login";
 type SetupIntegrationProvider = {
-    category: "ai" | "calendar" | "holiday-data";
+    category: "ai" | "calendar" | "email" | "holiday-data";
     code: string;
     credentialModes: SetupIntegrationCredentialMode[];
     description: string;

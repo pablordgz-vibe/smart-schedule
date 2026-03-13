@@ -78,7 +78,8 @@ type TaskDraft = {
   autoCompleteFromSubtasks: boolean;
   calendarIds: string[];
   contactIds: string[];
-  dependenciesToken: string;
+  dependencySearch: string;
+  dependencyTaskIds: string[];
   dueAt: string;
   estimatedDurationMinutes: number;
   location: string;
@@ -95,7 +96,8 @@ function createTaskDraft(): TaskDraft {
     autoCompleteFromSubtasks: false,
     calendarIds: [],
     contactIds: [],
-    dependenciesToken: '',
+    dependencySearch: '',
+    dependencyTaskIds: [],
     dueAt: '',
     estimatedDurationMinutes: 60,
     location: '',
@@ -125,17 +127,6 @@ function createContactImportDraft(): ContactImportDraft {
     providerCode: 'manual-import',
     providerContactId: '',
   };
-}
-
-function parseIdTokenList(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(/[\n,]/)
-        .map((entry) => entry.trim())
-        .filter(Boolean),
-    ),
-  );
 }
 
 function encodeSubtasks(subtasks: Array<{ completed: boolean; title: string }>) {
@@ -300,14 +291,41 @@ function parseSubtasks(value: string) {
               </select>
             </label>
             <label class="ui-field">
-              <span>Dependencies (IDs, comma or newline separated)</span>
-              <textarea
+              <span>Dependencies</span>
+              <input
                 class="ui-input"
-                rows="2"
-                [(ngModel)]="draft.dependenciesToken"
-                name="task-dependencies"
-              ></textarea>
+                [(ngModel)]="draft.dependencySearch"
+                name="task-dependency-search"
+                placeholder="Search tasks by title"
+              />
             </label>
+            <div class="ui-panel stack-tight">
+              <p class="ui-copy">Selected dependencies</p>
+              <div class="dependency-chip-row">
+                <button
+                  *ngFor="let dependencyId of draft.dependencyTaskIds"
+                  class="ui-button ui-button-secondary"
+                  type="button"
+                  (click)="removeDependencyFromDraft(draft, dependencyId)"
+                >
+                  {{ dependencyLabel(dependencyId) }} ×
+                </button>
+                <span *ngIf="draft.dependencyTaskIds.length === 0" class="ui-copy">
+                  No dependencies selected.
+                </span>
+              </div>
+              <ul class="simple-list nested">
+                <li *ngFor="let task of availableDependencyTasksForDraft(draft)">
+                  <button
+                    class="ui-button"
+                    type="button"
+                    (click)="addDependencyToDraft(draft, task.id)"
+                  >
+                    Add {{ task.title }}
+                  </button>
+                </li>
+              </ul>
+            </div>
             <label class="ui-field">
               <span>Subtasks (one per line, prefix with [x] for completed)</span>
               <textarea
@@ -573,13 +591,44 @@ function parseSubtasks(value: string) {
               </label>
               <label class="ui-field">
                 <span>Dependencies</span>
-                <textarea
+                <input
                   class="ui-input"
-                  rows="2"
-                  [(ngModel)]="editDraft.dependenciesToken"
-                  name="edit-task-dependencies"
-                ></textarea>
+                  [(ngModel)]="editDraft.dependencySearch"
+                  name="edit-task-dependency-search"
+                  placeholder="Search tasks by title"
+                />
               </label>
+              <div class="ui-panel stack-tight">
+                <p class="ui-copy">Selected dependencies</p>
+                <div class="dependency-chip-row">
+                  <button
+                    *ngFor="let dependencyId of editDraft.dependencyTaskIds"
+                    class="ui-button ui-button-secondary"
+                    type="button"
+                    (click)="removeDependencyFromDraft(editDraft, dependencyId)"
+                  >
+                    {{ dependencyLabel(dependencyId) }} ×
+                  </button>
+                  <span *ngIf="editDraft.dependencyTaskIds.length === 0" class="ui-copy">
+                    No dependencies selected.
+                  </span>
+                </div>
+                <ul class="simple-list nested">
+                  <li
+                    *ngFor="
+                      let task of availableDependencyTasksForDraft(editDraft, selectedTaskId() ?? undefined)
+                    "
+                  >
+                    <button
+                      class="ui-button"
+                      type="button"
+                      (click)="addDependencyToDraft(editDraft, task.id)"
+                    >
+                      Add {{ task.title }}
+                    </button>
+                  </li>
+                </ul>
+              </div>
               <label class="ui-field">
                 <span>Subtasks</span>
                 <textarea
@@ -688,6 +737,12 @@ function parseSubtasks(value: string) {
         box-shadow: 0 0 0 3px rgb(2 132 199 / 0.15);
       }
 
+      .dependency-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-2);
+      }
+
       @media (max-width: 980px) {
         .split-layout,
         .inline-grid {
@@ -780,7 +835,8 @@ export class TasksComponent {
         autoCompleteFromSubtasks: task.autoCompleteFromSubtasks,
         calendarIds: task.calendars.map((calendar) => calendar.calendarId),
         contactIds: task.contacts.map((contact) => contact.id),
-        dependenciesToken: task.dependencies.join('\n'),
+        dependencySearch: '',
+        dependencyTaskIds: task.dependencies,
         dueAt: task.dueAt ? this.isoLocalValue(new Date(task.dueAt)) : '',
         estimatedDurationMinutes: task.estimatedDurationMinutes ?? 0,
         location: task.location ?? '',
@@ -812,7 +868,7 @@ export class TasksComponent {
         autoCompleteFromSubtasks: this.draft.autoCompleteFromSubtasks,
         calendarIds: this.draft.calendarIds,
         contactIds: this.draft.contactIds,
-        dependencyTaskIds: parseIdTokenList(this.draft.dependenciesToken),
+        dependencyTaskIds: this.draft.dependencyTaskIds,
         dueAt: this.draft.dueAt ? new Date(this.draft.dueAt).toISOString() : undefined,
         estimatedDurationMinutes: this.draft.estimatedDurationMinutes || undefined,
         location: this.draft.location.trim() || undefined,
@@ -848,7 +904,7 @@ export class TasksComponent {
         autoCompleteFromSubtasks: this.editDraft.autoCompleteFromSubtasks,
         calendarIds: this.editDraft.calendarIds,
         contactIds: this.editDraft.contactIds,
-        dependencyTaskIds: parseIdTokenList(this.editDraft.dependenciesToken),
+        dependencyTaskIds: this.editDraft.dependencyTaskIds,
         dueAt: this.editDraft.dueAt ? new Date(this.editDraft.dueAt).toISOString() : null,
         estimatedDurationMinutes: this.editDraft.estimatedDurationMinutes || null,
         location: this.editDraft.location.trim() || null,
@@ -957,6 +1013,29 @@ export class TasksComponent {
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to import contact.');
     }
+  }
+
+  availableDependencyTasksForDraft(draft: TaskDraft, excludeTaskId?: string) {
+    const query = draft.dependencySearch.trim().toLowerCase();
+    const selectedIds = new Set(draft.dependencyTaskIds);
+    return this.tasks()
+      .filter((task) => task.id !== excludeTaskId)
+      .filter((task) => !selectedIds.has(task.id))
+      .filter((task) => query.length === 0 || task.title.toLowerCase().includes(query))
+      .slice(0, 8);
+  }
+
+  addDependencyToDraft(draft: TaskDraft, taskId: string) {
+    draft.dependencyTaskIds = Array.from(new Set([...draft.dependencyTaskIds, taskId]));
+    draft.dependencySearch = '';
+  }
+
+  removeDependencyFromDraft(draft: TaskDraft, taskId: string) {
+    draft.dependencyTaskIds = draft.dependencyTaskIds.filter((id) => id !== taskId);
+  }
+
+  dependencyLabel(taskId: string) {
+    return this.tasks().find((task) => task.id === taskId)?.title ?? taskId;
   }
 
   private isoLocalValue(date: Date) {

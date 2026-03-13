@@ -67,7 +67,7 @@ export const routes: Routes = [
       { path: '', redirectTo: 'home', pathMatch: 'full' },
       {
         path: 'home',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () => import('./home').then((module) => module.HomeComponent),
         data: {
           title: 'Home',
           description: 'Daily summary and active work across the current context.',
@@ -322,7 +322,10 @@ export const routes: Routes = [
       },
       {
         path: 'admin/global-integrations',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./admin-global-integrations.component').then(
+            (module) => module.AdminGlobalIntegrationsComponent,
+          ),
         canActivate: [routeAreaGuard],
         data: {
           title: 'Global Integrations',

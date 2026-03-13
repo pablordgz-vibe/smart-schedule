@@ -5,7 +5,9 @@ import {
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import {
@@ -18,6 +20,8 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import type { ApiRequest } from '../security/request-context.types';
+import { SecurityPolicy } from '../security/security-policy.decorator';
 import { Public } from '../security/public-route.decorator';
 import { RateLimit } from '../security/rate-limit.decorator';
 import { throwBootstrapLocked } from '../security/security-errors';
@@ -56,6 +60,13 @@ class CompleteSetupDto {
   @Type(() => SetupAdminDto)
   admin!: SetupAdminDto;
 
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SetupIntegrationDto)
+  integrations!: SetupIntegrationDto[];
+}
+
+class UpdateGlobalIntegrationsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SetupIntegrationDto)
@@ -125,5 +136,48 @@ export class SetupController {
     }
 
     return result;
+  }
+}
+
+@Controller('admin')
+export class SetupAdminController {
+  constructor(private readonly setupService: SetupService) {}
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
+    requiredRoles: ['system-admin'],
+    requireContextId: true,
+  })
+  @Get('global-integrations')
+  async getAdminIntegrationSettings(@Req() _request: ApiRequest) {
+    return this.setupService.getAdminIntegrationSnapshot();
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
+    requiredRoles: ['system-admin'],
+    requireContextId: true,
+  })
+  @Patch('global-integrations')
+  async updateAdminIntegrationSettings(
+    @Req() _request: ApiRequest,
+    @Body() body: UpdateGlobalIntegrationsDto,
+  ) {
+    return this.setupService.updateGlobalIntegrations(body.integrations);
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    allowedContextTypes: ['system'],
+    requiredRoles: ['system-admin'],
+    requireContextId: true,
+  })
+  @Get('mail-outbox')
+  async listMailOutbox(@Req() _request: ApiRequest) {
+    return {
+      messages: await this.setupService.listMailOutbox(),
+    };
   }
 }

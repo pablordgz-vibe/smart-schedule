@@ -119,7 +119,7 @@ export type AppEdition = "commercial" | "community";
 export type SetupIntegrationCredentialMode = "api-key" | "provider-login";
 
 export type SetupIntegrationProvider = {
-  category: "ai" | "calendar" | "holiday-data";
+  category: "ai" | "calendar" | "email" | "holiday-data";
   code: string;
   credentialModes: SetupIntegrationCredentialMode[];
   description: string;

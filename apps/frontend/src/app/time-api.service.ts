@@ -80,7 +80,7 @@ export class TimeApiService {
   async createPolicy(payload: Record<string, unknown>) {
     const response = await this.fetchJson<{ policy: TimePolicySummary }>(`/api/time/policies`, {
       body: JSON.stringify(payload),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
 
@@ -92,7 +92,7 @@ export class TimeApiService {
       `/api/time/policies/${policyId}`,
       {
         body: JSON.stringify(payload),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'PATCH',
       },
     );
@@ -135,7 +135,7 @@ export class TimeApiService {
       `/api/time/advisory/evaluate`,
       {
         body: JSON.stringify(payload),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -157,7 +157,7 @@ export class TimeApiService {
       };
     }>(`/api/time/holidays/import`, {
       body: JSON.stringify(payload),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
 
@@ -165,6 +165,12 @@ export class TimeApiService {
   }
 
   private authHeaders() {
+    return {
+      'x-csrf-token': this.authState.csrfToken() ?? '',
+    };
+  }
+
+  private authJsonHeaders() {
     return {
       'content-type': 'application/json',
       'x-csrf-token': this.authState.csrfToken() ?? '',

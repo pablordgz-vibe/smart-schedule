@@ -317,6 +317,126 @@ describe('API health endpoints (e2e)', () => {
     );
   });
 
+  it('allows system admins to review and update global integration settings after setup', async () => {
+    await request(getTestServer())
+      .post('/setup/complete')
+      .send({
+        admin: {
+          email: 'admin@example.com',
+          name: 'Initial Admin',
+          password: 'setup-password-123',
+        },
+        integrations: [
+          {
+            code: 'smtp',
+            credentials: {
+              secret: 'smtp-secret',
+            },
+            enabled: true,
+            mode: 'api-key',
+          },
+        ],
+      })
+      .expect(201);
+
+    const adminHeaders = createIdentityHeaders({
+      actorId: 'identity:user:0001',
+      contextId: 'identity:user:0001',
+      contextType: 'system',
+      roles: ['user', 'system-admin'],
+    });
+
+    const initialResponse = await request(getTestServer())
+      .get('/admin/global-integrations')
+      .set(adminHeaders)
+      .expect(200);
+
+    expect(initialResponse.body.configuredIntegrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'smtp',
+          enabled: true,
+          hasCredentials: true,
+          mode: 'api-key',
+        }),
+      ]),
+    );
+
+    const updateResponse = await request(getTestServer())
+      .patch('/admin/global-integrations')
+      .set(adminHeaders)
+      .send({
+        integrations: [
+          {
+            code: 'smtp',
+            credentials: {},
+            enabled: true,
+            mode: 'api-key',
+          },
+          {
+            code: 'openai',
+            credentials: {
+              secret: 'openai-secret',
+            },
+            enabled: true,
+            mode: 'api-key',
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(updateResponse.body.configuredIntegrations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'smtp',
+          enabled: true,
+          hasCredentials: true,
+        }),
+        expect.objectContaining({
+          code: 'openai',
+          enabled: true,
+          hasCredentials: true,
+        }),
+      ]),
+    );
+  });
+
+  it('allows system admins to inspect the queued mail outbox', async () => {
+    await completeSetup();
+
+    await request(getTestServer())
+      .post('/auth/sign-up')
+      .send({
+        email: 'queued.user@example.com',
+        name: 'Queued User',
+        password: 'queued-password-123',
+      })
+      .expect(201);
+
+    const adminHeaders = createIdentityHeaders({
+      actorId: 'identity:user:0001',
+      contextId: 'identity:user:0001',
+      contextType: 'system',
+      roles: ['user', 'system-admin'],
+    });
+
+    const outboxResponse = await request(getTestServer())
+      .get('/admin/mail-outbox')
+      .set(adminHeaders)
+      .expect(200);
+
+    expect(outboxResponse.body.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'email-verification',
+          recipientEmail: 'queued.user@example.com',
+          subject: 'Verify your SmartSchedule email',
+          transport: 'outbox',
+        }),
+      ]),
+    );
+  });
+
   it('rejects unknown request fields before controller logic', async () => {
     await completeSetup();
 

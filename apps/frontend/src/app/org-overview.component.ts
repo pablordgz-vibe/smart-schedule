@@ -19,7 +19,7 @@ import { OrgApiService } from './org-api.service';
           {{ pageDescription() }}
         </p>
 
-        <div class="ui-toolbar">
+        <div class="ui-toolbar" *ngIf="isEndUserRoute()">
           <label class="ui-field grow">
             <span>New organization name</span>
             <input [(ngModel)]="organizationName" [ngModelOptions]="{ standalone: true }" />
@@ -31,14 +31,14 @@ import { OrgApiService } from './org-api.service';
 
         <p *ngIf="errorMessage()" class="ui-banner ui-banner-denied">{{ errorMessage() }}</p>
 
-        <div class="grid two">
+        <div class="grid two" *ngIf="isEndUserRoute()">
           <article class="ui-panel">
             <h2>My organizations</h2>
             <ul class="simple-list">
               <li *ngFor="let org of organizations()" data-testid="org-row">
                 <div class="stack-tight">
                   <strong>{{ org.name }}</strong>
-                  <span class="ui-chip">{{ org.membershipRole }}</span>
+                  <span class="ui-chip">{{ formatRole(org.membershipRole) }}</span>
                 </div>
                 <button
                   class="ui-button ui-button-secondary"
@@ -60,7 +60,9 @@ import { OrgApiService } from './org-api.service';
               <li *ngFor="let invitation of myInvitations()" data-testid="org-invite-row">
                 <div>
                   <strong>{{ invitation.organizationName }}</strong>
-                  <p class="ui-copy">{{ invitation.role }} · expires {{ invitation.expiresAt }}</p>
+                  <p class="ui-copy">
+                    {{ formatRole(invitation.role) }} · expires {{ invitation.expiresAt }}
+                  </p>
                 </div>
                 <button
                   class="ui-button ui-button-secondary"
@@ -75,17 +77,26 @@ import { OrgApiService } from './org-api.service';
           </article>
         </div>
 
-        <article class="ui-panel" *ngIf="canAdministerActiveOrganization()">
-          <h2>Active organization memberships</h2>
+        <article class="ui-panel" *ngIf="!isEndUserRoute() && canAdministerActiveOrganization()">
+          <h2>Organization members</h2>
+          <p class="ui-copy">
+            Members for {{ activeOrganizationLabel() }}. Invite new people below and manage
+            existing members from this organization context.
+          </p>
           <ul class="simple-list">
             <li *ngFor="let member of memberships()" data-testid="org-member-row">
               <strong>{{ member.name }}</strong>
               <span>{{ member.email }}</span>
-              <span class="ui-chip">{{ member.role }}</span>
+              <span class="ui-chip">{{ formatRole(member.role) }}</span>
             </li>
+            <li *ngIf="memberships().length === 0" class="ui-copy">No members found.</li>
           </ul>
 
           <h3>Invite member</h3>
+          <p class="ui-copy">
+            Invitations are issued to the recipient email address. Delivery is queued for email
+            processing; the preview code remains visible in development.
+          </p>
           <div class="ui-toolbar">
             <label class="ui-field grow">
               <span>Email</span>
@@ -94,8 +105,8 @@ import { OrgApiService } from './org-api.service';
             <label class="ui-field">
               <span>Role</span>
               <select [(ngModel)]="inviteRole" [ngModelOptions]="{ standalone: true }">
-                <option value="member">member</option>
-                <option value="admin">admin</option>
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
               </select>
             </label>
             <button class="ui-button ui-button-primary" type="button" (click)="sendInvitation()">
@@ -103,14 +114,16 @@ import { OrgApiService } from './org-api.service';
             </button>
           </div>
 
+          <h3>Pending invitations</h3>
           <ul class="simple-list">
             <li *ngFor="let invitation of orgInvitations()" data-testid="org-admin-invite-row">
               <strong>{{ invitation.invitedEmail }}</strong>
-              <span>{{ invitation.role }}</span>
+              <span>{{ formatRole(invitation.role) }}</span>
               <small class="ui-copy" *ngIf="invitation.previewInviteCode">
-                preview code: {{ invitation.previewInviteCode }}
+                Dev preview code: {{ invitation.previewInviteCode }}
               </small>
             </li>
+            <li *ngIf="orgInvitations().length === 0" class="ui-copy">No pending invitations.</li>
           </ul>
         </article>
       </div>
@@ -153,6 +166,7 @@ export class OrgOverviewComponent {
   readonly errorMessage = signal<string | null>(null);
 
   readonly activeOrganizationId = computed(() => this.orgApi.activeOrganizationId());
+  readonly activeOrganizationLabel = computed(() => this.contextService.getContextLabel());
   readonly canAdministerActiveOrganization = computed(
     () => Boolean(this.activeOrganizationId()) && this.contextService.isAreaAllowed('org-admin'),
   );
@@ -260,14 +274,23 @@ export class OrgOverviewComponent {
   private async reload() {
     try {
       this.errorMessage.set(null);
-      const [organizations, myInvitations] = await Promise.all([
-        this.orgApi.listOrganizations(),
-        this.orgApi.listMyInvitations(),
-      ]);
-      this.organizationsState.set(organizations);
-      this.myInvitationsState.set(myInvitations);
 
-      if (this.canAdministerActiveOrganization()) {
+      if (this.isEndUserRoute()) {
+        const [organizations, myInvitations] = await Promise.all([
+          this.orgApi.listOrganizations(),
+          this.orgApi.listMyInvitations(),
+        ]);
+        this.organizationsState.set(organizations);
+        this.myInvitationsState.set(myInvitations);
+        this.membershipsState.set([]);
+        this.orgInvitationsState.set([]);
+        return;
+      }
+
+      this.organizationsState.set([]);
+      this.myInvitationsState.set([]);
+
+      if (this.canAdministerActiveOrganization() && this.activeOrganizationId()) {
         const [memberships, invitations] = await Promise.all([
           this.orgApi.listMemberships(this.activeOrganizationId()!),
           this.orgApi.listOrganizationInvitations(this.activeOrganizationId()!),
@@ -290,7 +313,11 @@ export class OrgOverviewComponent {
     this.contextService.applySessionSnapshot(session);
   }
 
-  private isEndUserRoute() {
+  isEndUserRoute() {
     return (this.route.snapshot.data['area'] as string | undefined) === 'end-user';
+  }
+
+  formatRole(role: 'admin' | 'member') {
+    return role === 'admin' ? 'Admin' : 'Member';
   }
 }

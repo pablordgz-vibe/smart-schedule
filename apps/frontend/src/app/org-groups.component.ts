@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { OrgApiService } from './org-api.service';
+import { MembershipSummary, OrgApiService } from './org-api.service';
 
 @Component({
   selector: 'app-org-groups',
@@ -37,29 +37,47 @@ import { OrgApiService } from './org-api.service';
               </div>
 
               <div class="stack-tight">
-                <label class="ui-field">
-                  <span>User id</span>
+                <label class="ui-field grow">
+                  <span>Search members by name or email</span>
                   <input
-                    [(ngModel)]="groupMemberInputs[group.id]"
+                    [(ngModel)]="groupMemberQueries[group.id]"
                     [ngModelOptions]="{ standalone: true }"
                   />
                 </label>
-                <div class="ui-toolbar">
-                  <button
-                    class="ui-button ui-button-secondary"
-                    type="button"
-                    (click)="addMember(group.id)"
+                <ul class="simple-list nested">
+                  <li
+                    *ngFor="let member of availableMembersForGroup(group)"
+                    class="group-member-search-row"
                   >
-                    Add user
-                  </button>
-                  <button class="ui-button" type="button" (click)="removeMember(group.id)">
-                    Remove user
-                  </button>
-                </div>
+                    <div class="stack-tight">
+                      <strong>{{ member.name }}</strong>
+                      <span class="ui-copy">{{ member.email }}</span>
+                    </div>
+                    <button
+                      class="ui-button ui-button-secondary"
+                      type="button"
+                      (click)="addMember(group.id, member.userId)"
+                    >
+                      Add to group
+                    </button>
+                  </li>
+                  <li *ngIf="availableMembersForGroup(group).length === 0" class="ui-copy">
+                    No matching organization members available to add.
+                  </li>
+                </ul>
               </div>
 
               <ul class="simple-list nested">
-                <li *ngFor="let member of group.members">{{ member.name }} ({{ member.email }})</li>
+                <li *ngFor="let member of group.members" class="group-member-search-row">
+                  <div class="stack-tight">
+                    <strong>{{ member.name }}</strong>
+                    <span class="ui-copy">{{ member.email }}</span>
+                  </div>
+                  <button class="ui-button" type="button" (click)="removeMember(group.id, member.userId)">
+                    Remove
+                  </button>
+                </li>
+                <li *ngIf="group.members.length === 0" class="ui-copy">No members in this group.</li>
               </ul>
             </li>
           </ul>
@@ -79,7 +97,7 @@ export class OrgGroupsComponent {
   private readonly orgApi = inject(OrgApiService);
 
   groupName = '';
-  readonly groupMemberInputs: Record<string, string> = {};
+  readonly groupMemberQueries: Record<string, string> = {};
 
   readonly errorMessage = signal<string | null>(null);
   private readonly groupsState = signal<
@@ -89,6 +107,7 @@ export class OrgGroupsComponent {
       name: string;
     }>
   >([]);
+  private readonly membershipsState = signal<MembershipSummary[]>([]);
 
   readonly organizationId = computed(() => this.orgApi.activeOrganizationId());
   readonly groups = this.groupsState.asReadonly();
@@ -116,32 +135,23 @@ export class OrgGroupsComponent {
     }
   }
 
-  async addMember(groupId: string) {
+  async addMember(groupId: string, userId: string) {
     if (!this.organizationId()) {
-      return;
-    }
-
-    const userId = (this.groupMemberInputs[groupId] ?? '').trim();
-    if (!userId) {
       return;
     }
 
     try {
       this.errorMessage.set(null);
       await this.orgApi.addGroupMember(this.organizationId()!, groupId, userId);
+      this.groupMemberQueries[groupId] = '';
       await this.reload();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to add member.');
     }
   }
 
-  async removeMember(groupId: string) {
+  async removeMember(groupId: string, userId: string) {
     if (!this.organizationId()) {
-      return;
-    }
-
-    const userId = (this.groupMemberInputs[groupId] ?? '').trim();
-    if (!userId) {
       return;
     }
 
@@ -157,14 +167,38 @@ export class OrgGroupsComponent {
   private async reload() {
     if (!this.organizationId()) {
       this.groupsState.set([]);
+      this.membershipsState.set([]);
       return;
     }
 
     try {
       this.errorMessage.set(null);
-      this.groupsState.set(await this.orgApi.listGroups(this.organizationId()!));
+      const [groups, memberships] = await Promise.all([
+        this.orgApi.listGroups(this.organizationId()!),
+        this.orgApi.listMemberships(this.organizationId()!),
+      ]);
+      this.groupsState.set(groups);
+      this.membershipsState.set(memberships);
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to load groups.');
     }
+  }
+
+  availableMembersForGroup(group: {
+    members: Array<{ email: string; name: string; userId: string }>;
+    id: string;
+  }) {
+    const query = (this.groupMemberQueries[group.id] ?? '').trim().toLowerCase();
+    const existingIds = new Set(group.members.map((member) => member.userId));
+
+    return this.membershipsState()
+      .filter((member) => !existingIds.has(member.userId))
+      .filter(
+        (member) =>
+          query.length === 0 ||
+          member.name.toLowerCase().includes(query) ||
+          member.email.toLowerCase().includes(query),
+      )
+      .slice(0, 8);
   }
 }
