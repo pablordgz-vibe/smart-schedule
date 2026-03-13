@@ -149,7 +149,7 @@ test('preserves the current route when switching contexts and the destination is
   await page.getByTestId('context-switcher').selectOption('org:org-1');
 
   await expect(page).toHaveURL(/\/calendar$/);
-  await expect(page.getByTestId('context-badge')).toContainText('Organization: Atlas Ops');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('org:org-1');
   expect(state.activeContextKey).toBe('org:org-1');
   expect(state.contextSwitchCalls).toBe(1);
 });
@@ -165,7 +165,7 @@ test('falls back to the nearest valid landing route when the current route is no
 
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByTestId('page-home')).toBeVisible();
-  await expect(page.getByTestId('context-badge')).toContainText('Personal');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('personal');
   expect(state.activeContextKey).toBe('personal');
   expect(state.contextSwitchCalls).toBe(1);
 });
@@ -185,7 +185,7 @@ test('prompts before switching context away from a guarded dirty route', async (
   await page.getByTestId('context-switcher').selectOption('personal');
 
   await expect(page).toHaveURL(/\/org\/assignments$/);
-  await expect(page.getByTestId('context-badge')).toContainText('Organization: Atlas Ops');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('org:org-1');
   expect(state.contextSwitchCalls).toBe(0);
 
   page.once('dialog', async (dialog) => {
@@ -195,7 +195,7 @@ test('prompts before switching context away from a guarded dirty route', async (
   await page.getByTestId('context-switcher').selectOption('personal');
 
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByTestId('context-badge')).toContainText('Personal');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('personal');
   expect(state.activeContextKey).toBe('personal');
   expect(state.contextSwitchCalls).toBe(1);
 });

@@ -47,11 +47,11 @@ type SmtpConfigState = {
         </p>
       </header>
 
-      <section class="ui-banner ui-banner-denied mx-auto mb-6 max-w-5xl" *ngIf="loadError()">
+      <section class="alert alert-error mx-auto mb-6 max-w-5xl" *ngIf="loadError()">
         <h2>Setup service unavailable</h2>
         <p>{{ loadError() }}</p>
         <div class="flex flex-wrap gap-3">
-          <button class="ui-button ui-button-secondary" type="button" (click)="retryLoad()">
+          <button class="btn btn-outline" type="button" (click)="retryLoad()">
             Retry bootstrap status
           </button>
         </div>
@@ -59,25 +59,27 @@ type SmtpConfigState = {
 
       <div class="wizard-grid">
         <aside class="steps-card">
-          <p class="ui-kicker">Progress</p>
-          <ol class="steps">
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Progress</p>
+          <ol class="setup-steps">
             <li [class.active]="step() === 0">1. Integrations</li>
             <li [class.active]="step() === 1">2. First admin</li>
             <li [class.active]="step() === 2">3. Review</li>
             <li [class.active]="step() === 3">4. Complete</li>
           </ol>
-          <p class="edition-copy" data-testid="setup-edition">
-            Edition: <strong>{{ editionLabel() }}</strong>
-          </p>
-          <p class="support-copy">
-            Community allows provider-login setup where supported. Commercial is restricted to
-            API-key setup.
-          </p>
+          <div class="setup-meta">
+            <p class="edition-copy" data-testid="setup-edition">
+              Edition: <strong>{{ editionLabel() }}</strong>
+            </p>
+            <p class="support-copy">
+              Community allows provider-login setup where supported. Commercial is restricted to
+              API-key setup.
+            </p>
+          </div>
         </aside>
 
-        <form class="wizard-card" (ngSubmit)="submitCurrentStep()">
+        <form class="wizard-card space-y-6" (ngSubmit)="submitCurrentStep()">
           <ng-container [ngSwitch]="step()">
-            <section *ngSwitchCase="0">
+            <section *ngSwitchCase="0" class="wizard-section">
               <div class="section-heading">
                 <h2>Enable integrations</h2>
                 <p>
@@ -106,7 +108,7 @@ type SmtpConfigState = {
                   <label class="ui-field">
                     <span>Credential mode</span>
                     <select
-                      class="ui-select"
+                      class="select select-bordered w-full"
                       [ngModel]="modeFor(provider.code)"
                       (ngModelChange)="setMode(provider.code, $event)"
                       [ngModelOptions]="{ standalone: true }"
@@ -121,7 +123,7 @@ type SmtpConfigState = {
                     <ng-container *ngIf="provider.code === 'smtp' && smtpConfigFor(provider.code) as smtpConfig; else genericSecretField">
                       <span>SMTP setup style</span>
                       <select
-                        class="ui-select"
+                        class="select select-bordered w-full"
                         [ngModel]="smtpConfig.style"
                         (ngModelChange)="setSmtpStyle(provider.code, $event)"
                         [ngModelOptions]="{ standalone: true }"
@@ -133,7 +135,7 @@ type SmtpConfigState = {
                     <ng-template #genericSecretField>
                       <span>{{ secretFieldLabel(modeFor(provider.code)) }}</span>
                       <input
-                        class="ui-input"
+                        class="input input-bordered w-full"
                         [ngModel]="secretFor(provider.code)"
                         (ngModelChange)="setSecret(provider.code, $event)"
                         [ngModelOptions]="{ standalone: true }"
@@ -147,7 +149,7 @@ type SmtpConfigState = {
                       <label class="ui-field">
                         <span>SMTP connection URI</span>
                         <input
-                          class="ui-input"
+                          class="input input-bordered w-full"
                           [ngModel]="smtpConfig.uri"
                           (ngModelChange)="setSmtpField(provider.code, 'uri', $event)"
                           [ngModelOptions]="{ standalone: true }"
@@ -160,7 +162,7 @@ type SmtpConfigState = {
                       <label class="ui-field">
                         <span>Email provider preset</span>
                         <select
-                          class="ui-select"
+                          class="select select-bordered w-full"
                           [ngModel]="smtpConfig.preset"
                           (ngModelChange)="applySmtpPreset(provider.code, $event)"
                           [ngModelOptions]="{ standalone: true }"
@@ -175,7 +177,7 @@ type SmtpConfigState = {
                       <label class="ui-field">
                         <span>SMTP host</span>
                         <input
-                          class="ui-input"
+                          class="input input-bordered w-full"
                           [ngModel]="smtpConfig.host"
                           (ngModelChange)="setSmtpField(provider.code, 'host', $event)"
                           [ngModelOptions]="{ standalone: true }"
@@ -186,7 +188,7 @@ type SmtpConfigState = {
                       <label class="ui-field">
                         <span>Port</span>
                         <input
-                          class="ui-input"
+                          class="input input-bordered w-full"
                           [ngModel]="smtpConfig.port"
                           (ngModelChange)="setSmtpField(provider.code, 'port', $event)"
                           [ngModelOptions]="{ standalone: true }"
@@ -198,7 +200,7 @@ type SmtpConfigState = {
                       <label class="ui-field">
                         <span>Username</span>
                         <input
-                          class="ui-input"
+                          class="input input-bordered w-full"
                           [ngModel]="smtpConfig.username"
                           (ngModelChange)="setSmtpField(provider.code, 'username', $event)"
                           [ngModelOptions]="{ standalone: true }"
@@ -210,7 +212,7 @@ type SmtpConfigState = {
                         <span>Password or app password</span>
                         <div class="smtp-password-row">
                           <input
-                            class="ui-input"
+                            class="input input-bordered w-full"
                             [ngModel]="smtpConfig.password"
                             (ngModelChange)="setSmtpField(provider.code, 'password', $event)"
                             [ngModelOptions]="{ standalone: true }"
@@ -218,7 +220,7 @@ type SmtpConfigState = {
                             placeholder="Enter SMTP password"
                           />
                           <button
-                            class="ui-button ui-button-secondary"
+                            class="btn btn-outline"
                             type="button"
                             (click)="toggleSmtpPasswordVisibility(provider.code)"
                           >
@@ -230,7 +232,7 @@ type SmtpConfigState = {
                       <label class="ui-field">
                         <span>From address</span>
                         <input
-                          class="ui-input"
+                          class="input input-bordered w-full"
                           [ngModel]="smtpConfig.fromAddress"
                           (ngModelChange)="setSmtpField(provider.code, 'fromAddress', $event)"
                           [ngModelOptions]="{ standalone: true }"
@@ -255,7 +257,7 @@ type SmtpConfigState = {
               </article>
             </section>
 
-            <section *ngSwitchCase="1">
+            <section *ngSwitchCase="1" class="wizard-section">
               <div class="section-heading">
                 <h2>Create the first system admin</h2>
                 <p>
@@ -266,7 +268,7 @@ type SmtpConfigState = {
               <label class="ui-field">
                 <span>Full name</span>
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   [(ngModel)]="admin.name"
                   name="name"
                   required
@@ -277,7 +279,7 @@ type SmtpConfigState = {
               <label class="ui-field">
                 <span>Email</span>
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   [(ngModel)]="admin.email"
                   name="email"
                   type="email"
@@ -287,18 +289,24 @@ type SmtpConfigState = {
 
               <label class="ui-field">
                 <span>Password</span>
-                <input
-                  class="ui-input"
-                  [(ngModel)]="admin.password"
-                  name="password"
-                  type="password"
-                  required
-                  minlength="12"
-                />
+                <div class="smtp-password-row">
+                  <input
+                    class="input input-bordered w-full"
+                    [(ngModel)]="admin.password"
+                    name="password"
+                    [type]="revealAdminPassword ? 'text' : 'password'"
+                    required
+                    minlength="12"
+                  />
+                  <button class="btn btn-outline" type="button" (click)="revealAdminPassword = !revealAdminPassword">
+                    {{ revealAdminPassword ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
+                <span class="field-hint">Use at least 12 characters. A longer passphrase works best.</span>
               </label>
             </section>
 
-            <section *ngSwitchCase="2">
+            <section *ngSwitchCase="2" class="wizard-section">
               <div class="section-heading">
                 <h2>Review and finish</h2>
                 <p>
@@ -325,10 +333,9 @@ type SmtpConfigState = {
                 </ul>
               </div>
 
-              <p class="error-copy" *ngIf="errorMessage()">{{ errorMessage() }}</p>
             </section>
 
-            <section *ngSwitchCase="3">
+            <section *ngSwitchCase="3" class="wizard-section">
               <div class="section-heading">
                 <h2>Setup complete</h2>
                 <p>
@@ -364,17 +371,19 @@ type SmtpConfigState = {
             </section>
           </ng-container>
 
+          <p class="alert alert-error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
           <footer class="wizard-actions">
             <button
               *ngIf="step() > 0 && step() < 3"
-              class="ui-button"
+              class="btn btn-outline"
               type="button"
               (click)="previousStep()"
             >
               Back
             </button>
             <button
-              class="ui-button ui-button-primary"
+              class="btn btn-neutral"
               type="submit"
               data-testid="setup-submit"
               [disabled]="loadError() !== null"
@@ -391,19 +400,21 @@ type SmtpConfigState = {
       .setup-shell {
         min-height: 100vh;
         padding: clamp(1.5rem, 4vw, 3rem);
-        background:
-          radial-gradient(circle at top left, rgb(249 115 22 / 0.16), transparent 24rem),
-          radial-gradient(circle at bottom right, rgb(14 165 233 / 0.18), transparent 28rem),
-          linear-gradient(180deg, #fffaf5 0%, #eef6ff 100%);
+        background: var(--bg-app);
       }
 
       .hero {
-        max-width: 48rem;
+        max-width: 72rem;
         margin: 0 auto var(--spacing-8);
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding-left: calc(18rem + var(--spacing-6));
       }
 
       .eyebrow {
-        margin: 0 0 var(--spacing-2);
+        margin: 0;
         text-transform: uppercase;
         letter-spacing: 0.12em;
         font-size: var(--font-size-xs);
@@ -413,14 +424,18 @@ type SmtpConfigState = {
 
       .hero h1 {
         margin: 0;
-        font-size: clamp(2.5rem, 5vw, 4.25rem);
-        line-height: 0.96;
+        font-size: clamp(1.9rem, 3vw, 2.6rem);
+        line-height: 1.25;
+        letter-spacing: -0.03em;
+        max-width: 22ch;
       }
 
       .lede {
-        max-width: 40rem;
+        margin: 0;
+        max-width: 38rem;
         color: var(--text-secondary);
-        font-size: var(--font-size-lg);
+        font-size: 1rem;
+        line-height: 1.6;
       }
 
       .wizard-grid {
@@ -434,28 +449,54 @@ type SmtpConfigState = {
       .steps-card,
       .wizard-card {
         padding: var(--spacing-6);
-        border: 1px solid rgb(15 23 42 / 0.08);
-        border-radius: calc(var(--radius-xl) * 1.2);
-        background: rgb(255 255 255 / 0.88);
-        backdrop-filter: blur(20px);
-        box-shadow: 0 1.25rem 3rem rgb(15 23 42 / 0.08);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-xl);
+        background: var(--bg-surface);
+        box-shadow: var(--shadow-sm);
       }
 
-      .steps {
+      .steps-card {
+        display: grid;
+        gap: var(--spacing-4);
+        align-content: start;
+      }
+
+      .setup-steps {
+        display: grid;
+        gap: var(--spacing-2);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .setup-meta {
         display: grid;
         gap: var(--spacing-3);
-        margin: var(--spacing-4) 0;
-        padding-left: 1.25rem;
+        margin-top: var(--spacing-3);
       }
 
-      .steps li.active {
+      .setup-steps li {
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+        color: var(--text-secondary);
+      }
+
+      .setup-steps li.active {
+        background: var(--color-neutral-100);
         color: var(--text-primary);
         font-weight: 700;
       }
 
       .edition-copy,
-      .support-copy {
+      .support-copy,
+      .field-hint {
         color: var(--text-secondary);
+      }
+
+      .field-hint {
+        font-size: 0.875rem;
+        line-height: 1.5;
       }
 
       .wizard-card {
@@ -463,13 +504,28 @@ type SmtpConfigState = {
         gap: var(--spacing-5);
       }
 
+
+      .wizard-section {
+        display: grid;
+        gap: var(--spacing-5);
+      }
+
+      .section-heading {
+        display: grid;
+        gap: var(--spacing-2);
+      }
+
       .section-heading h2,
-      .summary-card h3 {
-        margin-bottom: var(--spacing-2);
+      .section-heading p,
+      .summary-card h3,
+      .summary-card p {
+        margin: 0;
       }
 
       .section-heading p,
       .summary-card p {
+        max-width: 56ch;
+        line-height: 1.65;
         color: var(--text-secondary);
       }
 
@@ -478,18 +534,24 @@ type SmtpConfigState = {
         padding: var(--spacing-4);
         border: 1px solid var(--border-default);
         border-radius: var(--radius-lg);
-        background: rgb(248 250 252 / 0.75);
+        background: var(--color-neutral-50);
       }
 
       .provider-header {
-        display: flex;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
         align-items: start;
         gap: var(--spacing-3);
       }
 
+      .provider-header strong,
       .provider-header small {
         display: block;
+      }
+
+      .provider-header small {
         margin-top: 0.25rem;
+        line-height: 1.5;
         color: var(--text-secondary);
       }
 
@@ -503,9 +565,9 @@ type SmtpConfigState = {
         display: grid;
         gap: var(--spacing-3);
         padding: var(--spacing-3);
-        border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-md);
-        background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+        background: var(--bg-surface);
       }
 
       .smtp-checkbox {
@@ -523,13 +585,18 @@ type SmtpConfigState = {
       .wizard-actions {
         display: flex;
         justify-content: space-between;
-      }
-
-      .error-copy {
-        color: #b91c1c;
+        align-items: center;
+        gap: var(--spacing-3);
+        margin-top: var(--spacing-2);
+        padding-top: var(--spacing-4);
+        border-top: 1px solid var(--border-default);
       }
 
       @media (max-width: 900px) {
+        .hero {
+          padding-left: 0;
+        }
+
         .wizard-grid {
           grid-template-columns: 1fr;
         }
@@ -558,6 +625,7 @@ export class SetupComponent {
     name: '',
     password: '',
   };
+  protected revealAdminPassword = false;
 
   private readonly selections = signal<
     Record<string, IntegrationSelection>
@@ -730,12 +798,18 @@ export class SetupComponent {
     }
 
     if (this.step() === 1) {
-      if (
-        this.admin.name.trim().length < 2 ||
-        this.admin.password.trim().length < 12 ||
-        !this.admin.email.includes('@')
-      ) {
-        this.errorMessage.set('Enter a valid admin name, email, and password before continuing.');
+      if (this.admin.name.trim().length < 2) {
+        this.errorMessage.set('Enter an admin name with at least 2 characters.');
+        return;
+      }
+
+      if (!this.admin.email.includes('@')) {
+        this.errorMessage.set('Enter a valid admin email address before continuing.');
+        return;
+      }
+
+      if (this.admin.password.trim().length < 12) {
+        this.errorMessage.set('Use an admin password with at least 12 characters.');
         return;
       }
 

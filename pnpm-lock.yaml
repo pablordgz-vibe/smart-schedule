@@ -221,6 +221,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^3.0.7
         version: 3.2.4(vitest@3.2.4(@types/node@22.19.15)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(sass@1.97.3)(terser@5.46.0)(yaml@2.8.2))
+      daisyui:
+        specifier: ^5.5.19
+        version: 5.5.19
       eslint:
         specifier: ^9.21.0
         version: 9.39.4(jiti@2.6.1)
@@ -3483,6 +3486,9 @@ packages:
   cssstyle@6.2.0:
     resolution: {integrity: sha512-Fm5NvhYathRnXNVndkUsCCuR63DCLVVwGOOwQw782coXFi5HhkXdu289l59HlXZBawsyNccXfWRYvLzcDCdDig==}
     engines: {node: '>=20'}
+
+  daisyui@5.5.19:
+    resolution: {integrity: sha512-pbFAkl1VCEh/MPCeclKL61I/MqRIFFhNU7yiXoDDRapXN4/qNCoMxeCCswyxEEhqL5eiTTfwHvucFtOE71C9sA==}
 
   data-urls@7.0.0:
     resolution: {integrity: sha512-23XHcCF+coGYevirZceTVD7NdJOqVn+49IHyxgszm+JIiHLoB2TkmPtsYkNWT1pvRSGkc35L6NHs0yHkN2SumA==}
@@ -9166,6 +9172,8 @@ snapshots:
       '@csstools/css-syntax-patches-for-csstree': 1.1.0
       css-tree: 3.2.1
       lru-cache: 11.2.6
+
+  daisyui@5.5.19: {}
 
   data-urls@7.0.0(@noble/hashes@1.8.0):
     dependencies:

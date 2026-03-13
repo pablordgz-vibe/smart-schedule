@@ -19,57 +19,57 @@ type TimeTab = {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-page" data-testid="page-org-time-policies">
-      <article class="ui-card stack">
-        <p class="ui-kicker">Organization Administration</p>
+    <section class="grid gap-6" data-testid="page-org-time-policies">
+      <article class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Organization Administration</p>
         <h1>Time Policies</h1>
-        <p class="ui-copy">
+        <p class="text-sm leading-6 text-base-content/65">
           Configure working hours, availability, unavailability, holidays, blackout periods, rest
           rules, and maximum hours.
         </p>
 
-        <div class="ui-panel precedence-panel">
+        <div class="rounded-box border border-base-300 bg-base-100 p-4 precedence-panel">
           <h2>Precedence</h2>
-          <p class="ui-copy">User overrides group overrides organization.</p>
+          <p class="text-sm leading-6 text-base-content/65">User overrides group overrides organization.</p>
         </div>
 
-        <div class="tabs">
+        <div role="tablist" class="tabs tabs-boxed w-fit">
           <button
             *ngFor="let tab of tabs"
-            class="ui-button"
+            class="tab"
             type="button"
-            [class.ui-button-primary]="activeTab() === tab.id"
+            [class.tab-active]="activeTab() === tab.id"
             (click)="setActiveTab(tab.id)"
           >
             {{ tab.label }}
           </button>
         </div>
 
-        <p *ngIf="errorMessage()" class="ui-banner ui-banner-denied">{{ errorMessage() }}</p>
+        <p *ngIf="errorMessage()" class="alert alert-error">{{ errorMessage() }}</p>
 
-        <div class="grid two" *ngIf="organizationId(); else noContext">
-          <section class="ui-panel stack-tight">
+        <div class="grid gap-4 xl:grid-cols-2" *ngIf="organizationId(); else noContext">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h2>Rule editor</h2>
-            <label class="ui-field">
+            <label class="form-control gap-2">
               <span>Scope</span>
-              <select [(ngModel)]="form.scopeLevel" [ngModelOptions]="{ standalone: true }">
+              <select class="select select-bordered w-full" [(ngModel)]="form.scopeLevel" [ngModelOptions]="{ standalone: true }">
                 <option value="organization">organization</option>
                 <option value="group">group</option>
                 <option value="user">user</option>
               </select>
             </label>
 
-            <label class="ui-field" *ngIf="form.scopeLevel === 'group'">
+            <label class="form-control gap-2" *ngIf="form.scopeLevel === 'group'">
               <span>Target group</span>
-              <select [(ngModel)]="form.targetGroupId" [ngModelOptions]="{ standalone: true }">
+              <select class="select select-bordered w-full" [(ngModel)]="form.targetGroupId" [ngModelOptions]="{ standalone: true }">
                 <option value="">Select group</option>
                 <option *ngFor="let group of groups()" [value]="group.id">{{ group.name }}</option>
               </select>
             </label>
 
-            <label class="ui-field" *ngIf="form.scopeLevel === 'user'">
+            <label class="form-control gap-2" *ngIf="form.scopeLevel === 'user'">
               <span>Target user</span>
-              <select [(ngModel)]="form.targetUserId" [ngModelOptions]="{ standalone: true }">
+              <select class="select select-bordered w-full" [(ngModel)]="form.targetUserId" [ngModelOptions]="{ standalone: true }">
                 <option value="">Select user</option>
                 <option *ngFor="let user of memberships()" [value]="user.userId">
                   {{ user.name }}
@@ -77,32 +77,32 @@ type TimeTab = {
               </select>
             </label>
 
-            <label class="ui-field">
+            <label class="form-control gap-2">
               <span>Title</span>
-              <input [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
+              <input class="input input-bordered w-full" [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
             </label>
 
             <ng-container [ngSwitch]="activeTab()">
               <ng-container *ngSwitchCase="'working_hours'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -113,24 +113,24 @@ type TimeTab = {
 
               <ng-container *ngSwitchCase="'availability'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -141,24 +141,24 @@ type TimeTab = {
 
               <ng-container *ngSwitchCase="'unavailability'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -169,34 +169,34 @@ type TimeTab = {
 
               <ng-container *ngSwitchCase="'holiday'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Date</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="date"
                       [(ngModel)]="form.date"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Holiday name</span>
-                    <input [(ngModel)]="form.holidayName" [ngModelOptions]="{ standalone: true }" />
+                    <input class="input input-bordered w-full" [(ngModel)]="form.holidayName" [ngModelOptions]="{ standalone: true }" />
                   </label>
                 </div>
               </ng-container>
 
               <ng-container *ngSwitchCase="'blackout'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.startAt"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.endAt"
                       [ngModelOptions]="{ standalone: true }"
@@ -206,9 +206,9 @@ type TimeTab = {
               </ng-container>
 
               <ng-container *ngSwitchCase="'rest'">
-                <label class="ui-field">
+                <label class="form-control gap-2">
                   <span>Minimum rest minutes</span>
-                  <input
+                  <input class="input input-bordered w-full"
                     type="number"
                     min="1"
                     max="1440"
@@ -220,9 +220,9 @@ type TimeTab = {
 
               <ng-container *ngSwitchCase="'max_hours'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Max daily minutes</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="1440"
@@ -230,9 +230,9 @@ type TimeTab = {
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Max weekly minutes</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="10080"
@@ -244,46 +244,46 @@ type TimeTab = {
               </ng-container>
             </ng-container>
 
-            <button class="ui-button ui-button-primary" type="button" (click)="createPolicy()">
+            <button class="btn btn-neutral" type="button" (click)="createPolicy()">
               Save policy
             </button>
           </section>
 
-          <section class="ui-panel stack-tight">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h2>Official holiday import selector</h2>
             <div class="inline-fields">
-              <label class="ui-field">
+              <label class="form-control gap-2">
                 <span>Provider</span>
-                <input
+                <input class="input input-bordered w-full"
                   [(ngModel)]="holidayImport.providerCode"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </label>
-              <label class="ui-field">
+              <label class="form-control gap-2">
                 <span>Location</span>
-                <input
+                <input class="input input-bordered w-full"
                   [(ngModel)]="holidayImport.locationCode"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </label>
-              <label class="ui-field">
+              <label class="form-control gap-2">
                 <span>Year</span>
-                <input
+                <input class="input input-bordered w-full"
                   type="number"
                   [(ngModel)]="holidayImport.year"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </label>
             </div>
-            <button class="ui-button ui-button-secondary" type="button" (click)="importHolidays()">
+            <button class="btn btn-outline" type="button" (click)="importHolidays()">
               Import official holidays
             </button>
-            <p class="ui-copy" *ngIf="lastImportMessage()">{{ lastImportMessage() }}</p>
+            <p class="text-sm leading-6 text-base-content/65" *ngIf="lastImportMessage()">{{ lastImportMessage() }}</p>
 
             <h2>Effective policy preview</h2>
-            <label class="ui-field">
+            <label class="form-control gap-2">
               <span>Preview user</span>
-              <select
+              <select class="select select-bordered w-full"
                 [(ngModel)]="previewUserId"
                 [ngModelOptions]="{ standalone: true }"
                 (ngModelChange)="loadPreview()"
@@ -297,38 +297,38 @@ type TimeTab = {
 
             <ul class="simple-list">
               <li *ngFor="let item of previewRows()">
-                <strong>{{ item.category }}</strong>
-                <span class="ui-chip">{{ item.scope }}</span>
-                <span class="ui-copy">rules: {{ item.ruleCount }}</span>
+                <strong>{{ formatPolicyCategory(item.category) }}</strong>
+                <span class="badge badge-outline">{{ formatScopeLabel(item.scope) }}</span>
+                <span class="text-sm text-base-content/60">rules: {{ item.ruleCount }}</span>
               </li>
             </ul>
           </section>
         </div>
 
-        <article class="ui-panel" *ngIf="organizationId()">
+        <article class="rounded-box border border-base-300 bg-base-100 p-4" *ngIf="organizationId()">
           <h2>Current {{ activeTabLabel() }} rules</h2>
           <ul class="simple-list">
             <li *ngFor="let policy of filteredPolicies()" data-testid="time-policy-row">
               <div>
                 <strong>{{ policy.title }}</strong>
-                <p class="ui-copy">
-                  {{ policy.scopeLevel }} · {{ policy.sourceType }} · {{ policy.updatedAt }}
+                <p class="text-sm leading-6 text-base-content/65">
+                  {{ formatScopeLabel(policy.scopeLevel) }} · {{ formatSourceLabel(policy.sourceType) }} · {{ policy.updatedAt }}
                 </p>
               </div>
-              <button class="ui-button" type="button" (click)="removePolicy(policy.id)">
+              <button class="btn btn-outline" type="button" (click)="removePolicy(policy.id)">
                 Delete
               </button>
             </li>
-            <li *ngIf="filteredPolicies().length === 0" class="ui-copy">
+            <li *ngIf="filteredPolicies().length === 0" class="text-sm text-base-content/60">
               No rules in this tab yet.
             </li>
           </ul>
         </article>
 
         <ng-template #noContext>
-          <article class="ui-panel">
+          <article class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2>Organization context required</h2>
-            <p class="ui-copy">
+            <p class="text-sm leading-6 text-base-content/65">
               Switch into an organization admin context to manage time policies.
             </p>
           </article>
@@ -460,6 +460,29 @@ export class OrgTimePoliciesComponent {
   readonly activeTabLabel = computed(
     () => this.tabs.find((tab) => tab.id === this.activeTab())?.label ?? this.activeTab(),
   );
+
+
+  formatPolicyCategory(category: string): string {
+    return this.tabs.find((tab) => tab.id === category)?.label ?? this.humanizeToken(category);
+  }
+
+  formatScopeLabel(scope: string | null): string {
+    if (!scope || scope === 'none') {
+      return 'No rule';
+    }
+    return this.humanizeToken(scope);
+  }
+
+  formatSourceLabel(source: string): string {
+    return this.humanizeToken(source);
+  }
+
+  private humanizeToken(value: string): string {
+    return value
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
 
   constructor() {
     effect(() => {

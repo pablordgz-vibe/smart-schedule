@@ -133,34 +133,36 @@ function createAttachmentDraft(): AttachmentDraft {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <section class="ui-page" data-testid="page-calendar">
-      <article class="ui-card">
-        <p class="ui-kicker">End-User Workspace</p>
-        <h1>Calendar</h1>
-        <p class="ui-copy">
-          Aggregate calendar for {{ contextLabel() }}. Tasks without deadlines are excluded from
-          this grid.
-        </p>
+    <section class="grid gap-6" data-testid="page-calendar">
+      <article class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-4">
+        <div class="card-heading">
+          <p class="ui-kicker">End-User Workspace</p>
+          <h1>Calendar</h1>
+          <p class="ui-copy">
+            Aggregate calendar for {{ contextLabel() }}. Tasks without deadlines are excluded from
+            this grid.
+          </p>
+        </div>
 
-        <div class="ui-toolbar">
+        <div class="flex flex-wrap items-end gap-3">
           <label class="ui-field compact-field">
             <span>From</span>
-            <input class="ui-input" type="datetime-local" [(ngModel)]="from" />
+            <input class="input input-bordered w-full" type="datetime-local" [(ngModel)]="from" />
           </label>
           <label class="ui-field compact-field">
             <span>To</span>
-            <input class="ui-input" type="datetime-local" [(ngModel)]="to" />
+            <input class="input input-bordered w-full" type="datetime-local" [(ngModel)]="to" />
           </label>
-          <button class="ui-button ui-button-secondary" type="button" (click)="loadView()">
+          <button class="btn btn-outline" type="button" (click)="loadView()">
             Refresh view
           </button>
-          <a class="ui-button ui-button-secondary" routerLink="/schedules/builder">
+          <a class="btn btn-outline" routerLink="/schedules/builder">
             New Schedule
           </a>
         </div>
 
-        <div class="ui-meta-grid">
-          <div class="ui-panel">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2>Calendar selector</h2>
             <div class="calendar-list">
               <label *ngFor="let calendar of calendars()" class="calendar-option">
@@ -175,7 +177,7 @@ function createAttachmentDraft(): AttachmentDraft {
             </div>
           </div>
 
-          <div class="ui-panel">
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2>Legend</h2>
             <ul>
               <li><span class="dot event"></span> Event</li>
@@ -184,29 +186,29 @@ function createAttachmentDraft(): AttachmentDraft {
             </ul>
           </div>
 
-          <div class="ui-panel" *ngIf="isPersonalContext()" data-testid="personal-calendar-panel">
+          <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-4" *ngIf="isPersonalContext()" data-testid="personal-calendar-panel">
             <h2>Personal calendars</h2>
             <p class="ui-copy">
               Create additional calendars here and add them to your aggregate views immediately.
             </p>
-            <div class="ui-toolbar">
+            <div class="flex flex-wrap items-end gap-3">
               <label class="ui-field grow">
                 <span>New personal calendar</span>
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   [(ngModel)]="personalCalendarName"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </label>
               <button
-                class="ui-button ui-button-secondary"
+                class="btn btn-outline"
                 type="button"
                 (click)="createPersonalCalendar()"
               >
                 Create calendar
               </button>
             </div>
-            <ul class="entry-list">
+            <ul class="entry-list pt-1">
               <li *ngFor="let calendar of personalCalendars()" class="entry-item">
                 <strong>{{ calendar.name }}</strong>
               </li>
@@ -214,12 +216,12 @@ function createAttachmentDraft(): AttachmentDraft {
           </div>
         </div>
 
-        <p class="ui-banner ui-banner-warning" *ngIf="error()">{{ error() }}</p>
-        <p class="ui-banner ui-banner-info" *ngIf="message()">{{ message() }}</p>
+        <p class="alert alert-warning" *ngIf="error()">{{ error() }}</p>
+        <p class="alert alert-info" *ngIf="message()">{{ message() }}</p>
       </article>
 
-      <article class="ui-card stack">
-        <div>
+      <article class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-4 overflow-hidden">
+        <div class="calendar-grid-header">
           <h2>Calendar grid</h2>
           <p class="ui-copy">
             Date buckets for the selected range and calendars in {{ contextLabel() }}.
@@ -249,208 +251,210 @@ function createAttachmentDraft(): AttachmentDraft {
         </div>
       </article>
 
-      <article class="ui-card split-card">
+      <article class="card border border-base-300 bg-base-100 p-6 shadow-sm split-card">
         <section>
           <h2>Quick create</h2>
 
-          <form class="ui-toolbar stack" (ngSubmit)="createEvent()">
-            <h3>New Event</h3>
-            <input
-              class="ui-input"
-              placeholder="Title"
-              [(ngModel)]="eventDraft.title"
-              name="event-title"
-            />
-            <textarea
-              class="ui-input"
-              rows="3"
-              placeholder="Notes"
-              [(ngModel)]="eventDraft.notes"
-              name="event-notes"
-            ></textarea>
-            <div class="inline-grid">
-              <label class="ui-field compact-field">
-                <span>All day</span>
-                <input type="checkbox" [(ngModel)]="eventDraft.allDay" name="event-all-day" />
+          <div class="quick-create-grid">
+            <form class="form-stack" (ngSubmit)="createEvent()">
+              <h3>New Event</h3>
+              <input
+                class="input input-bordered w-full"
+                placeholder="Title"
+                [(ngModel)]="eventDraft.title"
+                name="event-title"
+              />
+              <textarea
+                class="textarea textarea-bordered w-full"
+                rows="3"
+                placeholder="Notes"
+                [(ngModel)]="eventDraft.notes"
+                name="event-notes"
+              ></textarea>
+              <div class="inline-grid">
+                <label class="checkbox-row">
+                  <span>All day</span>
+                  <input type="checkbox" [(ngModel)]="eventDraft.allDay" name="event-all-day" />
+                </label>
+                <label class="checkbox-row">
+                  <span>Work related</span>
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="eventDraft.workRelated"
+                    name="event-work-related"
+                  />
+                </label>
+              </div>
+              <div class="inline-grid" *ngIf="!eventDraft.allDay">
+                <input
+                  class="input input-bordered w-full"
+                  type="datetime-local"
+                  [(ngModel)]="eventDraft.startAt"
+                  name="event-start"
+                  (ngModelChange)="refreshLinkedTaskAllocation()"
+                />
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="eventDraft.timedEntryMode"
+                  name="event-timed-entry-mode"
+                  (ngModelChange)="setEventTimingMode(eventDraft, $event)"
+                >
+                  <option value="end">Use end time</option>
+                  <option value="duration">Use duration</option>
+                </select>
+                <input
+                  *ngIf="eventDraft.timedEntryMode === 'end'"
+                  class="input input-bordered w-full"
+                  type="datetime-local"
+                  [(ngModel)]="eventDraft.endAt"
+                  name="event-end"
+                  (ngModelChange)="refreshLinkedTaskAllocation()"
+                />
+                <input
+                  *ngIf="eventDraft.timedEntryMode === 'duration'"
+                  class="input input-bordered w-full"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  [(ngModel)]="eventDraft.durationMinutes"
+                  name="event-duration"
+                  placeholder="Duration (minutes)"
+                  (ngModelChange)="refreshLinkedTaskAllocation()"
+                />
+              </div>
+              <div class="inline-grid" *ngIf="eventDraft.allDay">
+                <input
+                  class="input input-bordered w-full"
+                  type="date"
+                  [(ngModel)]="eventDraft.allDayStartDate"
+                  name="event-all-day-start"
+                />
+                <input
+                  class="input input-bordered w-full"
+                  type="date"
+                  [(ngModel)]="eventDraft.allDayEndDate"
+                  name="event-all-day-end"
+                />
+              </div>
+              <div class="inline-grid">
+                <input
+                  class="input input-bordered w-full"
+                  placeholder="Location"
+                  [(ngModel)]="eventDraft.location"
+                  name="event-location"
+                />
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="eventDraft.linkedTaskId"
+                  name="event-linked-task"
+                  (ngModelChange)="refreshLinkedTaskAllocation()"
+                >
+                  <option value="">No linked task</option>
+                  <option *ngFor="let task of taskSummaries()" [value]="task.id">
+                    {{ task.title }}
+                  </option>
+                </select>
+              </div>
+              <label class="ui-field">
+                <span>Calendar memberships</span>
+                <select
+                  class="select select-bordered w-full"
+                  multiple
+                  [(ngModel)]="eventDraft.calendarIds"
+                  name="event-calendars"
+                >
+                  <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                    {{ calendar.name }}
+                  </option>
+                </select>
               </label>
-              <label class="ui-field compact-field">
+              <label class="ui-field">
+                <span>Contacts</span>
+                <select
+                  class="select select-bordered w-full"
+                  multiple
+                  [(ngModel)]="eventDraft.contactIds"
+                  name="event-contacts"
+                >
+                  <option *ngFor="let contact of contacts()" [value]="contact.id">
+                    {{ contact.displayName }}
+                  </option>
+                </select>
+              </label>
+              <p class="alert alert-warning" *ngIf="linkedTaskAllocationWarning()">
+                {{ linkedTaskAllocationWarning() }}
+              </p>
+              <button class="btn btn-neutral" type="submit">Create event</button>
+            </form>
+
+            <form class="form-stack" (ngSubmit)="createDeadlineTask()">
+              <h3>New deadline task</h3>
+              <input
+                class="input input-bordered w-full"
+                placeholder="Title"
+                [(ngModel)]="deadlineTaskDraft.title"
+                name="deadline-task-title"
+              />
+              <textarea
+                class="textarea textarea-bordered w-full"
+                rows="2"
+                placeholder="Notes"
+                [(ngModel)]="deadlineTaskDraft.notes"
+                name="deadline-task-notes"
+              ></textarea>
+              <div class="inline-grid">
+                <input
+                  class="input input-bordered w-full"
+                  type="datetime-local"
+                  [(ngModel)]="deadlineTaskDraft.dueAt"
+                  name="deadline-task-due"
+                />
+                <input
+                  class="input input-bordered w-full"
+                  placeholder="Location"
+                  [(ngModel)]="deadlineTaskDraft.location"
+                  name="deadline-task-location"
+                />
+              </div>
+              <label class="checkbox-row">
                 <span>Work related</span>
                 <input
                   type="checkbox"
-                  [(ngModel)]="eventDraft.workRelated"
-                  name="event-work-related"
+                  [(ngModel)]="deadlineTaskDraft.workRelated"
+                  name="deadline-task-work-related"
                 />
               </label>
-            </div>
-            <div class="inline-grid" *ngIf="!eventDraft.allDay">
-              <input
-                class="ui-input"
-                type="datetime-local"
-                [(ngModel)]="eventDraft.startAt"
-                name="event-start"
-                (ngModelChange)="refreshLinkedTaskAllocation()"
-              />
-              <select
-                class="ui-select"
-                [(ngModel)]="eventDraft.timedEntryMode"
-                name="event-timed-entry-mode"
-                (ngModelChange)="setEventTimingMode(eventDraft, $event)"
-              >
-                <option value="end">Use end time</option>
-                <option value="duration">Use duration</option>
-              </select>
-              <input
-                *ngIf="eventDraft.timedEntryMode === 'end'"
-                class="ui-input"
-                type="datetime-local"
-                [(ngModel)]="eventDraft.endAt"
-                name="event-end"
-                (ngModelChange)="refreshLinkedTaskAllocation()"
-              />
-              <input
-                *ngIf="eventDraft.timedEntryMode === 'duration'"
-                class="ui-input"
-                type="number"
-                min="1"
-                max="1440"
-                [(ngModel)]="eventDraft.durationMinutes"
-                name="event-duration"
-                placeholder="Duration (minutes)"
-                (ngModelChange)="refreshLinkedTaskAllocation()"
-              />
-            </div>
-            <div class="inline-grid" *ngIf="eventDraft.allDay">
-              <input
-                class="ui-input"
-                type="date"
-                [(ngModel)]="eventDraft.allDayStartDate"
-                name="event-all-day-start"
-              />
-              <input
-                class="ui-input"
-                type="date"
-                [(ngModel)]="eventDraft.allDayEndDate"
-                name="event-all-day-end"
-              />
-            </div>
-            <div class="inline-grid">
-              <input
-                class="ui-input"
-                placeholder="Location"
-                [(ngModel)]="eventDraft.location"
-                name="event-location"
-              />
-              <select
-                class="ui-select"
-                [(ngModel)]="eventDraft.linkedTaskId"
-                name="event-linked-task"
-                (ngModelChange)="refreshLinkedTaskAllocation()"
-              >
-                <option value="">No linked task</option>
-                <option *ngFor="let task of taskSummaries()" [value]="task.id">
-                  {{ task.title }}
-                </option>
-              </select>
-            </div>
-            <label class="ui-field">
-              <span>Calendar memberships</span>
-              <select
-                class="ui-select"
-                multiple
-                [(ngModel)]="eventDraft.calendarIds"
-                name="event-calendars"
-              >
-                <option *ngFor="let calendar of calendars()" [value]="calendar.id">
-                  {{ calendar.name }}
-                </option>
-              </select>
-            </label>
-            <label class="ui-field">
-              <span>Contacts</span>
-              <select
-                class="ui-select"
-                multiple
-                [(ngModel)]="eventDraft.contactIds"
-                name="event-contacts"
-              >
-                <option *ngFor="let contact of contacts()" [value]="contact.id">
-                  {{ contact.displayName }}
-                </option>
-              </select>
-            </label>
-            <p class="ui-banner ui-banner-warning" *ngIf="linkedTaskAllocationWarning()">
-              {{ linkedTaskAllocationWarning() }}
-            </p>
-            <button class="ui-button ui-button-primary" type="submit">Create event</button>
-          </form>
+              <label class="ui-field">
+                <span>Calendar memberships</span>
+                <select
+                  class="select select-bordered w-full"
+                  multiple
+                  [(ngModel)]="deadlineTaskDraft.calendarIds"
+                  name="deadline-task-calendars"
+                >
+                  <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                    {{ calendar.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="ui-field">
+                <span>Contacts</span>
+                <select
+                  class="select select-bordered w-full"
+                  multiple
+                  [(ngModel)]="deadlineTaskDraft.contactIds"
+                  name="deadline-task-contacts"
+                >
+                  <option *ngFor="let contact of contacts()" [value]="contact.id">
+                    {{ contact.displayName }}
+                  </option>
+                </select>
+              </label>
+              <button class="btn btn-neutral" type="submit">Create task</button>
+            </form>
+          </div>
 
-          <form class="ui-toolbar stack" (ngSubmit)="createDeadlineTask()">
-            <h3>New deadline task</h3>
-            <input
-              class="ui-input"
-              placeholder="Title"
-              [(ngModel)]="deadlineTaskDraft.title"
-              name="deadline-task-title"
-            />
-            <textarea
-              class="ui-input"
-              rows="2"
-              placeholder="Notes"
-              [(ngModel)]="deadlineTaskDraft.notes"
-              name="deadline-task-notes"
-            ></textarea>
-            <div class="inline-grid">
-              <input
-                class="ui-input"
-                type="datetime-local"
-                [(ngModel)]="deadlineTaskDraft.dueAt"
-                name="deadline-task-due"
-              />
-              <input
-                class="ui-input"
-                placeholder="Location"
-                [(ngModel)]="deadlineTaskDraft.location"
-                name="deadline-task-location"
-              />
-            </div>
-            <label class="ui-field compact-field">
-              <span>Work related</span>
-              <input
-                type="checkbox"
-                [(ngModel)]="deadlineTaskDraft.workRelated"
-                name="deadline-task-work-related"
-              />
-            </label>
-            <label class="ui-field">
-              <span>Calendar memberships</span>
-              <select
-                class="ui-select"
-                multiple
-                [(ngModel)]="deadlineTaskDraft.calendarIds"
-                name="deadline-task-calendars"
-              >
-                <option *ngFor="let calendar of calendars()" [value]="calendar.id">
-                  {{ calendar.name }}
-                </option>
-              </select>
-            </label>
-            <label class="ui-field">
-              <span>Contacts</span>
-              <select
-                class="ui-select"
-                multiple
-                [(ngModel)]="deadlineTaskDraft.contactIds"
-                name="deadline-task-contacts"
-              >
-                <option *ngFor="let contact of contacts()" [value]="contact.id">
-                  {{ contact.displayName }}
-                </option>
-              </select>
-            </label>
-            <button class="ui-button ui-button-primary" type="submit">Create task</button>
-          </form>
-
-          <section class="ui-panel stack" *ngIf="advisory()">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack" *ngIf="advisory()">
             <h3>Conflict and advisory panel</h3>
             <p class="ui-copy">
               Advisory concerns are warnings only. They do not hard-block scheduling by themselves.
@@ -463,25 +467,25 @@ function createAttachmentDraft(): AttachmentDraft {
               </li>
             </ul>
 
-            <div class="ui-toolbar">
+            <div class="flex flex-wrap items-end gap-3">
               <button
-                class="ui-button ui-button-primary"
+                class="btn btn-neutral"
                 type="button"
                 (click)="proceedWithPending()"
               >
                 Proceed anyway
               </button>
               <button
-                class="ui-button ui-button-secondary"
+                class="btn btn-outline"
                 type="button"
                 (click)="toggleAlternatives()"
               >
                 View alternative slot suggestions
               </button>
-              <button class="ui-button ui-button-secondary" type="button" (click)="askAi()">
+              <button class="btn btn-outline" type="button" (click)="askAi()">
                 Ask AI
               </button>
-              <button class="ui-button" type="button" (click)="cancelPending()">Cancel</button>
+              <button class="btn btn-outline" type="button" (click)="cancelPending()">Cancel</button>
             </div>
 
             <p class="ui-copy" *ngIf="aiMessage()">{{ aiMessage() }}</p>
@@ -490,7 +494,7 @@ function createAttachmentDraft(): AttachmentDraft {
               <li *ngFor="let slot of advisory()!.alternativeSlots" class="entry-item">
                 <p class="ui-copy">{{ slot.startAt }} to {{ slot.endAt }} · {{ slot.reason }}</p>
                 <button
-                  class="ui-button ui-button-secondary"
+                  class="btn btn-outline"
                   type="button"
                   (click)="applyAlternative(slot.startAt, slot.endAt)"
                 >
@@ -522,7 +526,7 @@ function createAttachmentDraft(): AttachmentDraft {
               </div>
               <button
                 *ngIf="isOrganizationContext()"
-                class="ui-button ui-button-secondary"
+                class="btn btn-outline"
                 type="button"
                 (click)="copyEntryToPersonal(entry); $event.stopPropagation()"
               >
@@ -534,10 +538,10 @@ function createAttachmentDraft(): AttachmentDraft {
             </li>
           </ul>
 
-          <section class="ui-panel stack-tight" *ngIf="selectedEvent() as event">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight" *ngIf="selectedEvent() as event">
             <h3>Event details</h3>
             <p class="ui-copy">{{ event.title }}</p>
-            <p class="ui-banner ui-banner-warning" *ngIf="event.provenance">
+            <p class="alert alert-warning" *ngIf="event.provenance">
               Copied from {{ event.provenance.sourceContextType }} item
               {{ event.provenance.sourceItemId }} on {{ event.provenance.copiedAt }}.
             </p>
@@ -545,20 +549,20 @@ function createAttachmentDraft(): AttachmentDraft {
               Allocation: {{ event.allocation.allocatedMinutes }}m of
               {{ event.allocation.estimateMinutes ?? 'n/a' }}m.
             </p>
-            <p class="ui-banner ui-banner-warning" *ngIf="event.allocation.overAllocated">
+            <p class="alert alert-warning" *ngIf="event.allocation.overAllocated">
               This linked event allocation exceeds the linked task estimate.
             </p>
 
             <form class="stack-tight" (ngSubmit)="saveEventUpdates()">
-              <input class="ui-input" [(ngModel)]="eventEditDraft.title" name="edit-event-title" />
+              <input class="input input-bordered w-full" [(ngModel)]="eventEditDraft.title" name="edit-event-title" />
               <textarea
-                class="ui-input"
+                class="textarea textarea-bordered w-full"
                 rows="3"
                 [(ngModel)]="eventEditDraft.notes"
                 name="edit-event-notes"
               ></textarea>
               <div class="inline-grid">
-                <label class="ui-field compact-field">
+                <label class="checkbox-row">
                   <span>All day</span>
                   <input
                     type="checkbox"
@@ -566,7 +570,7 @@ function createAttachmentDraft(): AttachmentDraft {
                     name="edit-event-all-day"
                   />
                 </label>
-                <label class="ui-field compact-field">
+                <label class="checkbox-row">
                   <span>Work related</span>
                   <input
                     type="checkbox"
@@ -577,14 +581,14 @@ function createAttachmentDraft(): AttachmentDraft {
               </div>
               <div class="inline-grid" *ngIf="!eventEditDraft.allDay">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="datetime-local"
                   [(ngModel)]="eventEditDraft.startAt"
                   name="edit-event-start"
                   (ngModelChange)="refreshEventEditAllocation()"
                 />
                 <select
-                  class="ui-select"
+                  class="select select-bordered w-full"
                   [(ngModel)]="eventEditDraft.timedEntryMode"
                   name="edit-event-timed-entry-mode"
                   (ngModelChange)="setEventTimingMode(eventEditDraft, $event, true)"
@@ -594,7 +598,7 @@ function createAttachmentDraft(): AttachmentDraft {
                 </select>
                 <input
                   *ngIf="eventEditDraft.timedEntryMode === 'end'"
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="datetime-local"
                   [(ngModel)]="eventEditDraft.endAt"
                   name="edit-event-end"
@@ -602,7 +606,7 @@ function createAttachmentDraft(): AttachmentDraft {
                 />
                 <input
                   *ngIf="eventEditDraft.timedEntryMode === 'duration'"
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="number"
                   min="1"
                   max="1440"
@@ -614,13 +618,13 @@ function createAttachmentDraft(): AttachmentDraft {
               </div>
               <div class="inline-grid" *ngIf="eventEditDraft.allDay">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="date"
                   [(ngModel)]="eventEditDraft.allDayStartDate"
                   name="edit-event-all-day-start"
                 />
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="date"
                   [(ngModel)]="eventEditDraft.allDayEndDate"
                   name="edit-event-all-day-end"
@@ -628,13 +632,13 @@ function createAttachmentDraft(): AttachmentDraft {
               </div>
               <div class="inline-grid">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   [(ngModel)]="eventEditDraft.location"
                   name="edit-event-location"
                   placeholder="Location"
                 />
                 <select
-                  class="ui-select"
+                  class="select select-bordered w-full"
                   [(ngModel)]="eventEditDraft.linkedTaskId"
                   name="edit-event-linked-task"
                 >
@@ -647,7 +651,7 @@ function createAttachmentDraft(): AttachmentDraft {
               <label class="ui-field">
                 <span>Calendar memberships</span>
                 <select
-                  class="ui-select"
+                  class="select select-bordered w-full"
                   multiple
                   [(ngModel)]="eventEditDraft.calendarIds"
                   name="edit-event-calendars"
@@ -660,7 +664,7 @@ function createAttachmentDraft(): AttachmentDraft {
               <label class="ui-field">
                 <span>Contacts</span>
                 <select
-                  class="ui-select"
+                  class="select select-bordered w-full"
                   multiple
                   [(ngModel)]="eventEditDraft.contactIds"
                   name="edit-event-contacts"
@@ -670,30 +674,30 @@ function createAttachmentDraft(): AttachmentDraft {
                   </option>
                 </select>
               </label>
-              <p class="ui-banner ui-banner-warning" *ngIf="eventEditAllocationWarning()">
+              <p class="alert alert-warning" *ngIf="eventEditAllocationWarning()">
                 {{ eventEditAllocationWarning() }}
               </p>
-              <div class="ui-toolbar">
-                <button class="ui-button ui-button-primary" type="submit">
+              <div class="flex flex-wrap items-end gap-3">
+                <button class="btn btn-neutral" type="submit">
                   Save event updates
                 </button>
-                <button class="ui-button" type="button" (click)="deleteEvent()">
+                <button class="btn btn-outline" type="button" (click)="deleteEvent()">
                   Delete event
                 </button>
               </div>
             </form>
 
-            <article class="ui-panel stack-tight">
+            <article class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
               <h4>Add attachment metadata</h4>
               <div class="inline-grid">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   placeholder="File name"
                   [(ngModel)]="eventAttachmentDraft.fileName"
                   [ngModelOptions]="{ standalone: true }"
                 />
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   placeholder="MIME type"
                   [(ngModel)]="eventAttachmentDraft.mimeType"
                   [ngModelOptions]="{ standalone: true }"
@@ -701,21 +705,21 @@ function createAttachmentDraft(): AttachmentDraft {
               </div>
               <div class="inline-grid">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="number"
                   min="1"
                   [(ngModel)]="eventAttachmentDraft.fileSizeBytes"
                   [ngModelOptions]="{ standalone: true }"
                 />
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   placeholder="Storage key"
                   [(ngModel)]="eventAttachmentDraft.storageKey"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </div>
               <button
-                class="ui-button ui-button-secondary"
+                class="btn btn-outline"
                 type="button"
                 (click)="addEventAttachment()"
               >
@@ -731,16 +735,16 @@ function createAttachmentDraft(): AttachmentDraft {
             </ul>
           </section>
 
-          <section class="ui-panel stack-tight" *ngIf="selectedTaskEntry() as taskEntry">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight" *ngIf="selectedTaskEntry() as taskEntry">
             <h3>Task due details</h3>
             <p class="ui-copy">{{ taskEntry.title }} · {{ taskEntry.dueAt || 'No deadline' }}</p>
             <p class="ui-copy">{{ taskEntry.notes || 'No notes.' }}</p>
             <p class="ui-copy" *ngIf="taskEntry.location">Location: {{ taskEntry.location }}</p>
-            <p class="ui-banner ui-banner-warning" *ngIf="taskEntry.provenance">
+            <p class="alert alert-warning" *ngIf="taskEntry.provenance">
               Copied from {{ taskEntry.provenance.sourceContextType }} item
               {{ taskEntry.provenance.sourceItemId }} on {{ taskEntry.provenance.copiedAt }}.
             </p>
-            <a class="ui-button ui-button-secondary" routerLink="/tasks">Open in Tasks</a>
+            <a class="btn btn-outline" routerLink="/tasks">Open in Tasks</a>
           </section>
         </section>
       </article>
@@ -756,19 +760,89 @@ function createAttachmentDraft(): AttachmentDraft {
         min-width: 11rem;
       }
 
-      .split-card {
+      .card-heading,
+      .calendar-grid-header {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: var(--spacing-6);
+        gap: var(--spacing-1);
+      }
+
+      .calendar-grid-header {
+        max-width: 40rem;
+      }
+
+      .split-card {
+        align-items: start;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--spacing-5);
+      }
+
+
+      .split-card > section {
+        min-width: 0;
+        display: grid;
+        gap: var(--spacing-4);
+        align-content: start;
+      }
+
+      .quick-create-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--spacing-4);
+      }
+
+      .form-stack {
+        display: grid;
+        gap: var(--spacing-4);
+        padding: var(--spacing-4);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+        background: var(--bg-surface);
+      }
+
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-4);
+        min-height: 2.75rem;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+      }
+
+      .checkbox-row input {
+        width: 1rem;
+        height: 1rem;
+        margin: 0;
+      }
+
+      .form-stack textarea,
+      .form-stack select[multiple],
+      .stack-tight textarea,
+      .stack-tight select[multiple] {
+        min-height: 8rem;
+      }
+
+      .form-stack select[multiple],
+      .stack-tight select[multiple] {
+        padding-block: 0.6rem;
       }
 
       .calendar-grid {
+        margin-top: var(--spacing-4);
+        min-width: 0;
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
         gap: var(--spacing-3);
       }
 
       .calendar-day {
+        min-width: 0;
         border: 1px solid rgb(148 163 184 / 0.2);
         border-radius: var(--radius-lg);
         padding: var(--spacing-3);
@@ -779,11 +853,6 @@ function createAttachmentDraft(): AttachmentDraft {
       .stack-tight {
         display: grid;
         gap: var(--spacing-3);
-      }
-
-      .stack {
-        align-items: stretch;
-        margin-bottom: var(--spacing-6);
       }
 
       .entry-list,
@@ -855,8 +924,11 @@ function createAttachmentDraft(): AttachmentDraft {
       }
 
       @media (max-width: 900px) {
-        .split-card,
         .inline-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .quick-create-grid {
           grid-template-columns: 1fr;
         }
       }

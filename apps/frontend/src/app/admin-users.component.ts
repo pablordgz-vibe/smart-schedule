@@ -9,83 +9,92 @@ import type { IdentityUserSummary } from './auth.types';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-page admin-users-page" data-testid="page-admin-users">
-      <header class="page-header">
-        <div>
-          <p class="ui-kicker">System administration</p>
-          <h1>User lifecycle controls</h1>
-          <p class="page-copy">
-            Manage account state and authentication policy without leaving the system context.
+    <section class="grid gap-6" data-testid="page-admin-users">
+      <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div class="space-y-3">
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+            System administration
           </p>
+          <div class="space-y-2">
+            <h1 class="text-3xl font-semibold tracking-tight">User lifecycle controls</h1>
+            <p class="max-w-2xl text-sm leading-6 text-base-content/65">
+              Manage account state and authentication policy without leaving the system context.
+            </p>
+          </div>
         </div>
 
-        <form class="search-row" (ngSubmit)="reloadUsers()">
-          <label class="ui-field search-field">
-            <span>Search by email, name, or id</span>
+        <form class="grid w-full gap-3 sm:grid-cols-[minmax(0,24rem)_auto] lg:w-auto" (ngSubmit)="reloadUsers()">
+          <label class="form-control">
+            <span class="label"><span class="label-text">Search by email, name, or id</span></span>
             <input
-              class="ui-input"
+              class="input input-bordered w-full"
               [(ngModel)]="query"
               name="query"
               type="search"
               placeholder="user@example.com"
             />
           </label>
-          <button class="ui-button ui-button-primary" type="submit">Refresh</button>
+          <button class="btn btn-neutral self-end" type="submit">Refresh</button>
         </form>
       </header>
 
-      <p class="ui-card error-copy" *ngIf="error()">{{ error() }}</p>
-      <p class="ui-card success-copy" *ngIf="message()">{{ message() }}</p>
+      <div class="alert alert-error" *ngIf="error()">{{ error() }}</div>
+      <div class="alert alert-success" *ngIf="message()">{{ message() }}</div>
 
-      <section class="ui-card policy-card" *ngIf="authPolicy() as policy">
-        <div>
-          <p class="ui-kicker">Authentication policy</p>
-          <h2>Deployment-wide controls</h2>
-        </div>
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm" *ngIf="authPolicy() as policy">
+        <div class="grid gap-5">
+          <div class="space-y-2">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+              Authentication policy
+            </p>
+            <h2 class="text-xl font-semibold">Deployment-wide controls</h2>
+          </div>
 
-        <div class="policy-grid">
-          <label class="ui-field toggle-field">
-            <span>Require email verification</span>
-            <input
-              type="checkbox"
-              [ngModel]="policy.requireEmailVerification"
-              (ngModelChange)="policyRequireEmailVerification.set($event)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-          </label>
+          <div class="grid gap-4 xl:grid-cols-2">
+            <label class="flex items-center justify-between gap-4 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm font-medium">
+              <span>Require email verification</span>
+              <input
+                class="toggle toggle-sm"
+                type="checkbox"
+                [ngModel]="policy.requireEmailVerification"
+                (ngModelChange)="policyRequireEmailVerification.set($event)"
+                [ngModelOptions]="{ standalone: true }"
+              />
+            </label>
 
-          <label class="ui-field">
-            <span>Minimum tier for deactivation/reactivation</span>
-            <input
-              class="ui-input"
-              type="number"
-              min="0"
-              max="9"
-              [ngModel]="policy.minAdminTierForAccountDeactivation"
-              (ngModelChange)="policyMinimumTier.set($event)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-          </label>
-        </div>
+            <label class="form-control">
+              <span class="label"><span class="label-text">Minimum tier for deactivation/reactivation</span></span>
+              <input
+                class="input input-bordered w-full"
+                type="number"
+                min="0"
+                max="9"
+                [ngModel]="policy.minAdminTierForAccountDeactivation"
+                (ngModelChange)="policyMinimumTier.set($event)"
+                [ngModelOptions]="{ standalone: true }"
+              />
+            </label>
+          </div>
 
-        <div class="policy-actions">
-          <button class="ui-button ui-button-secondary" type="button" (click)="savePolicy()">
-            Save policy
-          </button>
+          <div>
+            <button class="btn btn-outline" type="button" (click)="savePolicy()">
+              Save policy
+            </button>
+          </div>
         </div>
       </section>
 
-      <section class="ui-card table-card">
-        <div class="table-header">
-          <div>
-            <p class="ui-kicker">Accounts</p>
-            <h2>Known users</h2>
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div class="space-y-2">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Accounts</p>
+            <h2 class="text-xl font-semibold">Known users</h2>
           </div>
-          <p class="page-copy">{{ users().length }} users in the current result set.</p>
+          <p class="text-sm text-base-content/65">{{ users().length }} users in the current result set.</p>
         </div>
 
-        <div class="table-wrap">
-          <table class="users-table">
+        <div class="overflow-x-auto">
+          <table class="table table-zebra">
             <thead>
               <tr>
                 <th>Name</th>
@@ -99,34 +108,38 @@ import type { IdentityUserSummary } from './auth.types';
             <tbody>
               <tr *ngFor="let user of users()">
                 <td>
-                  <strong>{{ user.name }}</strong>
-                  <small>{{ user.id }}</small>
+                  <div class="grid gap-1">
+                    <strong class="font-medium">{{ user.name }}</strong>
+                    <span class="text-xs text-base-content/55">{{ user.id }}</span>
+                  </div>
                 </td>
                 <td>{{ user.email }}</td>
                 <td>
-                  <span class="ui-chip" [class.state-danger]="user.state !== 'active'">
+                  <span class="badge" [class.badge-outline]="user.state === 'active'" [class.badge-error]="user.state !== 'active'">
                     {{ user.state }}
                   </span>
                 </td>
                 <td>{{ user.roles.join(', ') }}</td>
                 <td>{{ authMethodLabel(user) }}</td>
-                <td class="action-cell">
-                  <button
-                    class="ui-button ui-button-secondary"
-                    type="button"
-                    (click)="deactivate(user)"
-                    [disabled]="user.state === 'deactivated' || user.id === currentUserId()"
-                  >
-                    Deactivate
-                  </button>
-                  <button
-                    class="ui-button"
-                    type="button"
-                    (click)="reactivate(user)"
-                    [disabled]="user.state === 'active'"
-                  >
-                    Reactivate
-                  </button>
+                <td>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      class="btn btn-outline btn-sm"
+                      type="button"
+                      (click)="deactivate(user)"
+                      [disabled]="user.state === 'deactivated' || user.id === currentUserId()"
+                    >
+                      Deactivate
+                    </button>
+                    <button
+                      class="btn btn-outline btn-sm"
+                      type="button"
+                      (click)="reactivate(user)"
+                      [disabled]="user.state === 'active'"
+                    >
+                      Reactivate
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -135,90 +148,6 @@ import type { IdentityUserSummary } from './auth.types';
       </section>
     </section>
   `,
-  styles: [
-    `
-      .admin-users-page,
-      .policy-card,
-      .table-card {
-        display: grid;
-        gap: var(--spacing-5);
-      }
-
-      .page-header,
-      .table-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: end;
-        gap: var(--spacing-4);
-        flex-wrap: wrap;
-      }
-
-      .page-copy,
-      .error-copy,
-      .success-copy,
-      td small {
-        color: var(--text-secondary);
-      }
-
-      .error-copy {
-        color: #b91c1c;
-      }
-
-      .success-copy {
-        color: #166534;
-      }
-
-      .search-row,
-      .policy-grid,
-      .policy-actions {
-        display: flex;
-        gap: var(--spacing-3);
-        flex-wrap: wrap;
-        align-items: end;
-      }
-
-      .search-field {
-        min-width: min(26rem, 100%);
-      }
-
-      .toggle-field {
-        justify-content: space-between;
-      }
-
-      .table-wrap {
-        overflow-x: auto;
-      }
-
-      .users-table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      th,
-      td {
-        padding: var(--spacing-3);
-        border-bottom: 1px solid var(--border-default);
-        text-align: left;
-        vertical-align: top;
-      }
-
-      td strong,
-      td small {
-        display: block;
-      }
-
-      .action-cell {
-        display: flex;
-        gap: var(--spacing-2);
-        flex-wrap: wrap;
-      }
-
-      .state-danger {
-        background: rgb(248 113 113 / 0.12);
-        color: #991b1b;
-      }
-    `,
-  ],
 })
 export class AdminUsersComponent {
   private readonly authState = inject(AuthStateService);
@@ -277,29 +206,29 @@ export class AdminUsersComponent {
 
   authMethodLabel(user: IdentityUserSummary) {
     return user.authMethods
-      .map((method) => (method.kind === 'password' ? 'password' : `social:${method.provider}`))
+      .map((method) => (method.kind === 'password' ? 'Password' : method.provider))
       .join(', ');
   }
 
   private async initialize() {
     await this.run(async () => {
-      const [policy, users] = await Promise.all([
+      const [users, policy] = await Promise.all([
+        this.authState.listUsers(''),
         this.authState.loadAdminConfiguration(),
-        this.authState.listUsers(),
       ]);
+      this.users.set(users);
       this.authPolicy.set(policy);
       this.policyRequireEmailVerification.set(policy.requireEmailVerification);
       this.policyMinimumTier.set(policy.minAdminTierForAccountDeactivation);
-      this.users.set(users);
     });
   }
 
   private async run(task: () => Promise<void>) {
     this.error.set('');
+    this.message.set('');
     try {
       await task();
     } catch (error: unknown) {
-      this.message.set('');
       this.error.set(error instanceof Error ? error.message : 'Request failed.');
     }
   }

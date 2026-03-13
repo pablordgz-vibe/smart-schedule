@@ -21,53 +21,68 @@ type HomeTaskSummary = {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <section class="ui-page" data-testid="page-home">
-      <div class="ui-card stack">
-        <p class="ui-kicker">End-User Workspace</p>
-        <h1>Home</h1>
-        <p class="ui-copy">
-          Upcoming work and calendar activity for {{ contextLabel() }}.
-        </p>
-
-        <p *ngIf="errorMessage()" class="ui-banner ui-banner-warning">{{ errorMessage() }}</p>
-
-        <div class="summary-grid">
-          <article class="ui-panel">
-            <h2>Upcoming calendar items</h2>
-            <p class="summary-value">{{ upcomingEntries().length }}</p>
-          </article>
-          <article class="ui-panel">
-            <h2>Open tasks</h2>
-            <p class="summary-value">{{ openTaskCount() }}</p>
-          </article>
-          <article class="ui-panel">
-            <h2>Overdue tasks</h2>
-            <p class="summary-value">{{ overdueTaskCount() }}</p>
-          </article>
+    <section class="grid gap-6" data-testid="page-home">
+      <div class="card border border-base-300 bg-base-100 p-6 shadow-sm grid gap-6">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p class="ui-kicker">End-User Workspace</p>
+            <h1 class="mt-3 text-3xl font-semibold tracking-tight">Home</h1>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-base-content/65">
+              Upcoming work and calendar activity for {{ contextLabel() }}.
+            </p>
+          </div>
+          <div class="badge badge-outline h-10 px-4 text-sm">{{ upcomingEntries().length }} upcoming items</div>
         </div>
 
-        <div class="summary-grid">
-          <article class="ui-panel">
-            <h2>Upcoming items</h2>
-            <ul class="simple-list">
+        <p *ngIf="errorMessage()" class="alert alert-warning">{{ errorMessage() }}</p>
+
+        <div class="stats stats-vertical border border-base-300 bg-base-100 shadow-none lg:stats-horizontal">
+          <div class="stat">
+            <div class="stat-title">Upcoming calendar items</div>
+            <div class="stat-value text-3xl">{{ upcomingEntries().length }}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">Open tasks</div>
+            <div class="stat-value text-3xl">{{ openTaskCount() }}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">Overdue tasks</div>
+            <div class="stat-value text-3xl">{{ overdueTaskCount() }}</div>
+          </div>
+        </div>
+
+        <div class="grid gap-4 xl:grid-cols-2">
+          <article class="rounded-box border border-base-300 bg-base-100 p-4">
+            <div class="mb-4">
+              <h2 class="text-lg font-semibold">Upcoming items</h2>
+              <p class="mt-1 text-sm text-base-content/60">The next dated entries across your active calendars.</p>
+            </div>
+            <ul class="menu w-full gap-1 rounded-box bg-base-100 p-0">
               <li *ngFor="let entry of upcomingEntries()">
-                <strong>{{ entry.title }}</strong>
-                <span class="ui-copy">{{ entry.startAt || entry.dueAt || 'No date' }}</span>
+                <div class="flex items-start justify-between rounded-box border border-base-300 px-4 py-3">
+                  <strong class="font-medium">{{ entry.title }}</strong>
+                  <span class="text-sm text-base-content/55">{{ entry.startAt || entry.dueAt || 'No date' }}</span>
+                </div>
               </li>
-              <li *ngIf="upcomingEntries().length === 0" class="ui-copy">
+              <li *ngIf="upcomingEntries().length === 0" class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55">
                 No upcoming items in the next 7 days.
               </li>
             </ul>
           </article>
 
-          <article class="ui-panel">
-            <h2>Task focus</h2>
-            <ul class="simple-list">
+          <article class="rounded-box border border-base-300 bg-base-100 p-4">
+            <div class="mb-4">
+              <h2 class="text-lg font-semibold">Task focus</h2>
+              <p class="mt-1 text-sm text-base-content/60">Highest-priority unfinished work for the current context.</p>
+            </div>
+            <ul class="menu w-full gap-1 rounded-box bg-base-100 p-0">
               <li *ngFor="let task of prioritizedTasks()">
-                <strong>{{ task.title }}</strong>
-                <span class="ui-copy">{{ task.status }} · {{ task.priority }}</span>
+                <div class="flex items-start justify-between rounded-box border border-base-300 px-4 py-3">
+                  <strong class="font-medium">{{ task.title }}</strong>
+                  <span class="text-sm text-base-content/55">{{ task.status }} · {{ task.priority }}</span>
+                </div>
               </li>
-              <li *ngIf="prioritizedTasks().length === 0" class="ui-copy">
+              <li *ngIf="prioritizedTasks().length === 0" class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55">
                 No task focus items right now.
               </li>
             </ul>
@@ -76,36 +91,6 @@ type HomeTaskSummary = {
       </div>
     </section>
   `,
-  styles: [
-    `
-      .stack {
-        display: grid;
-        gap: var(--spacing-4);
-      }
-
-      .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: var(--spacing-4);
-      }
-
-      .summary-value {
-        margin: 0;
-        font-size: 2rem;
-        font-weight: 700;
-      }
-
-      .ui-copy {
-        color: var(--text-secondary);
-      }
-
-      @media (max-width: 900px) {
-        .summary-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-    `,
-  ],
 })
 export class HomeComponent {
   private readonly calApi = inject(CalApiService);

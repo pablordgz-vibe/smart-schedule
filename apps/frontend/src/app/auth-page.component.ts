@@ -18,192 +18,189 @@ type AuthMode =
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <section class="auth-page" data-testid="auth-page">
-      <div class="auth-panel">
-        <p class="ui-kicker">Identity</p>
-        <h1>{{ title() }}</h1>
-        <p class="auth-copy">{{ description() }}</p>
-
-        <p class="auth-message" *ngIf="message()">{{ message() }}</p>
-        <p class="auth-error" *ngIf="error()">{{ error() }}</p>
-
-        <form class="auth-form" *ngIf="mode() === 'sign-in'" (ngSubmit)="signIn()">
-          <label class="ui-field">
-            <span>Email</span>
-            <input [(ngModel)]="email" name="email" type="email" required />
-          </label>
-          <label class="ui-field">
-            <span>Password</span>
-            <input [(ngModel)]="password" name="password" type="password" required minlength="12" />
-          </label>
-          <button class="ui-button ui-button-primary" type="submit">Sign In</button>
-        </form>
-
-        <form class="auth-form" *ngIf="mode() === 'sign-up'" (ngSubmit)="signUp()">
-          <label class="ui-field">
-            <span>Name</span>
-            <input [(ngModel)]="name" name="name" type="text" required minlength="2" />
-          </label>
-          <label class="ui-field">
-            <span>Email</span>
-            <input [(ngModel)]="email" name="signup-email" type="email" required />
-          </label>
-          <label class="ui-field">
-            <span>Password</span>
-            <input
-              [(ngModel)]="password"
-              name="signup-password"
-              type="password"
-              required
-              minlength="12"
-            />
-          </label>
-          <button class="ui-button ui-button-primary" type="submit">Create Account</button>
-        </form>
-
-        <div class="auth-form" *ngIf="mode() === 'verify-email'">
-          <label class="ui-field">
-            <span>Email</span>
-            <input [(ngModel)]="email" name="verify-email" type="email" />
-          </label>
-          <button
-            class="ui-button ui-button-secondary"
-            type="button"
-            (click)="requestVerification()"
-          >
-            Send Verification Email
-          </button>
-          <label class="ui-field">
-            <span>Verification token</span>
-            <input [(ngModel)]="token" name="verify-token" type="text" />
-          </label>
-          <button class="ui-button ui-button-primary" type="button" (click)="confirmVerification()">
-            Confirm Email
-          </button>
-        </div>
-
-        <div class="auth-form" *ngIf="mode() === 'reset-password'">
-          <label class="ui-field">
-            <span>Email</span>
-            <input [(ngModel)]="email" name="reset-email" type="email" />
-          </label>
-          <button
-            class="ui-button ui-button-secondary"
-            type="button"
-            (click)="requestPasswordReset()"
-          >
-            Send Reset Email
-          </button>
-          <label class="ui-field">
-            <span>Reset token</span>
-            <input [(ngModel)]="token" name="reset-token" type="text" />
-          </label>
-          <label class="ui-field">
-            <span>New password</span>
-            <input [(ngModel)]="password" name="reset-password" type="password" minlength="12" />
-          </label>
-          <button
-            class="ui-button ui-button-primary"
-            type="button"
-            (click)="confirmPasswordReset()"
-          >
-            Reset Password
-          </button>
-        </div>
-
-        <div class="auth-form" *ngIf="mode() === 'recover-account'">
-          <label class="ui-field">
-            <span>Email</span>
-            <input [(ngModel)]="email" name="recover-email" type="email" />
-          </label>
-          <button class="ui-button ui-button-secondary" type="button" (click)="requestRecovery()">
-            Request Recovery
-          </button>
-          <label class="ui-field">
-            <span>Recovery token</span>
-            <input [(ngModel)]="token" name="recover-token" type="text" />
-          </label>
-          <button class="ui-button ui-button-primary" type="button" (click)="recoverAccount()">
-            Recover Account
-          </button>
-        </div>
-
-        <div class="auth-form" *ngIf="mode() === 'deactivated'">
-          <p class="auth-copy">
-            This account has been deactivated by an administrator and cannot sign in right now.
+    <section class="min-h-screen bg-base-200 px-4 py-8" data-testid="auth-page">
+      <div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-6 lg:grid-cols-[1.1fr_minmax(0,28rem)]">
+        <div class="hidden rounded-[2rem] border border-base-300 bg-base-100 p-10 lg:block">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">SmartSchedule</p>
+          <h1 class="mt-4 text-4xl font-semibold tracking-tight text-balance">
+            A quieter workspace for schedules, tasks, and approvals.
+          </h1>
+          <p class="mt-4 max-w-xl text-base leading-7 text-base-content/65">
+            DaisyUI now drives the core interaction patterns here, so the auth flow uses the same spacing,
+            input behavior, and visual hierarchy as the rest of the product.
           </p>
-          <p class="auth-copy">
-            Contact a system administrator to reactivate the account, then return to sign in.
-          </p>
-          <a class="ui-button ui-button-secondary" routerLink="/auth/sign-in">Back to sign in</a>
+          <div class="mt-8 grid gap-3 text-sm text-base-content/60">
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Minimal contrast, clear states, consistent controls.</div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Library-based forms and actions instead of bespoke gradients.</div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">A calmer baseline closer to an editor than a dashboard.</div>
+          </div>
         </div>
 
-        <div class="provider-grid" *ngIf="mode() !== 'deactivated' && socialProviders().length > 0">
-          <button
-            *ngFor="let provider of socialProviders()"
-            class="ui-button ui-button-secondary"
-            type="button"
-            (click)="socialSignIn(provider.code)"
-          >
-            Continue with {{ provider.displayName }}
-          </button>
-        </div>
+        <div class="card border border-base-300 bg-base-100 shadow-sm">
+          <div class="card-body gap-5 p-6 md:p-8">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">Identity</p>
+              <h2 class="mt-3 text-3xl font-semibold tracking-tight">{{ title() }}</h2>
+              <p class="mt-2 text-sm leading-6 text-base-content/65">{{ description() }}</p>
+            </div>
 
-        <nav class="auth-links">
-          <a routerLink="/auth/sign-in">Sign in</a>
-          <a routerLink="/auth/sign-up">Create account</a>
-          <a routerLink="/auth/verify-email">Verify email</a>
-          <a routerLink="/auth/reset-password">Reset password</a>
-          <a routerLink="/auth/recover-account">Recover account</a>
-          <a routerLink="/auth/deactivated">Deactivated</a>
-        </nav>
+            <div class="alert alert-info rounded-box border border-base-300 bg-base-200 text-sm" *ngIf="message()">
+              <span>{{ message() }}</span>
+            </div>
+            <div class="alert alert-error rounded-box text-sm" *ngIf="error()">
+              <span>{{ error() }}</span>
+            </div>
+
+            <form class="grid gap-4" *ngIf="mode() === 'sign-in'" (ngSubmit)="signIn()">
+              <label class="form-control">
+                <span class="label"><span class="label-text">Email</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="email" name="email" type="email" required />
+              </label>
+              <label class="form-control">
+                <span class="label"><span class="label-text">Password</span></span>
+                <div class="join w-full">
+                  <input
+                    class="input input-bordered join-item w-full"
+                    [(ngModel)]="password"
+                    name="password"
+                    [type]="showPassword ? 'text' : 'password'"
+                    required
+                    minlength="12"
+                  />
+                  <button class="btn btn-outline join-item" type="button" (click)="showPassword = !showPassword">
+                    {{ showPassword ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
+              </label>
+              <button class="btn btn-neutral w-full" type="submit">Sign In</button>
+            </form>
+
+            <form class="grid gap-4" *ngIf="mode() === 'sign-up'" (ngSubmit)="signUp()">
+              <label class="form-control">
+                <span class="label"><span class="label-text">Name</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="name" name="name" type="text" required minlength="2" />
+              </label>
+              <label class="form-control">
+                <span class="label"><span class="label-text">Email</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="email" name="signup-email" type="email" required />
+              </label>
+              <label class="form-control">
+                <span class="label"><span class="label-text">Password</span></span>
+                <div class="join w-full">
+                  <input
+                    class="input input-bordered join-item w-full"
+                    [(ngModel)]="password"
+                    name="signup-password"
+                    [type]="showPassword ? 'text' : 'password'"
+                    required
+                    minlength="12"
+                  />
+                  <button class="btn btn-outline join-item" type="button" (click)="showPassword = !showPassword">
+                    {{ showPassword ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
+              </label>
+              <button class="btn btn-neutral w-full" type="submit">Create Account</button>
+            </form>
+
+            <div class="grid gap-4" *ngIf="mode() === 'verify-email'">
+              <label class="form-control">
+                <span class="label"><span class="label-text">Email</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="email" name="verify-email" type="email" />
+              </label>
+              <button class="btn btn-outline" type="button" (click)="requestVerification()">
+                Send Verification Email
+              </button>
+              <label class="form-control">
+                <span class="label"><span class="label-text">Verification token</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="token" name="verify-token" type="text" />
+              </label>
+              <button class="btn btn-neutral" type="button" (click)="confirmVerification()">
+                Confirm Email
+              </button>
+            </div>
+
+            <div class="grid gap-4" *ngIf="mode() === 'reset-password'">
+              <label class="form-control">
+                <span class="label"><span class="label-text">Email</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="email" name="reset-email" type="email" />
+              </label>
+              <button class="btn btn-outline" type="button" (click)="requestPasswordReset()">
+                Send Reset Email
+              </button>
+              <label class="form-control">
+                <span class="label"><span class="label-text">Reset token</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="token" name="reset-token" type="text" />
+              </label>
+              <label class="form-control">
+                <span class="label"><span class="label-text">New password</span></span>
+                <div class="join w-full">
+                  <input
+                    class="input input-bordered join-item w-full"
+                    [(ngModel)]="password"
+                    name="reset-password"
+                    [type]="showPassword ? 'text' : 'password'"
+                    minlength="12"
+                  />
+                  <button class="btn btn-outline join-item" type="button" (click)="showPassword = !showPassword">
+                    {{ showPassword ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
+              </label>
+              <button class="btn btn-neutral" type="button" (click)="confirmPasswordReset()">
+                Reset Password
+              </button>
+            </div>
+
+            <div class="grid gap-4" *ngIf="mode() === 'recover-account'">
+              <label class="form-control">
+                <span class="label"><span class="label-text">Email</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="email" name="recover-email" type="email" />
+              </label>
+              <button class="btn btn-outline" type="button" (click)="requestRecovery()">
+                Request Recovery
+              </button>
+              <label class="form-control">
+                <span class="label"><span class="label-text">Recovery token</span></span>
+                <input class="input input-bordered w-full" [(ngModel)]="token" name="recover-token" type="text" />
+              </label>
+              <button class="btn btn-neutral" type="button" (click)="recoverAccount()">
+                Recover Account
+              </button>
+            </div>
+
+            <div class="grid gap-4" *ngIf="mode() === 'deactivated'">
+              <div class="rounded-box border border-base-300 bg-base-200 p-4 text-sm leading-6 text-base-content/70">
+                This account has been deactivated by an administrator and cannot sign in right now.
+                Contact a system administrator to reactivate it, then return to sign in.
+              </div>
+              <a class="btn btn-outline" routerLink="/auth/sign-in">Back to sign in</a>
+            </div>
+
+            <div class="grid gap-3" *ngIf="mode() !== 'deactivated' && socialProviders().length > 0">
+              <button
+                *ngFor="let provider of socialProviders()"
+                class="btn btn-outline w-full px-4 py-2.5"
+                type="button"
+                (click)="socialSignIn(provider.code)"
+              >
+                Continue with {{ provider.displayName }}
+              </button>
+            </div>
+
+            <nav class="grid grid-cols-2 gap-2 pt-2 text-sm sm:grid-cols-3">
+              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/sign-in">Sign in</a>
+              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/sign-up">Create account</a>
+              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/verify-email">Verify email</a>
+              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/reset-password">Reset password</a>
+              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/recover-account">Recover account</a>
+              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/deactivated">Deactivated</a>
+            </nav>
+          </div>
+        </div>
       </div>
     </section>
   `,
-  styles: [
-    `
-      .auth-page {
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: var(--spacing-6);
-        background:
-          radial-gradient(circle at top left, rgb(14 165 233 / 0.18), transparent 24rem),
-          linear-gradient(180deg, #fffdfa 0%, #eef4fb 100%);
-      }
-
-      .auth-panel {
-        width: min(34rem, 100%);
-        display: grid;
-        gap: var(--spacing-4);
-        padding: var(--spacing-6);
-        border: 1px solid var(--border-default);
-        border-radius: var(--radius-2xl);
-        background: rgb(255 255 255 / 0.9);
-        box-shadow: var(--shadow-lg);
-      }
-
-      .auth-copy,
-      .auth-message {
-        color: var(--text-secondary);
-      }
-
-      .auth-error {
-        color: #b91c1c;
-      }
-
-      .auth-form,
-      .provider-grid,
-      .auth-links {
-        display: grid;
-        gap: var(--spacing-3);
-      }
-
-      .auth-links {
-        grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-      }
-    `,
-  ],
 })
 export class AuthPageComponent {
   private readonly route = inject(ActivatedRoute);
@@ -251,6 +248,7 @@ export class AuthPageComponent {
   name = '';
   password = '';
   token = '';
+  showPassword = false;
 
   async signIn() {
     this.error.set('');
@@ -260,8 +258,8 @@ export class AuthPageComponent {
         password: this.password,
       });
       await this.router.navigateByUrl('/home');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unable to sign in right now.';
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to sign in.';
       if (message.toLowerCase().includes('deactivated')) {
         await this.router.navigateByUrl('/auth/deactivated');
         return;
@@ -272,7 +270,8 @@ export class AuthPageComponent {
   }
 
   async signUp() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       const result = await this.authState.signUp({
         email: this.email,
         name: this.name,
@@ -281,69 +280,91 @@ export class AuthPageComponent {
       this.message.set(
         result.tokenDelivery?.previewToken
           ? `Account created. Verification token: ${result.tokenDelivery.previewToken}`
-          : 'Account created. Check your email for a verification link.',
+          : 'Account created. Verify your email if verification is required.',
       );
-      this.password = '';
-    });
+      await this.router.navigateByUrl('/auth/verify-email');
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to create account.');
+    }
   }
 
   async requestVerification() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       const result = await this.authState.requestEmailVerification(this.email);
       this.message.set(
         result.tokenDelivery?.previewToken
           ? `Verification token: ${result.tokenDelivery.previewToken}`
-          : 'If the account is eligible, a verification email has been queued.',
+          : 'Verification email requested.',
       );
-    });
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to request verification.');
+    }
   }
 
   async confirmVerification() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       await this.authState.confirmEmailVerification(this.token);
-      this.message.set('Email verification confirmed.');
-    });
+      this.message.set('Email verified. You can sign in now.');
+      await this.router.navigateByUrl('/auth/sign-in');
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to confirm verification.');
+    }
   }
 
   async requestPasswordReset() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       const result = await this.authState.requestPasswordReset(this.email);
       this.message.set(
         result.tokenDelivery?.previewToken
           ? `Reset token: ${result.tokenDelivery.previewToken}`
-          : 'If the account is eligible, a reset email has been queued.',
+          : 'Password reset email requested.',
       );
-    });
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to request password reset.');
+    }
   }
 
   async confirmPasswordReset() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       await this.authState.confirmPasswordReset(this.token, this.password);
       this.message.set('Password reset complete. You can sign in now.');
-      this.password = '';
-    });
+      await this.router.navigateByUrl('/auth/sign-in');
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to reset password.');
+    }
   }
 
   async requestRecovery() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       const result = await this.authState.requestRecovery(this.email);
       this.message.set(
         result.tokenDelivery?.previewToken
           ? `Recovery token: ${result.tokenDelivery.previewToken}`
-          : 'If the account is recoverable, a recovery email has been queued.',
+          : 'Recovery email requested.',
       );
-    });
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to request recovery.');
+    }
   }
 
   async recoverAccount() {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       await this.authState.recoverAccount(this.token);
       await this.router.navigateByUrl('/home');
-    });
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to recover account.');
+    }
   }
 
   async socialSignIn(provider: SocialProviderCode) {
-    await this.run(async () => {
+    this.error.set('');
+    try {
       const email = this.email || `${provider}.user@example.com`;
       const name = this.name || `${provider[0].toUpperCase()}${provider.slice(1)} User`;
       await this.authState.signInWithSocial({
@@ -353,15 +374,8 @@ export class AuthPageComponent {
         providerSubject: `${provider}:${email.toLowerCase()}`,
       });
       await this.router.navigateByUrl('/home');
-    });
-  }
-
-  private async run(task: () => Promise<void>) {
-    this.error.set('');
-    try {
-      await task();
-    } catch (error: unknown) {
-      this.error.set(error instanceof Error ? error.message : 'Request failed.');
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Unable to continue with provider.');
     }
   }
 }

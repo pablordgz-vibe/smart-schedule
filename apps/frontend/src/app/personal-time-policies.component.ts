@@ -52,58 +52,58 @@ function createFormState(): PolicyFormState {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-panel stack-tight">
+    <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
       <h2>Personal Time Policies</h2>
-      <p class="ui-copy">
+      <p class="text-sm leading-6 text-base-content/65">
         Define personal working hours, availability, holidays, blackout periods, rest rules, and
         maximum-hour warnings used by scheduling assistance.
       </p>
 
       <ng-container *ngIf="isPersonalContext(); else wrongContext">
-        <div class="tabs">
+        <div role="tablist" class="tabs tabs-boxed w-fit">
           <button
             *ngFor="let tab of tabs"
-            class="ui-button"
+            class="tab"
             type="button"
-            [class.ui-button-primary]="activeTab() === tab.id"
+            [class.tab-active]="activeTab() === tab.id"
             (click)="setActiveTab(tab.id)"
           >
             {{ tab.label }}
           </button>
         </div>
 
-        <p class="ui-banner ui-banner-warning" *ngIf="errorMessage()">{{ errorMessage() }}</p>
-        <p class="ui-banner ui-banner-info" *ngIf="message()">{{ message() }}</p>
+        <p class="alert alert-warning" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+        <p class="alert alert-info" *ngIf="message()">{{ message() }}</p>
 
         <div class="two-column">
-          <section class="ui-panel stack-tight">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h3>Create rule</h3>
-            <label class="ui-field">
+            <label class="form-control gap-2">
               <span>Title</span>
-              <input [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
+              <input class="input input-bordered w-full" [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
             </label>
 
             <ng-container [ngSwitch]="activeTab()">
               <ng-container *ngSwitchCase="'working_hours'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -114,24 +114,24 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'availability'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -142,24 +142,24 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'unavailability'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -170,34 +170,34 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'holiday'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Date</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="date"
                       [(ngModel)]="form.date"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Holiday name</span>
-                    <input [(ngModel)]="form.holidayName" [ngModelOptions]="{ standalone: true }" />
+                    <input class="input input-bordered w-full" [(ngModel)]="form.holidayName" [ngModelOptions]="{ standalone: true }" />
                   </label>
                 </div>
               </ng-container>
 
               <ng-container *ngSwitchCase="'blackout'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.startAt"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.endAt"
                       [ngModelOptions]="{ standalone: true }"
@@ -207,9 +207,9 @@ function createFormState(): PolicyFormState {
               </ng-container>
 
               <ng-container *ngSwitchCase="'rest'">
-                <label class="ui-field">
+                <label class="form-control gap-2">
                   <span>Minimum rest minutes</span>
-                  <input
+                  <input class="input input-bordered w-full"
                     type="number"
                     min="1"
                     max="1440"
@@ -221,9 +221,9 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'max_hours'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Max daily minutes</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="1440"
@@ -231,9 +231,9 @@ function createFormState(): PolicyFormState {
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Max weekly minutes</span>
-                    <input
+                    <input class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="10080"
@@ -245,55 +245,55 @@ function createFormState(): PolicyFormState {
               </ng-container>
             </ng-container>
 
-            <button class="ui-button ui-button-primary" type="button" (click)="createPolicy()">
+            <button class="btn btn-neutral" type="button" (click)="createPolicy()">
               Save personal rule
             </button>
           </section>
 
-          <section class="ui-panel stack-tight">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h3>Official holiday import</h3>
             <div class="inline-fields">
-              <label class="ui-field">
+              <label class="form-control gap-2">
                 <span>Provider</span>
-                <input [(ngModel)]="form.providerCode" [ngModelOptions]="{ standalone: true }" />
+                <input class="input input-bordered w-full" [(ngModel)]="form.providerCode" [ngModelOptions]="{ standalone: true }" />
               </label>
-              <label class="ui-field">
+              <label class="form-control gap-2">
                 <span>Location</span>
-                <input [(ngModel)]="form.locationCode" [ngModelOptions]="{ standalone: true }" />
+                <input class="input input-bordered w-full" [(ngModel)]="form.locationCode" [ngModelOptions]="{ standalone: true }" />
               </label>
-              <label class="ui-field">
+              <label class="form-control gap-2">
                 <span>Year</span>
-                <input
+                <input class="input input-bordered w-full"
                   type="number"
                   [(ngModel)]="holidayYear"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </label>
             </div>
-            <button class="ui-button ui-button-secondary" type="button" (click)="importHolidays()">
+            <button class="btn btn-outline" type="button" (click)="importHolidays()">
               Import official holidays
             </button>
 
             <h3>Effective preview</h3>
             <ul class="simple-list">
               <li *ngFor="let row of previewRows()">
-                <strong>{{ row.category }}</strong>
-                <span class="ui-chip">{{ row.scope || 'none' }}</span>
-                <span class="ui-copy">rules: {{ row.ruleCount }}</span>
+                <strong>{{ formatPolicyCategory(row.category) }}</strong>
+                <span class="badge badge-outline">{{ formatScopeLabel(row.scope || 'none') }}</span>
+                <span class="text-sm text-base-content/60">rules: {{ row.ruleCount }}</span>
               </li>
             </ul>
           </section>
         </div>
 
-        <section class="ui-panel stack-tight">
+        <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
           <h3>Current {{ activeTabLabel() }} rules</h3>
           <ul class="simple-list">
             <li *ngFor="let policy of filteredPolicies()">
               <div>
                 <strong>{{ policy.title }}</strong>
-                <p class="ui-copy">{{ policy.sourceType }} · {{ policy.updatedAt }}</p>
+                <p class="text-sm leading-6 text-base-content/65">{{ formatSourceLabel(policy.sourceType) }} · {{ policy.updatedAt }}</p>
               </div>
-              <button class="ui-button" type="button" (click)="removePolicy(policy.id)">
+              <button class="btn btn-outline" type="button" (click)="removePolicy(policy.id)">
                 Delete
               </button>
             </li>
@@ -305,7 +305,7 @@ function createFormState(): PolicyFormState {
       </ng-container>
 
       <ng-template #wrongContext>
-        <p class="ui-copy">Switch into personal context to manage personal time policies.</p>
+        <p class="text-sm leading-6 text-base-content/65">Switch into personal context to manage personal time policies.</p>
       </ng-template>
     </section>
   `,
@@ -389,6 +389,26 @@ export class PersonalTimePoliciesComponent {
 
   form = createFormState();
   holidayYear = new Date().getUTCFullYear();
+
+
+  formatPolicyCategory(category: string): string {
+    return this.tabs.find((tab) => tab.id === category)?.label ?? this.humanizeToken(category);
+  }
+
+  formatScopeLabel(scope: string): string {
+    return scope === 'none' ? 'No rule' : this.humanizeToken(scope);
+  }
+
+  formatSourceLabel(source: string): string {
+    return this.humanizeToken(source);
+  }
+
+  private humanizeToken(value: string): string {
+    return value
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
 
   constructor() {
     effect(() => {

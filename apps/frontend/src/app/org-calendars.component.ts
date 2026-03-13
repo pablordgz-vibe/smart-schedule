@@ -8,74 +8,76 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-page" data-testid="page-org-calendars">
-      <div class="ui-card stack">
-        <p class="ui-kicker">Organization Administration</p>
+    <section class="grid gap-6" data-testid="page-org-calendars">
+      <div class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Organization Administration</p>
         <h1>Organization Calendars</h1>
-        <p class="ui-copy">
+        <p class="text-sm leading-6 text-base-content/65">
           Create organization calendars and manage user visibility grants and revocations.
         </p>
 
-        <div class="ui-toolbar" *ngIf="organizationId()">
-          <label class="ui-field grow">
+        <div class="flex flex-wrap items-end gap-3" *ngIf="organizationId()">
+          <label class="form-control grow gap-2">
             <span>Calendar name</span>
-            <input [(ngModel)]="calendarName" [ngModelOptions]="{ standalone: true }" />
+            <input class="input input-bordered w-full" [(ngModel)]="calendarName" [ngModelOptions]="{ standalone: true }" />
           </label>
-          <label class="ui-field">
+          <label class="form-control gap-2">
             <span>Owner</span>
-            <select [(ngModel)]="ownerUserId" [ngModelOptions]="{ standalone: true }">
+            <select class="select select-bordered w-full" [(ngModel)]="ownerUserId" [ngModelOptions]="{ standalone: true }">
               <option value="">Organization-owned</option>
               <option *ngFor="let member of memberships()" [value]="member.userId">
                 {{ member.name }}
               </option>
             </select>
           </label>
-          <button class="ui-button ui-button-primary" type="button" (click)="createCalendar()">
+          <button class="btn btn-neutral" type="button" (click)="createCalendar()">
             Create calendar
           </button>
         </div>
 
-        <p *ngIf="errorMessage()" class="ui-banner ui-banner-denied">{{ errorMessage() }}</p>
+        <p *ngIf="errorMessage()" class="alert alert-error">{{ errorMessage() }}</p>
 
-        <div class="grid two" *ngIf="organizationId(); else noContext">
-          <article class="ui-panel">
+        <div class="grid gap-4 xl:grid-cols-2" *ngIf="organizationId(); else noContext">
+          <article class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2>Visible calendars in active organization</h2>
             <ul class="simple-list">
               <li *ngFor="let calendar of calendars()" data-testid="org-calendar-row">
                 <strong>{{ calendar.name }}</strong>
-                <span class="ui-copy">owner: {{ ownerLabel(calendar.ownerUserId) }}</span>
+                <span class="text-sm text-base-content/60">owner: {{ ownerLabel(calendar.ownerUserId) }}</span>
               </li>
-              <li *ngIf="calendars().length === 0" class="ui-copy">
+              <li *ngIf="calendars().length === 0" class="text-sm text-base-content/60">
                 No calendars in this context.
               </li>
             </ul>
           </article>
 
-          <article class="ui-panel stack-tight">
+          <article class="rounded-box border border-base-300 bg-base-100 p-4 space-y-4">
             <h2>Manage visibility</h2>
-            <label class="ui-field">
-              <span>Calendar</span>
-              <select [(ngModel)]="grantCalendarId" [ngModelOptions]="{ standalone: true }">
-                <option value="">Select calendar</option>
-                <option *ngFor="let calendar of calendars()" [value]="calendar.id">
-                  {{ calendar.name }}
-                </option>
-              </select>
-            </label>
-            <label class="ui-field">
-              <span>User</span>
-              <select [(ngModel)]="grantUserId" [ngModelOptions]="{ standalone: true }">
-                <option value="">Select user</option>
-                <option *ngFor="let member of memberships()" [value]="member.userId">
-                  {{ member.name }} · {{ member.email }}
-                </option>
-              </select>
-            </label>
-            <div class="ui-toolbar">
-              <button class="ui-button ui-button-secondary" type="button" (click)="grantVisibility()">
+            <div class="grid gap-4">
+              <label class="form-control gap-2">
+                <span>Calendar</span>
+                <select class="select select-bordered w-full" [(ngModel)]="grantCalendarId" [ngModelOptions]="{ standalone: true }">
+                  <option value="">Select calendar</option>
+                  <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                    {{ calendar.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="form-control gap-2">
+                <span>User</span>
+                <select class="select select-bordered w-full" [(ngModel)]="grantUserId" [ngModelOptions]="{ standalone: true }">
+                  <option value="">Select user</option>
+                  <option *ngFor="let member of memberships()" [value]="member.userId">
+                    {{ member.name }} · {{ member.email }}
+                  </option>
+                </select>
+              </label>
+            </div>
+            <div class="flex flex-wrap items-end gap-3">
+              <button class="btn btn-outline" type="button" (click)="grantVisibility()">
                 Grant calendar visibility
               </button>
-              <button class="ui-button" type="button" (click)="revokeVisibility()">
+              <button class="btn btn-outline" type="button" (click)="revokeVisibility()">
                 Revoke calendar visibility
               </button>
             </div>
@@ -83,9 +85,9 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
         </div>
 
         <ng-template #noContext>
-          <article class="ui-panel">
+          <article class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2>Organization context required</h2>
-            <p class="ui-copy">
+            <p class="text-sm leading-6 text-base-content/65">
               Switch into an organization context to manage organization calendars.
             </p>
           </article>

@@ -101,8 +101,10 @@ describe('ShellComponent', () => {
     await fixture.whenStable();
 
     const hostElement = fixture.nativeElement as HTMLElement;
-    const badge = hostElement.querySelector('[data-testid="context-badge"]');
-    expect(badge?.textContent).toContain('Organization: Atlas Ops');
+    const contextSwitcher = hostElement.querySelector(
+      '[data-testid="context-switcher"]',
+    ) as HTMLSelectElement | null;
+    expect(contextSwitcher?.value).toBe('org:org-1');
   });
 
   it('redirects to the system admin landing page on a system context switch', async () => {

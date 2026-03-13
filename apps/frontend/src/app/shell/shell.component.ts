@@ -19,391 +19,211 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="shell" data-testid="app-shell">
-      <header class="shell-header">
-        <a class="brand" routerLink="/home" data-testid="app-logo">SmartSchedule</a>
+    <div class="shell min-h-screen bg-base-200" data-testid="app-shell">
+      <header class="border-b border-base-300 bg-base-100/90 backdrop-blur" data-testid="shell-header">
+        <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 lg:px-6">
+          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex min-w-0 items-center gap-3">
+              <a class="text-lg font-semibold tracking-tight" routerLink="/home" data-testid="app-logo">
+                SmartSchedule
+              </a>
+              <span class="badge badge-ghost hidden sm:inline-flex">Workspace</span>
+            </div>
 
-        <div class="header-center">
-          <label class="ui-field">
-            <span class="sr-only">Active context</span>
-            <select
-              class="ui-select"
-              [ngModel]="activeContextId()"
-              (ngModelChange)="switchContext($event)"
-              data-testid="context-switcher"
-              aria-label="Active context"
-            >
-              <option *ngFor="let context of contexts()" [value]="context.id">
-                {{ context.label }}
-              </option>
-            </select>
-          </label>
-          <span class="ui-chip" data-testid="context-badge">{{ activeContextLabel() }}</span>
-          <label class="ui-search">
-            <span class="sr-only">Global search</span>
-            <input
-              type="search"
-              placeholder="Search or jump to a route"
-              aria-label="Global search"
-              data-testid="global-search"
-              [ngModel]="searchQuery()"
-              (ngModelChange)="updateSearch($event)"
-              [ngModelOptions]="{ standalone: true }"
-              (keydown.enter)="openFirstSearchResult($event)"
-            />
-          </label>
-          <section
-            class="search-results ui-card"
-            *ngIf="searchResults().length > 0"
-            data-testid="global-search-results"
-          >
-            <button
-              *ngFor="let result of searchResults(); let index = index"
-              class="search-result"
-              type="button"
-              (click)="openSearchResult(result.path)"
-              [attr.data-testid]="'search-result-' + index"
-            >
-              <span class="search-result-copy">
-                <strong>{{ result.label }}</strong>
-                <small>{{ result.description }}</small>
-              </span>
-              <span class="ui-chip search-result-area">{{ areaLabel(result.area) }}</span>
-            </button>
-          </section>
-        </div>
+            <div class="flex flex-1 flex-col gap-3 xl:max-w-3xl xl:flex-row xl:items-center xl:justify-end">
+              <label class="ui-field min-w-0 xl:max-w-56">
+                <span class="sr-only">Active context</span>
+                <select
+                  class="select select-bordered w-full"
+                  [ngModel]="activeContextId()"
+                  (ngModelChange)="switchContext($event)"
+                  data-testid="context-switcher"
+                  aria-label="Active context"
+                >
+                  <option *ngFor="let context of contexts()" [value]="context.id">
+                    {{ context.label }}
+                  </option>
+                </select>
+              </label>
 
-        <div class="header-actions" data-testid="header-actions">
-          <button
-            class="ui-button ui-button-primary"
-            type="button"
-            (click)="openQuickCreate()"
-            data-testid="quick-create"
-          >
-            Quick Create
-          </button>
-          <button
-            class="ui-icon-button"
-            type="button"
-            aria-label="Notifications"
-            data-testid="notifications-button"
-          >
-            Notifications
-          </button>
-          <button
-            *ngIf="showAiEntry()"
-            class="ui-icon-button"
-            type="button"
-            aria-label="AI assistant"
-            data-testid="ai-button"
-          >
-            AI
-          </button>
-          <button class="ui-icon-button" type="button" aria-label="Help" data-testid="help-button">
-            Help
-          </button>
-          <button
-            class="ui-icon-button"
-            type="button"
-            aria-label="User menu"
-            data-testid="user-menu"
-          >
-            User
-          </button>
+              <div class="search-wrap flex-1">
+                <label class="ui-search w-full">
+                  <span class="sr-only">Global search</span>
+                  <input
+                    type="search"
+                    class="input input-bordered w-full"
+                    placeholder="Search pages"
+                    aria-label="Global search"
+                    data-testid="global-search"
+                    [ngModel]="searchQuery()"
+                    (ngModelChange)="updateSearch($event)"
+                    [ngModelOptions]="{ standalone: true }"
+                    (keydown.enter)="openFirstSearchResult($event)"
+                  />
+                </label>
+
+                <section
+                  class="search-results card border border-base-300 bg-base-100 shadow-sm"
+                  *ngIf="searchResults().length > 0"
+                  data-testid="global-search-results"
+                >
+                  <div class="card-body gap-2 p-2">
+                    <button
+                      *ngFor="let result of searchResults(); let index = index"
+                      class="btn btn-ghost justify-between rounded-box border border-transparent px-3 text-left normal-case hover:border-base-300 hover:bg-base-200"
+                      type="button"
+                      (click)="openSearchResult(result.path)"
+                      [attr.data-testid]="'search-result-' + index"
+                    >
+                      <span class="flex min-w-0 flex-col items-start">
+                        <strong class="truncate">{{ result.label }}</strong>
+                        <small class="truncate text-base-content/60">{{ result.description }}</small>
+                      </span>
+                      <span class="badge badge-outline">{{ areaLabel(result.area) }}</span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2" data-testid="header-actions">
+              <button
+                class="btn btn-neutral btn-sm md:btn-md"
+                type="button"
+                (click)="openQuickCreate()"
+                data-testid="quick-create"
+              >
+                Quick Create
+              </button>
+              <button class="btn btn-ghost btn-sm" type="button" data-testid="notifications-button">
+                Notifications
+              </button>
+              <button
+                *ngIf="showAiEntry()"
+                class="btn btn-ghost btn-sm"
+                type="button"
+                data-testid="ai-button"
+              >
+                AI
+              </button>
+              <button class="btn btn-ghost btn-sm" type="button" data-testid="help-button">Help</button>
+              <button class="btn btn-ghost btn-sm" type="button" data-testid="user-menu">User</button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div class="shell-body">
-        <aside class="shell-sidebar" data-testid="sidebar">
-          <section class="nav-section" *ngIf="showEndUserNav()">
-            <p class="nav-kicker">End-user</p>
-            <a
-              *ngFor="let item of endUserItems"
-              [routerLink]="item.path"
-              routerLinkActive="active"
-              class="nav-link"
-              [attr.data-testid]="item.testId"
-            >
-              <span class="nav-icon">{{ item.icon }}</span>
-              <span>{{ item.label }}</span>
-            </a>
-          </section>
+      <div class="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[12rem_minmax(0,1fr)] lg:px-6">
+        <aside class="hidden lg:block pr-0" data-testid="sidebar">
+          <div class="sticky top-24 space-y-4">
+            <section class="rounded-box border border-base-300 bg-base-100 p-2.5" *ngIf="showEndUserNav()">
+              <p class="px-2.5 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-base-content/45">
+                End-user
+              </p>
+              <ul class="menu gap-1">
+                <li *ngFor="let item of endUserItems">
+                  <a
+                    [routerLink]="item.path"
+                    routerLinkActive="nav-active"
+                    class="rounded-box text-base-content/70 hover:bg-base-200 hover:text-base-content"
+                    [attr.data-testid]="item.testId"
+                  >
+                    <span>{{ item.label }}</span>
+                  </a>
+                </li>
+              </ul>
+            </section>
 
-          <section class="nav-section" *ngIf="showOrgAdminNav()">
-            <p class="nav-kicker">Organization admin</p>
-            <a
-              *ngFor="let item of orgAdminItems"
-              [routerLink]="item.path"
-              routerLinkActive="active"
-              class="nav-link"
-              [attr.data-testid]="item.testId"
-            >
-              <span class="nav-icon">{{ item.icon }}</span>
-              <span>{{ item.label }}</span>
-            </a>
-          </section>
+            <section class="rounded-box border border-base-300 bg-base-100 p-2.5" *ngIf="showOrgAdminNav()">
+              <p class="px-2.5 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-base-content/45">
+                Organization admin
+              </p>
+              <ul class="menu gap-1">
+                <li *ngFor="let item of orgAdminItems">
+                  <a
+                    [routerLink]="item.path"
+                    routerLinkActive="nav-active"
+                    class="rounded-box text-base-content/70 hover:bg-base-200 hover:text-base-content"
+                    [attr.data-testid]="item.testId"
+                  >
+                    <span>{{ item.label }}</span>
+                  </a>
+                </li>
+              </ul>
+            </section>
 
-          <section class="nav-section" *ngIf="showSystemAdminNav()">
-            <p class="nav-kicker">System admin</p>
-            <a
-              *ngFor="let item of systemAdminItems"
-              [routerLink]="item.path"
-              routerLinkActive="active"
-              class="nav-link"
-              [attr.data-testid]="item.testId"
-            >
-              <span class="nav-icon">{{ item.icon }}</span>
-              <span>{{ item.label }}</span>
-            </a>
-          </section>
+            <section class="rounded-box border border-base-300 bg-base-100 p-2.5" *ngIf="showSystemAdminNav()">
+              <p class="px-2.5 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-base-content/45">
+                System admin
+              </p>
+              <ul class="menu gap-1">
+                <li *ngFor="let item of systemAdminItems">
+                  <a
+                    [routerLink]="item.path"
+                    routerLinkActive="nav-active"
+                    class="rounded-box text-base-content/70 hover:bg-base-200 hover:text-base-content"
+                    [attr.data-testid]="item.testId"
+                  >
+                    <span>{{ item.label }}</span>
+                  </a>
+                </li>
+              </ul>
+            </section>
 
-          <section class="ui-card shell-status" data-testid="shell-status">
-            <p class="ui-kicker">Shell status</p>
-            <p>{{ dirtyStateLabel() }}</p>
-            <p class="status-copy">
-              Route guards, context-aware fallbacks, and protected context switching are active.
-            </p>
-          </section>
+            <section class="rounded-box border border-base-300 bg-base-100 p-4" data-testid="shell-status">
+              <p class="ui-kicker">Shell status</p>
+              <p class="mt-3 text-sm font-medium">{{ dirtyStateLabel() }}</p>
+              <p class="mt-2 text-sm text-base-content/60">
+                Route guards, context-aware fallbacks, and protected context switching are active.
+              </p>
+            </section>
+          </div>
         </aside>
 
-        <main class="shell-main" data-testid="page-outlet">
+        <main class="min-w-0 pb-24 lg:pb-0" data-testid="page-outlet">
           <router-outlet></router-outlet>
         </main>
       </div>
 
-      <nav class="mobile-nav" data-testid="mobile-nav">
+      <nav class="btm-nav z-10 border-t border-base-300 bg-base-100 lg:hidden" data-testid="mobile-nav">
         <a
           *ngFor="let item of mobileItems()"
           [routerLink]="item.path"
           routerLinkActive="active"
           [attr.data-testid]="'mobile-' + item.testId"
         >
-          <span>{{ item.icon }}</span>
-          <small>{{ item.label }}</small>
+          <span class="text-xs font-medium">{{ item.label }}</span>
         </a>
-      </nav>
+            </nav>
     </div>
   `,
   styles: [
     `
-      .shell {
-        min-height: 100vh;
-        background:
-          radial-gradient(circle at top right, rgb(14 165 233 / 0.15), transparent 22rem),
-          linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
-      }
-
-      .shell-header {
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        gap: var(--spacing-4);
-        align-items: center;
-        padding: var(--spacing-4) var(--spacing-6);
-        border-bottom: 1px solid var(--border-default);
-        background: rgb(255 255 255 / 0.88);
-        backdrop-filter: blur(18px);
-      }
-
-      .brand {
-        color: var(--text-primary);
-        text-decoration: none;
-        font-size: var(--font-size-2xl);
-        font-weight: 700;
-        letter-spacing: -0.02em;
-      }
-
-      .header-center {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-3);
+      .search-wrap {
         position: relative;
-      }
-
-      .header-actions {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-2);
-      }
-
-      .shell-body {
-        display: grid;
-        grid-template-columns: 18rem minmax(0, 1fr);
-        gap: var(--spacing-6);
-        padding: var(--spacing-6);
-      }
-
-      .shell-sidebar {
-        display: grid;
-        gap: var(--spacing-4);
-        align-content: start;
-      }
-
-      .nav-section {
-        display: grid;
-        gap: var(--spacing-2);
-      }
-
-      .nav-kicker {
-        margin: 0 0 var(--spacing-1);
-        color: var(--text-muted);
-        font-size: var(--font-size-xs);
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      .nav-link {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-3);
-        border-radius: var(--radius-lg);
-        padding: var(--spacing-3) var(--spacing-4);
-        color: var(--text-secondary);
-        text-decoration: none;
-      }
-
-      .nav-link:hover,
-      .nav-link.active {
-        background: rgb(14 165 233 / 0.09);
-        color: var(--text-primary);
-      }
-
-      .nav-icon {
-        font-size: var(--font-size-sm);
-        font-weight: 700;
-        min-width: 5rem;
-      }
-
-      .shell-main {
-        min-width: 0;
       }
 
       .search-results {
         position: absolute;
-        top: calc(100% + var(--spacing-2));
+        top: calc(100% + 0.5rem);
         left: 0;
         right: 0;
-        z-index: 10;
-        display: grid;
-        gap: var(--spacing-2);
-        padding: var(--spacing-3);
+        z-index: 30;
+      }
+      .nav-active {
+        background: var(--color-base-200);
+        color: var(--color-base-content);
       }
 
-      .search-result {
-        display: flex;
-        justify-content: space-between;
-        align-items: start;
-        gap: var(--spacing-3);
-        padding: var(--spacing-3);
-        border: 1px solid transparent;
-        border-radius: var(--radius-lg);
-        background: transparent;
-        text-align: left;
-        cursor: pointer;
+      .btm-nav .active {
+        background: var(--color-base-200);
+        color: var(--color-base-content);
       }
 
-      .search-result:hover {
-        border-color: rgb(14 165 233 / 0.2);
-        background: rgb(14 165 233 / 0.06);
-      }
 
-      .search-result-copy {
-        display: grid;
-        gap: 0.25rem;
-      }
-
-      .search-result-copy small {
-        color: var(--text-secondary);
-      }
-
-      .search-result-area {
-        flex-shrink: 0;
-      }
-
-      .shell-status {
-        margin-top: var(--spacing-2);
-      }
-
-      .status-copy {
-        color: var(--text-secondary);
-        margin-bottom: 0;
-      }
-
-      .mobile-nav {
-        display: none;
-      }
-
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        border: 0;
-      }
-
-      @media (max-width: 1100px) {
-        .shell-header {
-          grid-template-columns: 1fr;
-        }
-
-        .header-center,
-        .header-actions {
-          flex-wrap: wrap;
-        }
-
-        .shell-body {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      @media (max-width: 768px) {
-        .shell-header {
-          padding: var(--spacing-4);
-        }
-
-        .shell-sidebar {
-          display: none;
-        }
-
-        .shell-body {
-          padding: var(--spacing-4);
-        }
-
-        .mobile-nav {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1px;
-          border-top: 1px solid var(--border-default);
-          background: rgb(255 255 255 / 0.95);
-          backdrop-filter: blur(18px);
-        }
-
-        .mobile-nav a {
-          display: grid;
-          gap: 0.25rem;
-          place-items: center;
-          padding: var(--spacing-3) 0;
-          color: var(--text-secondary);
-          text-decoration: none;
-        }
-
-        .mobile-nav a.active {
-          color: var(--color-primary-700);
-          background: rgb(14 165 233 / 0.08);
-        }
-
-        .shell-main {
-          padding-bottom: 6rem;
+      @media (max-width: 1279px) {
+        .search-wrap {
+          width: 100%;
         }
       }
     `,
@@ -420,7 +240,6 @@ export class ShellComponent {
 
   readonly contexts = this.contextService.contexts;
   readonly activeContextId = computed(() => this.contextService.activeContext().id);
-  readonly activeContextLabel = computed(() => this.contextService.getContextLabel());
   readonly dirtyStateLabel = computed(() =>
     this.dirtyState.isDirty()
       ? 'Unsaved changes are active on a guarded route.'

@@ -9,14 +9,19 @@
 
 html {
   color-scheme: light;
+  background: var(--bg-app);
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
   padding: 0;
   font-family: var(--font-family);
-  background-color: var(--bg-app);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.88)),
+    var(--bg-app);
   color: var(--text-primary);
+  text-rendering: optimizeLegibility;
 }
 
 body,
@@ -32,13 +37,27 @@ h2,
 h3,
 h4,
 h5,
-h6 {
+h6,
+p {
   margin-top: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   color: var(--text-primary);
 }
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+a {
+  color: inherit;
 }
