@@ -22,7 +22,9 @@ type TimeTab = {
   template: `
     <section class="grid gap-6" data-testid="page-org-time-policies">
       <article class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Organization Administration</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+          Organization Administration
+        </p>
         <h1>Time Policies</h1>
         <p class="text-sm leading-6 text-base-content/65">
           Configure working hours, availability, unavailability, holidays, blackout periods, rest
@@ -31,7 +33,9 @@ type TimeTab = {
 
         <div class="rounded-box border border-base-300 bg-base-100 p-4 precedence-panel">
           <h2>Precedence</h2>
-          <p class="text-sm leading-6 text-base-content/65">User overrides group overrides organization.</p>
+          <p class="text-sm leading-6 text-base-content/65">
+            User overrides group overrides organization.
+          </p>
         </div>
 
         <div role="tablist" class="tabs tabs-boxed w-fit">
@@ -52,13 +56,18 @@ type TimeTab = {
 
         <p *ngIf="errorMessage()" class="alert alert-error">{{ errorMessage() }}</p>
         <p *ngIf="successMessage()" class="alert alert-info">{{ successMessage() }}</p>
+        <p *ngIf="isLoading()" class="alert alert-info">Loading organization time policies…</p>
 
         <div class="grid gap-4 xl:grid-cols-2" *ngIf="organizationId(); else noContext">
           <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h2>Rule editor</h2>
             <label class="form-control gap-2">
               <span>Scope</span>
-              <select class="select select-bordered w-full" [(ngModel)]="form.scopeLevel" [ngModelOptions]="{ standalone: true }">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="form.scopeLevel"
+                [ngModelOptions]="{ standalone: true }"
+              >
                 <option value="organization">organization</option>
                 <option value="group">group</option>
                 <option value="user">user</option>
@@ -67,7 +76,11 @@ type TimeTab = {
 
             <label class="form-control gap-2" *ngIf="form.scopeLevel === 'group'">
               <span>Target group</span>
-              <select class="select select-bordered w-full" [(ngModel)]="form.targetGroupId" [ngModelOptions]="{ standalone: true }">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="form.targetGroupId"
+                [ngModelOptions]="{ standalone: true }"
+              >
                 <option value="">Select group</option>
                 <option *ngFor="let group of groups()" [value]="group.id">{{ group.name }}</option>
               </select>
@@ -75,7 +88,11 @@ type TimeTab = {
 
             <label class="form-control gap-2" *ngIf="form.scopeLevel === 'user'">
               <span>Target user</span>
-              <select class="select select-bordered w-full" [(ngModel)]="form.targetUserId" [ngModelOptions]="{ standalone: true }">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="form.targetUserId"
+                [ngModelOptions]="{ standalone: true }"
+              >
                 <option value="">Select user</option>
                 <option *ngFor="let user of memberships()" [value]="user.userId">
                   {{ user.name }}
@@ -85,7 +102,11 @@ type TimeTab = {
 
             <label class="form-control gap-2">
               <span>Title</span>
-              <input class="input input-bordered w-full" [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
+              <input
+                class="input input-bordered w-full"
+                [(ngModel)]="form.title"
+                [ngModelOptions]="{ standalone: true }"
+              />
             </label>
 
             <ng-container [ngSwitch]="activeTab()">
@@ -93,14 +114,16 @@ type TimeTab = {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -108,7 +131,8 @@ type TimeTab = {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -121,14 +145,16 @@ type TimeTab = {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -136,7 +162,8 @@ type TimeTab = {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -149,14 +176,16 @@ type TimeTab = {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -164,7 +193,8 @@ type TimeTab = {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -177,7 +207,8 @@ type TimeTab = {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Date</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="date"
                       [(ngModel)]="form.date"
                       [ngModelOptions]="{ standalone: true }"
@@ -185,7 +216,11 @@ type TimeTab = {
                   </label>
                   <label class="form-control gap-2">
                     <span>Holiday name</span>
-                    <input class="input input-bordered w-full" [(ngModel)]="form.holidayName" [ngModelOptions]="{ standalone: true }" />
+                    <input
+                      class="input input-bordered w-full"
+                      [(ngModel)]="form.holidayName"
+                      [ngModelOptions]="{ standalone: true }"
+                    />
                   </label>
                 </div>
               </ng-container>
@@ -194,7 +229,8 @@ type TimeTab = {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.startAt"
                       [ngModelOptions]="{ standalone: true }"
@@ -202,7 +238,8 @@ type TimeTab = {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.endAt"
                       [ngModelOptions]="{ standalone: true }"
@@ -214,7 +251,8 @@ type TimeTab = {
               <ng-container *ngSwitchCase="'rest'">
                 <label class="form-control gap-2">
                   <span>Minimum rest minutes</span>
-                  <input class="input input-bordered w-full"
+                  <input
+                    class="input input-bordered w-full"
                     type="number"
                     min="1"
                     max="1440"
@@ -228,7 +266,8 @@ type TimeTab = {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Max daily minutes</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="1440"
@@ -238,7 +277,8 @@ type TimeTab = {
                   </label>
                   <label class="form-control gap-2">
                     <span>Max weekly minutes</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="10080"
@@ -266,7 +306,9 @@ type TimeTab = {
 
             <div
               class="alert alert-warning"
-              *ngIf="holidayCatalog() && (!holidayCatalog()!.enabled || !holidayCatalog()!.configured)"
+              *ngIf="
+                holidayCatalog() && (!holidayCatalog()!.enabled || !holidayCatalog()!.configured)
+              "
             >
               <span>
                 {{
@@ -331,14 +373,18 @@ type TimeTab = {
                   [disabled]="!holidayImport.countryCode"
                 >
                   <option value="">Country-wide holidays only</option>
-                  <option *ngFor="let subdivision of filteredHolidaySubdivisions()" [value]="subdivision.code ?? ''">
+                  <option
+                    *ngFor="let subdivision of filteredHolidaySubdivisions()"
+                    [value]="subdivision.code ?? ''"
+                  >
                     {{ subdivision.name }}
                   </option>
                 </select>
               </label>
               <label class="form-control gap-2">
                 <span>Year</span>
-                <input class="input input-bordered w-full"
+                <input
+                  class="input input-bordered w-full"
                   type="number"
                   [(ngModel)]="holidayImport.year"
                   [ngModelOptions]="{ standalone: true }"
@@ -348,7 +394,11 @@ type TimeTab = {
             <div class="grid gap-4 md:grid-cols-3">
               <label class="form-control gap-2">
                 <span>Import scope</span>
-                <select class="select select-bordered w-full" [(ngModel)]="holidayImport.scopeLevel" [ngModelOptions]="{ standalone: true }">
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.scopeLevel"
+                  [ngModelOptions]="{ standalone: true }"
+                >
                   <option value="organization">organization</option>
                   <option value="group">group</option>
                   <option value="user">user</option>
@@ -356,16 +406,28 @@ type TimeTab = {
               </label>
               <label class="form-control gap-2" *ngIf="holidayImport.scopeLevel === 'group'">
                 <span>Target group</span>
-                <select class="select select-bordered w-full" [(ngModel)]="holidayImport.targetGroupId" [ngModelOptions]="{ standalone: true }">
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.targetGroupId"
+                  [ngModelOptions]="{ standalone: true }"
+                >
                   <option value="">Select group</option>
-                  <option *ngFor="let group of groups()" [value]="group.id">{{ group.name }}</option>
+                  <option *ngFor="let group of groups()" [value]="group.id">
+                    {{ group.name }}
+                  </option>
                 </select>
               </label>
               <label class="form-control gap-2" *ngIf="holidayImport.scopeLevel === 'user'">
                 <span>Target user</span>
-                <select class="select select-bordered w-full" [(ngModel)]="holidayImport.targetUserId" [ngModelOptions]="{ standalone: true }">
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.targetUserId"
+                  [ngModelOptions]="{ standalone: true }"
+                >
                   <option value="">Select user</option>
-                  <option *ngFor="let user of memberships()" [value]="user.userId">{{ user.name }}</option>
+                  <option *ngFor="let user of memberships()" [value]="user.userId">
+                    {{ user.name }}
+                  </option>
                 </select>
               </label>
             </div>
@@ -377,10 +439,16 @@ type TimeTab = {
                 {{ catalog.countries.length }} supported countries loaded
               </span>
             </div>
-            <p class="text-sm text-base-content/60" *ngIf="holidayImport.countrySearch.trim().length > 0">
+            <p
+              class="text-sm text-base-content/60"
+              *ngIf="holidayImport.countrySearch.trim().length > 0"
+            >
               Country matches: {{ filteredHolidayCountries().length }}
             </p>
-            <p class="text-sm text-base-content/60" *ngIf="holidayImport.subdivisionSearch.trim().length > 0">
+            <p
+              class="text-sm text-base-content/60"
+              *ngIf="holidayImport.subdivisionSearch.trim().length > 0"
+            >
               Region matches: {{ filteredHolidaySubdivisions().length }}
             </p>
             <p class="text-sm text-base-content/60" *ngIf="selectedHolidayLocationCode()">
@@ -389,13 +457,18 @@ type TimeTab = {
             <p class="alert alert-warning" *ngIf="holidayCatalogErrorMessage()">
               {{ holidayCatalogErrorMessage() }}
             </p>
-            <p class="text-sm leading-6 text-base-content/65" *ngIf="lastImportMessage()">{{ lastImportMessage() }}</p>
+            <p class="text-sm leading-6 text-base-content/65" *ngIf="lastImportMessage()">
+              {{ lastImportMessage() }}
+            </p>
 
             <h2>Effective policy preview</h2>
-            <p class="alert alert-warning" *ngIf="previewErrorMessage()">{{ previewErrorMessage() }}</p>
+            <p class="alert alert-warning" *ngIf="previewErrorMessage()">
+              {{ previewErrorMessage() }}
+            </p>
             <label class="form-control gap-2">
               <span>Preview user</span>
-              <select class="select select-bordered w-full"
+              <select
+                class="select select-bordered w-full"
                 [(ngModel)]="previewUserId"
                 [ngModelOptions]="{ standalone: true }"
                 (ngModelChange)="loadPreview()"
@@ -418,7 +491,10 @@ type TimeTab = {
           </section>
         </div>
 
-        <article class="rounded-box border border-base-300 bg-base-100 p-4" *ngIf="organizationId()">
+        <article
+          class="rounded-box border border-base-300 bg-base-100 p-4"
+          *ngIf="organizationId()"
+        >
           <h2>Current {{ activeTabLabel() }} rules</h2>
           <ul class="simple-list">
             <li *ngFor="let policy of filteredPolicies()" data-testid="time-policy-row">
@@ -426,7 +502,9 @@ type TimeTab = {
                 <strong>{{ policy.title }}</strong>
                 <p class="text-sm leading-6 text-base-content/65">{{ describePolicy(policy) }}</p>
                 <p class="text-sm leading-6 text-base-content/55">
-                  {{ policyTargetLabel(policy) }} · {{ formatSourceLabel(policy.sourceType) }} · updated {{ formatDateTime(policy.updatedAt) }}
+                  {{ policyTargetLabel(policy) }} · {{ formatSourceLabel(policy.sourceType) }} ·
+                  {{ policy.isActive ? 'active' : 'inactive' }} · updated
+                  {{ formatDateTime(policy.updatedAt) }}
                 </p>
               </div>
               <button class="btn btn-outline" type="button" (click)="removePolicy(policy.id)">
@@ -504,6 +582,7 @@ export class OrgTimePoliciesComponent {
   readonly organizationId = computed(() => this.orgApi.activeOrganizationId());
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+  readonly isLoading = signal(false);
   readonly lastImportMessage = signal<string | null>(null);
   readonly previewErrorMessage = signal<string | null>(null);
   readonly holidayCatalogErrorMessage = signal<string | null>(null);
@@ -602,8 +681,7 @@ export class OrgTimePoliciesComponent {
 
     return countries.filter(
       (country) =>
-        country.name.toLowerCase().includes(search) ||
-        country.code.toLowerCase().includes(search),
+        country.name.toLowerCase().includes(search) || country.code.toLowerCase().includes(search),
     );
   });
   readonly filteredHolidaySubdivisions = computed(() => {
@@ -620,7 +698,6 @@ export class OrgTimePoliciesComponent {
         (subdivision.code ?? '').toLowerCase().includes(search),
     );
   });
-
 
   formatPolicyCategory(category: string): string {
     return this.tabs.find((tab) => tab.id === category)?.label ?? this.humanizeToken(category);
@@ -662,7 +739,13 @@ export class OrgTimePoliciesComponent {
       return;
     }
 
-    if (!this.validateScopedTarget(this.form.scopeLevel, this.form.targetGroupId, this.form.targetUserId)) {
+    if (
+      !this.validateScopedTarget(
+        this.form.scopeLevel,
+        this.form.targetGroupId,
+        this.form.targetUserId,
+      )
+    ) {
       return;
     }
 
@@ -796,10 +879,12 @@ export class OrgTimePoliciesComponent {
       this.groupsState.set([]);
       this.policiesState.set([]);
       this.previewState.set({});
+      this.isLoading.set(false);
       return;
     }
 
     try {
+      this.isLoading.set(true);
       this.errorMessage.set(null);
       const [memberships, groups] = await Promise.all([
         this.orgApi.listMemberships(this.organizationId()!),
@@ -814,11 +899,13 @@ export class OrgTimePoliciesComponent {
       this.errorMessage.set(
         error instanceof Error ? error.message : 'Failed to load organization time policies.',
       );
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
   private async reloadPolicies() {
-    this.policiesState.set(await this.timeApi.listPolicies());
+    this.policiesState.set(await this.timeApi.listPolicies({ includeInactive: true }));
   }
 
   selectedHolidayLocationCode() {
@@ -831,15 +918,13 @@ export class OrgTimePoliciesComponent {
 
   selectedHolidayLocationLabel() {
     const country =
-      this.holidayCatalog()
-        ?.countries.find((entry) => entry.code === this.holidayImport.countryCode)
-        ?.name ?? this.holidayImport.countryCode;
+      this.holidayCatalog()?.countries.find(
+        (entry) => entry.code === this.holidayImport.countryCode,
+      )?.name ?? this.holidayImport.countryCode;
     const subdivision =
-      this.holidayCatalog()
-        ?.subdivisions.find(
-          (entry) => (entry.code ?? '') === this.holidayImport.subdivisionCode,
-        )
-        ?.name ?? '';
+      this.holidayCatalog()?.subdivisions.find(
+        (entry) => (entry.code ?? '') === this.holidayImport.subdivisionCode,
+      )?.name ?? '';
 
     return subdivision ? `${country} / ${subdivision}` : country || 'the selected location';
   }
@@ -857,8 +942,8 @@ export class OrgTimePoliciesComponent {
     }
 
     const userName =
-      this.membershipsState().find((user) => user.userId === this.holidayImport.targetUserId)?.name ??
-      'selected user';
+      this.membershipsState().find((user) => user.userId === this.holidayImport.targetUserId)
+        ?.name ?? 'selected user';
     return `user scope: ${userName}`;
   }
 
@@ -924,11 +1009,11 @@ export class OrgTimePoliciesComponent {
       const days = Array.isArray(rule['daysOfWeek'])
         ? (rule['daysOfWeek'] as number[]).join(', ')
         : 'custom days';
-      return `${days} · ${rule['startTime'] ?? '--:--'} to ${rule['endTime'] ?? '--:--'}`;
+      return `${days} · ${this.stringRuleValue(rule, 'startTime', '--:--')} to ${this.stringRuleValue(rule, 'endTime', '--:--')}`;
     }
 
     if (policy.policyType === 'holiday') {
-      return `${rule['date'] ?? 'No date'} · ${rule['holidayName'] ?? 'Holiday'}`;
+      return `${this.stringRuleValue(rule, 'date', 'No date')} · ${this.stringRuleValue(rule, 'holidayName', 'Holiday')}`;
     }
 
     if (policy.policyType === 'blackout') {
@@ -936,11 +1021,11 @@ export class OrgTimePoliciesComponent {
     }
 
     if (policy.policyType === 'rest') {
-      return `Minimum rest: ${rule['minRestMinutes'] ?? '?'} minutes`;
+      return `Minimum rest: ${this.stringRuleValue(rule, 'minRestMinutes', '?')} minutes`;
     }
 
     if (policy.policyType === 'max_hours') {
-      return `Daily: ${rule['maxDailyMinutes'] ?? 'n/a'} min · Weekly: ${rule['maxWeeklyMinutes'] ?? 'n/a'} min`;
+      return `Daily: ${this.stringRuleValue(rule, 'maxDailyMinutes', 'n/a')} min · Weekly: ${this.stringRuleValue(rule, 'maxWeeklyMinutes', 'n/a')} min`;
     }
 
     return '';
@@ -974,11 +1059,11 @@ export class OrgTimePoliciesComponent {
     }
 
     if (firstRule['holidayName']) {
-      return `${firstRule['holidayName']} on ${firstRule['date'] ?? 'n/a'}`;
+      return `${this.stringRuleValue(firstRule, 'holidayName')} on ${this.stringRuleValue(firstRule, 'date', 'n/a')}`;
     }
 
     if (firstRule['startTime'] || firstRule['endTime']) {
-      return `${firstRule['startTime'] ?? '--:--'} to ${firstRule['endTime'] ?? '--:--'}`;
+      return `${this.stringRuleValue(firstRule, 'startTime', '--:--')} to ${this.stringRuleValue(firstRule, 'endTime', '--:--')}`;
     }
 
     if (firstRule['startAt'] || firstRule['endAt']) {
@@ -986,11 +1071,11 @@ export class OrgTimePoliciesComponent {
     }
 
     if (firstRule['minRestMinutes']) {
-      return `Minimum rest ${firstRule['minRestMinutes']} minutes`;
+      return `Minimum rest ${this.stringRuleValue(firstRule, 'minRestMinutes')} minutes`;
     }
 
     if (firstRule['maxDailyMinutes'] || firstRule['maxWeeklyMinutes']) {
-      return `Daily ${firstRule['maxDailyMinutes'] ?? 'n/a'} · Weekly ${firstRule['maxWeeklyMinutes'] ?? 'n/a'}`;
+      return `Daily ${this.stringRuleValue(firstRule, 'maxDailyMinutes', 'n/a')} · Weekly ${this.stringRuleValue(firstRule, 'maxWeeklyMinutes', 'n/a')}`;
     }
 
     return `${rules.length} rule${rules.length === 1 ? '' : 's'} active.`;
@@ -1010,6 +1095,19 @@ export class OrgTimePoliciesComponent {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(parsed);
+  }
+
+  private stringRuleValue(rule: Record<string, unknown>, key: string, fallback = '') {
+    const value = rule[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    return fallback;
   }
 
   describeActiveTab(tab: TimePolicyCategory) {

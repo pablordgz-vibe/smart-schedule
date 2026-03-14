@@ -56,7 +56,8 @@ const integrationCatalog: SetupIntegrationProvider[] = [
     category: 'email',
     code: 'smtp',
     credentialModes: ['api-key'],
-    description: 'Outbound email delivery for verification, reset, invitation, and notification flows.',
+    description:
+      'Outbound email delivery for verification, reset, invitation, and notification flows.',
     displayName: 'SMTP / transactional email',
   },
   {
@@ -229,10 +230,16 @@ export class SetupService {
   ) {
     const state = await this.readPersistedState();
     const allowedProviders = new Map(
-      this.getAvailableIntegrations().map((provider) => [provider.code, provider]),
+      this.getAvailableIntegrations().map((provider) => [
+        provider.code,
+        provider,
+      ]),
     );
     const existingIntegrations = new Map(
-      state.configuredIntegrations.map((integration) => [integration.code, integration]),
+      state.configuredIntegrations.map((integration) => [
+        integration.code,
+        integration,
+      ]),
     );
 
     const normalizedIntegrations = integrations
@@ -255,7 +262,7 @@ export class SetupService {
         const credentials =
           Object.keys(integration.credentials).length > 0
             ? integration.credentials
-            : existing?.credentials ?? {};
+            : (existing?.credentials ?? {});
 
         if (Object.keys(credentials).length === 0) {
           throw new BadRequestException(

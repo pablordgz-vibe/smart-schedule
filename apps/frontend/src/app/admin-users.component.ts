@@ -23,7 +23,10 @@ import type { IdentityUserSummary } from './auth.types';
           </div>
         </div>
 
-        <form class="grid w-full gap-3 sm:grid-cols-[minmax(0,24rem)_auto] lg:w-auto" (ngSubmit)="reloadUsers()">
+        <form
+          class="grid w-full gap-3 sm:grid-cols-[minmax(0,24rem)_auto] lg:w-auto"
+          (ngSubmit)="reloadUsers()"
+        >
           <label class="form-control">
             <span class="label"><span class="label-text">Search by email, name, or id</span></span>
             <input
@@ -41,7 +44,10 @@ import type { IdentityUserSummary } from './auth.types';
       <div class="alert alert-error" *ngIf="error()">{{ error() }}</div>
       <div class="alert alert-success" *ngIf="message()">{{ message() }}</div>
 
-      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm" *ngIf="authPolicy() as policy">
+      <section
+        class="card border border-base-300 bg-base-100 p-6 shadow-sm"
+        *ngIf="authPolicy() as policy"
+      >
         <div class="grid gap-5">
           <div class="space-y-2">
             <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
@@ -51,7 +57,9 @@ import type { IdentityUserSummary } from './auth.types';
           </div>
 
           <div class="grid gap-4 xl:grid-cols-2">
-            <label class="flex items-center justify-between gap-4 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm font-medium">
+            <label
+              class="flex items-center justify-between gap-4 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-sm font-medium"
+            >
               <span>Require email verification</span>
               <input
                 class="toggle toggle-sm"
@@ -63,7 +71,9 @@ import type { IdentityUserSummary } from './auth.types';
             </label>
 
             <label class="form-control">
-              <span class="label"><span class="label-text">Minimum tier for deactivation/reactivation</span></span>
+              <span class="label"
+                ><span class="label-text">Minimum tier for deactivation/reactivation</span></span
+              >
               <input
                 class="input input-bordered w-full"
                 type="number"
@@ -87,10 +97,14 @@ import type { IdentityUserSummary } from './auth.types';
       <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div class="space-y-2">
-            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Accounts</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+              Accounts
+            </p>
             <h2 class="text-xl font-semibold">Known users</h2>
           </div>
-          <p class="text-sm text-base-content/65">{{ users().length }} users in the current result set.</p>
+          <p class="text-sm text-base-content/65">
+            {{ users().length }} users in the current result set.
+          </p>
         </div>
 
         <div class="overflow-x-auto">
@@ -115,7 +129,11 @@ import type { IdentityUserSummary } from './auth.types';
                 </td>
                 <td>{{ user.email }}</td>
                 <td>
-                  <span class="badge" [class.badge-outline]="user.state === 'active'" [class.badge-error]="user.state !== 'active'">
+                  <span
+                    class="badge"
+                    [class.badge-outline]="user.state === 'active'"
+                    [class.badge-error]="user.state !== 'active'"
+                  >
                     {{ user.state }}
                   </span>
                 </td>

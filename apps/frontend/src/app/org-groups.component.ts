@@ -10,14 +10,22 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
   template: `
     <section class="grid gap-6" data-testid="page-org-groups">
       <div class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Organization Administration</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+          Organization Administration
+        </p>
         <h1>Groups</h1>
-        <p class="text-sm leading-6 text-base-content/65">Create organization groups and manage member add/remove actions.</p>
+        <p class="text-sm leading-6 text-base-content/65">
+          Create organization groups and manage member add/remove actions.
+        </p>
 
         <div class="flex flex-wrap items-end gap-3" *ngIf="organizationId()">
           <label class="form-control grow gap-2">
             <span>New group name</span>
-            <input class="input input-bordered w-full" [(ngModel)]="groupName" [ngModelOptions]="{ standalone: true }" />
+            <input
+              class="input input-bordered w-full"
+              [(ngModel)]="groupName"
+              [ngModelOptions]="{ standalone: true }"
+            />
           </label>
           <button class="btn btn-neutral" type="button" (click)="createGroup()">
             Create group
@@ -27,64 +35,84 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
         <p *ngIf="errorMessage()" class="alert alert-error">{{ errorMessage() }}</p>
 
         <section class="grid gap-4" *ngIf="organizationId(); else noContext">
-          <article class="rounded-box border border-base-300 bg-base-100 p-4 space-y-4" *ngFor="let group of groups()" data-testid="org-group-row">
-              <div class="space-y-1">
-                <h2 class="text-lg font-semibold">{{ group.name }}</h2>
-                <p class="text-sm text-base-content/60">{{ group.members.length }} members</p>
-              </div>
-              <div class="stack-tight">
-                <label class="form-control grow gap-2">
-                  <span>Search members by name or email</span>
-                  <input
-                    class="input input-bordered w-full"
-                    [(ngModel)]="groupMemberQueries[group.id]"
-                    [ngModelOptions]="{ standalone: true }"
-                    placeholder="Search members"
-                  />
-                </label>
-                <ul class="simple-list nested">
-                  <li
-                    *ngFor="let member of availableMembersForGroup(group)"
-                    class="group-member-search-row"
-                  >
-                    <div class="flex min-w-0 flex-wrap items-center gap-2">
-                      <strong>{{ member.name }}</strong>
-                      <span class="text-sm text-base-content/60">{{ member.email }}</span>
-                    </div>
-                    <button
-                      class="btn btn-outline"
-                      type="button"
-                      (click)="addMember(group.id, member.userId)"
-                    >
-                      Add to group
-                    </button>
-                  </li>
-                  <li *ngIf="availableMembersForGroup(group).length === 0" class="text-sm text-base-content/60">
-                    No matching organization members available to add.
-                  </li>
-                </ul>
-              </div>
-
+          <article
+            class="rounded-box border border-base-300 bg-base-100 p-4 space-y-4"
+            *ngFor="let group of groups()"
+            data-testid="org-group-row"
+          >
+            <div class="space-y-1">
+              <h2 class="text-lg font-semibold">{{ group.name }}</h2>
+              <p class="text-sm text-base-content/60">{{ group.members.length }} members</p>
+            </div>
+            <div class="stack-tight">
+              <label class="form-control grow gap-2">
+                <span>Search members by name or email</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="groupMemberQueries[group.id]"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="Search members"
+                />
+              </label>
               <ul class="simple-list nested">
-                <li *ngFor="let member of group.members" class="group-member-search-row">
+                <li
+                  *ngFor="let member of availableMembersForGroup(group)"
+                  class="group-member-search-row"
+                >
                   <div class="flex min-w-0 flex-wrap items-center gap-2">
                     <strong>{{ member.name }}</strong>
                     <span class="text-sm text-base-content/60">{{ member.email }}</span>
                   </div>
-                  <button class="btn btn-outline" type="button" (click)="removeMember(group.id, member.userId)">
-                    Remove
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="addMember(group.id, member.userId)"
+                  >
+                    Add to group
                   </button>
                 </li>
-                <li *ngIf="group.members.length === 0" class="text-sm text-base-content/60">No members in this group.</li>
+                <li
+                  *ngIf="availableMembersForGroup(group).length === 0"
+                  class="text-sm text-base-content/60"
+                >
+                  No matching organization members available to add.
+                </li>
               </ul>
-            </article>
-          <p *ngIf="groups().length === 0" class="rounded-box border border-dashed border-base-300 p-4 text-sm text-base-content/60">No groups yet.</p>
+            </div>
+
+            <ul class="simple-list nested">
+              <li *ngFor="let member of group.members" class="group-member-search-row">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <strong>{{ member.name }}</strong>
+                  <span class="text-sm text-base-content/60">{{ member.email }}</span>
+                </div>
+                <button
+                  class="btn btn-outline"
+                  type="button"
+                  (click)="removeMember(group.id, member.userId)"
+                >
+                  Remove
+                </button>
+              </li>
+              <li *ngIf="group.members.length === 0" class="text-sm text-base-content/60">
+                No members in this group.
+              </li>
+            </ul>
+          </article>
+          <p
+            *ngIf="groups().length === 0"
+            class="rounded-box border border-dashed border-base-300 p-4 text-sm text-base-content/60"
+          >
+            No groups yet.
+          </p>
         </section>
 
         <ng-template #noContext>
           <article class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2>Organization context required</h2>
-            <p class="text-sm leading-6 text-base-content/65">Switch into an organization context to manage groups.</p>
+            <p class="text-sm leading-6 text-base-content/65">
+              Switch into an organization context to manage groups.
+            </p>
           </article>
         </ng-template>
       </div>

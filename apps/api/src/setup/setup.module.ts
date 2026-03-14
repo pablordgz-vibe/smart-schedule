@@ -8,7 +8,11 @@ import { SetupService } from './setup.service';
 @Global()
 @Module({
   imports: [SecurityModule],
-  controllers: [BootstrapStatusController, SetupController, SetupAdminController],
+  controllers: [
+    BootstrapStatusController,
+    SetupController,
+    SetupAdminController,
+  ],
   providers: [SetupService, IntegrationConfigService],
   exports: [SetupService, IntegrationConfigService],
 })

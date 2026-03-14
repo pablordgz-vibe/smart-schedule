@@ -75,13 +75,18 @@ function createFormState(): PolicyFormState {
 
         <p class="alert alert-warning" *ngIf="errorMessage()">{{ errorMessage() }}</p>
         <p class="alert alert-info" *ngIf="message()">{{ message() }}</p>
+        <p class="alert alert-info" *ngIf="isLoading()">Loading personal time policies…</p>
 
         <div class="two-column">
           <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h3>Create rule</h3>
             <label class="form-control gap-2">
               <span>Title</span>
-              <input class="input input-bordered w-full" [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
+              <input
+                class="input input-bordered w-full"
+                [(ngModel)]="form.title"
+                [ngModelOptions]="{ standalone: true }"
+              />
             </label>
 
             <ng-container [ngSwitch]="activeTab()">
@@ -89,14 +94,16 @@ function createFormState(): PolicyFormState {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -104,7 +111,8 @@ function createFormState(): PolicyFormState {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -117,14 +125,16 @@ function createFormState(): PolicyFormState {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Days</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -132,7 +142,8 @@ function createFormState(): PolicyFormState {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -145,14 +156,16 @@ function createFormState(): PolicyFormState {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Days</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -160,7 +173,8 @@ function createFormState(): PolicyFormState {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -173,7 +187,8 @@ function createFormState(): PolicyFormState {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Date</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="date"
                       [(ngModel)]="form.date"
                       [ngModelOptions]="{ standalone: true }"
@@ -181,7 +196,11 @@ function createFormState(): PolicyFormState {
                   </label>
                   <label class="form-control gap-2">
                     <span>Holiday name</span>
-                    <input class="input input-bordered w-full" [(ngModel)]="form.holidayName" [ngModelOptions]="{ standalone: true }" />
+                    <input
+                      class="input input-bordered w-full"
+                      [(ngModel)]="form.holidayName"
+                      [ngModelOptions]="{ standalone: true }"
+                    />
                   </label>
                 </div>
               </ng-container>
@@ -190,7 +209,8 @@ function createFormState(): PolicyFormState {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Start</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.startAt"
                       [ngModelOptions]="{ standalone: true }"
@@ -198,7 +218,8 @@ function createFormState(): PolicyFormState {
                   </label>
                   <label class="form-control gap-2">
                     <span>End</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.endAt"
                       [ngModelOptions]="{ standalone: true }"
@@ -210,7 +231,8 @@ function createFormState(): PolicyFormState {
               <ng-container *ngSwitchCase="'rest'">
                 <label class="form-control gap-2">
                   <span>Minimum rest minutes</span>
-                  <input class="input input-bordered w-full"
+                  <input
+                    class="input input-bordered w-full"
                     type="number"
                     min="1"
                     max="1440"
@@ -224,7 +246,8 @@ function createFormState(): PolicyFormState {
                 <div class="inline-fields">
                   <label class="form-control gap-2">
                     <span>Max daily minutes</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="1440"
@@ -234,7 +257,8 @@ function createFormState(): PolicyFormState {
                   </label>
                   <label class="form-control gap-2">
                     <span>Max weekly minutes</span>
-                    <input class="input input-bordered w-full"
+                    <input
+                      class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="10080"
@@ -262,7 +286,9 @@ function createFormState(): PolicyFormState {
 
             <div
               class="alert alert-warning"
-              *ngIf="holidayCatalog() && (!holidayCatalog()!.enabled || !holidayCatalog()!.configured)"
+              *ngIf="
+                holidayCatalog() && (!holidayCatalog()!.enabled || !holidayCatalog()!.configured)
+              "
             >
               <span>
                 {{
@@ -327,14 +353,18 @@ function createFormState(): PolicyFormState {
                   [disabled]="!holidayImport.countryCode"
                 >
                   <option value="">Country-wide holidays only</option>
-                  <option *ngFor="let subdivision of filteredHolidaySubdivisions()" [value]="subdivision.code ?? ''">
+                  <option
+                    *ngFor="let subdivision of filteredHolidaySubdivisions()"
+                    [value]="subdivision.code ?? ''"
+                  >
                     {{ subdivision.name }}
                   </option>
                 </select>
               </label>
               <label class="form-control gap-2">
                 <span>Year</span>
-                <input class="input input-bordered w-full"
+                <input
+                  class="input input-bordered w-full"
                   type="number"
                   [(ngModel)]="holidayYear"
                   [ngModelOptions]="{ standalone: true }"
@@ -349,10 +379,16 @@ function createFormState(): PolicyFormState {
                 {{ catalog.countries.length }} supported countries loaded
               </span>
             </div>
-            <p class="text-sm text-base-content/60" *ngIf="holidayImport.countrySearch.trim().length > 0">
+            <p
+              class="text-sm text-base-content/60"
+              *ngIf="holidayImport.countrySearch.trim().length > 0"
+            >
               Country matches: {{ filteredHolidayCountries().length }}
             </p>
-            <p class="text-sm text-base-content/60" *ngIf="holidayImport.subdivisionSearch.trim().length > 0">
+            <p
+              class="text-sm text-base-content/60"
+              *ngIf="holidayImport.subdivisionSearch.trim().length > 0"
+            >
               Region matches: {{ filteredHolidaySubdivisions().length }}
             </p>
             <p class="text-sm text-base-content/60" *ngIf="selectedHolidayLocationCode()">
@@ -363,7 +399,9 @@ function createFormState(): PolicyFormState {
             </p>
 
             <h3>Effective preview</h3>
-            <p class="alert alert-warning" *ngIf="previewErrorMessage()">{{ previewErrorMessage() }}</p>
+            <p class="alert alert-warning" *ngIf="previewErrorMessage()">
+              {{ previewErrorMessage() }}
+            </p>
             <ul class="simple-list">
               <li *ngFor="let row of previewRows()">
                 <strong>{{ formatPolicyCategory(row.category) }}</strong>
@@ -382,7 +420,11 @@ function createFormState(): PolicyFormState {
               <div>
                 <strong>{{ policy.title }}</strong>
                 <p class="text-sm leading-6 text-base-content/65">{{ describePolicy(policy) }}</p>
-                <p class="text-sm leading-6 text-base-content/55">{{ formatSourceLabel(policy.sourceType) }} · updated {{ formatDateTime(policy.updatedAt) }}</p>
+                <p class="text-sm leading-6 text-base-content/55">
+                  {{ formatSourceLabel(policy.sourceType) }} ·
+                  {{ policy.isActive ? 'active' : 'inactive' }} · updated
+                  {{ formatDateTime(policy.updatedAt) }}
+                </p>
               </div>
               <button class="btn btn-outline" type="button" (click)="removePolicy(policy.id)">
                 Delete
@@ -396,7 +438,9 @@ function createFormState(): PolicyFormState {
       </ng-container>
 
       <ng-template #wrongContext>
-        <p class="text-sm leading-6 text-base-content/65">Switch into personal context to manage personal time policies.</p>
+        <p class="text-sm leading-6 text-base-content/65">
+          Switch into personal context to manage personal time policies.
+        </p>
       </ng-template>
     </section>
   `,
@@ -454,6 +498,7 @@ export class PersonalTimePoliciesComponent {
 
   readonly activeTab = signal<TimePolicyCategory>('working_hours');
   readonly errorMessage = signal<string | null>(null);
+  readonly isLoading = signal(false);
   readonly message = signal<string | null>(null);
   readonly previewErrorMessage = signal<string | null>(null);
   readonly holidayCatalogErrorMessage = signal<string | null>(null);
@@ -503,8 +548,7 @@ export class PersonalTimePoliciesComponent {
 
     return countries.filter(
       (country) =>
-        country.name.toLowerCase().includes(search) ||
-        country.code.toLowerCase().includes(search),
+        country.name.toLowerCase().includes(search) || country.code.toLowerCase().includes(search),
     );
   });
   readonly filteredHolidaySubdivisions = computed(() => {
@@ -550,6 +594,7 @@ export class PersonalTimePoliciesComponent {
       } else {
         this.policiesState.set([]);
         this.previewState.set({});
+        this.isLoading.set(false);
       }
     });
     void this.loadHolidayCatalog();
@@ -654,9 +699,14 @@ export class PersonalTimePoliciesComponent {
   }
 
   private async reload() {
-    const policies = await this.timeApi.listPolicies();
-    this.policiesState.set(policies);
-    await this.loadPreview();
+    this.isLoading.set(true);
+    try {
+      const policies = await this.timeApi.listPolicies({ includeInactive: true });
+      this.policiesState.set(policies);
+      await this.loadPreview();
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   private async loadPreview() {
@@ -691,15 +741,13 @@ export class PersonalTimePoliciesComponent {
 
   selectedHolidayLocationLabel() {
     const country =
-      this.holidayCatalog()
-        ?.countries.find((entry) => entry.code === this.holidayImport.countryCode)
-        ?.name ?? this.holidayImport.countryCode;
+      this.holidayCatalog()?.countries.find(
+        (entry) => entry.code === this.holidayImport.countryCode,
+      )?.name ?? this.holidayImport.countryCode;
     const subdivision =
-      this.holidayCatalog()
-        ?.subdivisions.find(
-          (entry) => (entry.code ?? '') === this.holidayImport.subdivisionCode,
-        )
-        ?.name ?? '';
+      this.holidayCatalog()?.subdivisions.find(
+        (entry) => (entry.code ?? '') === this.holidayImport.subdivisionCode,
+      )?.name ?? '';
 
     return subdivision ? `${country} / ${subdivision}` : country || 'the selected location';
   }
@@ -712,12 +760,14 @@ export class PersonalTimePoliciesComponent {
       policy.policyType === 'availability' ||
       policy.policyType === 'unavailability'
     ) {
-      const days = Array.isArray(rule['daysOfWeek']) ? (rule['daysOfWeek'] as number[]).join(', ') : 'custom days';
-      return `${days} · ${rule['startTime'] ?? '--:--'} to ${rule['endTime'] ?? '--:--'}`;
+      const days = Array.isArray(rule['daysOfWeek'])
+        ? (rule['daysOfWeek'] as number[]).join(', ')
+        : 'custom days';
+      return `${days} · ${this.stringRuleValue(rule, 'startTime', '--:--')} to ${this.stringRuleValue(rule, 'endTime', '--:--')}`;
     }
 
     if (policy.policyType === 'holiday') {
-      return `${rule['date'] ?? 'No date'} · ${rule['holidayName'] ?? 'Holiday'}`;
+      return `${this.stringRuleValue(rule, 'date', 'No date')} · ${this.stringRuleValue(rule, 'holidayName', 'Holiday')}`;
     }
 
     if (policy.policyType === 'blackout') {
@@ -725,11 +775,11 @@ export class PersonalTimePoliciesComponent {
     }
 
     if (policy.policyType === 'rest') {
-      return `Minimum rest: ${rule['minRestMinutes'] ?? '?'} minutes`;
+      return `Minimum rest: ${this.stringRuleValue(rule, 'minRestMinutes', '?')} minutes`;
     }
 
     if (policy.policyType === 'max_hours') {
-      return `Daily: ${rule['maxDailyMinutes'] ?? 'n/a'} min · Weekly: ${rule['maxWeeklyMinutes'] ?? 'n/a'} min`;
+      return `Daily: ${this.stringRuleValue(rule, 'maxDailyMinutes', 'n/a')} min · Weekly: ${this.stringRuleValue(rule, 'maxWeeklyMinutes', 'n/a')} min`;
     }
 
     return '';
@@ -738,7 +788,7 @@ export class PersonalTimePoliciesComponent {
   describePreviewRules(rules: unknown[]) {
     const firstRule =
       Array.isArray(rules) && rules.length > 0 && typeof rules[0] === 'object' && rules[0] != null
-        ? (rules[0] as { rule?: Record<string, unknown> }).rule ?? {}
+        ? ((rules[0] as { rule?: Record<string, unknown> }).rule ?? {})
         : {};
 
     if (rules.length === 0) {
@@ -746,11 +796,11 @@ export class PersonalTimePoliciesComponent {
     }
 
     if (firstRule['holidayName']) {
-      return `${firstRule['holidayName']} on ${firstRule['date'] ?? 'n/a'}`;
+      return `${this.stringRuleValue(firstRule, 'holidayName')} on ${this.stringRuleValue(firstRule, 'date', 'n/a')}`;
     }
 
     if (firstRule['startTime'] || firstRule['endTime']) {
-      return `${firstRule['startTime'] ?? '--:--'} to ${firstRule['endTime'] ?? '--:--'}`;
+      return `${this.stringRuleValue(firstRule, 'startTime', '--:--')} to ${this.stringRuleValue(firstRule, 'endTime', '--:--')}`;
     }
 
     if (firstRule['startAt'] || firstRule['endAt']) {
@@ -758,11 +808,11 @@ export class PersonalTimePoliciesComponent {
     }
 
     if (firstRule['minRestMinutes']) {
-      return `Minimum rest ${firstRule['minRestMinutes']} minutes`;
+      return `Minimum rest ${this.stringRuleValue(firstRule, 'minRestMinutes')} minutes`;
     }
 
     if (firstRule['maxDailyMinutes'] || firstRule['maxWeeklyMinutes']) {
-      return `Daily ${firstRule['maxDailyMinutes'] ?? 'n/a'} · Weekly ${firstRule['maxWeeklyMinutes'] ?? 'n/a'}`;
+      return `Daily ${this.stringRuleValue(firstRule, 'maxDailyMinutes', 'n/a')} · Weekly ${this.stringRuleValue(firstRule, 'maxWeeklyMinutes', 'n/a')}`;
     }
 
     return `${rules.length} rule${rules.length === 1 ? '' : 's'} active.`;
@@ -782,6 +832,19 @@ export class PersonalTimePoliciesComponent {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(parsed);
+  }
+
+  private stringRuleValue(rule: Record<string, unknown>, key: string, fallback = '') {
+    const value = rule[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    return fallback;
   }
 
   describeActiveTab(tab: TimePolicyCategory) {

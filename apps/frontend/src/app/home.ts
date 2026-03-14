@@ -31,12 +31,17 @@ type HomeTaskSummary = {
               Upcoming work and calendar activity for {{ contextLabel() }}.
             </p>
           </div>
-          <div class="badge badge-outline h-10 px-4 text-sm">{{ upcomingEntries().length }} upcoming items</div>
+          <div class="badge badge-outline h-10 px-4 text-sm">
+            {{ upcomingEntries().length }} upcoming items
+          </div>
         </div>
 
         <p *ngIf="errorMessage()" class="alert alert-warning">{{ errorMessage() }}</p>
+        <p *ngIf="isLoading()" class="alert alert-info">Loading home summary…</p>
 
-        <div class="stats stats-vertical border border-base-300 bg-base-100 shadow-none lg:stats-horizontal">
+        <div
+          class="stats stats-vertical border border-base-300 bg-base-100 shadow-none lg:stats-horizontal"
+        >
           <div class="stat">
             <div class="stat-title">Upcoming calendar items</div>
             <div class="stat-value text-3xl">{{ upcomingEntries().length }}</div>
@@ -55,16 +60,25 @@ type HomeTaskSummary = {
           <article class="rounded-box border border-base-300 bg-base-100 p-4">
             <div class="mb-4">
               <h2 class="text-lg font-semibold">Upcoming items</h2>
-              <p class="mt-1 text-sm text-base-content/60">The next dated entries across your active calendars.</p>
+              <p class="mt-1 text-sm text-base-content/60">
+                The next dated entries across your active calendars.
+              </p>
             </div>
             <ul class="menu w-full gap-1 rounded-box bg-base-100 p-0">
               <li *ngFor="let entry of upcomingEntries()">
-                <div class="flex items-start justify-between rounded-box border border-base-300 px-4 py-3">
+                <div
+                  class="flex items-start justify-between rounded-box border border-base-300 px-4 py-3"
+                >
                   <strong class="font-medium">{{ entry.title }}</strong>
-                  <span class="text-sm text-base-content/55">{{ formatMoment(entry.startAt || entry.dueAt) }}</span>
+                  <span class="text-sm text-base-content/55">{{
+                    formatMoment(entry.startAt || entry.dueAt)
+                  }}</span>
                 </div>
               </li>
-              <li *ngIf="upcomingEntries().length === 0" class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55">
+              <li
+                *ngIf="upcomingEntries().length === 0"
+                class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55"
+              >
                 No upcoming items in the next 7 days.
               </li>
             </ul>
@@ -73,16 +87,25 @@ type HomeTaskSummary = {
           <article class="rounded-box border border-base-300 bg-base-100 p-4">
             <div class="mb-4">
               <h2 class="text-lg font-semibold">Task focus</h2>
-              <p class="mt-1 text-sm text-base-content/60">Highest-priority unfinished work for the current context.</p>
+              <p class="mt-1 text-sm text-base-content/60">
+                Highest-priority unfinished work for the current context.
+              </p>
             </div>
             <ul class="menu w-full gap-1 rounded-box bg-base-100 p-0">
               <li *ngFor="let task of prioritizedTasks()">
-                <div class="flex items-start justify-between rounded-box border border-base-300 px-4 py-3">
+                <div
+                  class="flex items-start justify-between rounded-box border border-base-300 px-4 py-3"
+                >
                   <strong class="font-medium">{{ task.title }}</strong>
-                  <span class="text-sm text-base-content/55">{{ task.status }} · {{ task.priority }}</span>
+                  <span class="text-sm text-base-content/55"
+                    >{{ task.status }} · {{ task.priority }}</span
+                  >
                 </div>
               </li>
-              <li *ngIf="prioritizedTasks().length === 0" class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55">
+              <li
+                *ngIf="prioritizedTasks().length === 0"
+                class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55"
+              >
                 No task focus items right now.
               </li>
             </ul>
@@ -98,6 +121,7 @@ export class HomeComponent {
 
   readonly contextLabel = computed(() => this.contextService.getContextLabel());
   readonly errorMessage = signal<string | null>(null);
+  readonly isLoading = signal(false);
   readonly upcomingEntries = signal<HomeCalendarEntry[]>([]);
   readonly taskSummaries = signal<HomeTaskSummary[]>([]);
   readonly openTaskCount = computed(
@@ -132,6 +156,7 @@ export class HomeComponent {
 
   private async load() {
     try {
+      this.isLoading.set(true);
       this.errorMessage.set(null);
       const from = new Date().toISOString();
       const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -145,6 +170,8 @@ export class HomeComponent {
       this.errorMessage.set(
         error instanceof Error ? error.message : 'Failed to load home summary.',
       );
+    } finally {
+      this.isLoading.set(false);
     }
   }
 

@@ -103,7 +103,9 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
 
       <div class="wizard-grid">
         <aside class="steps-card">
-          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Progress</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+            Progress
+          </p>
           <ol class="setup-steps">
             <li [class.active]="step() === 0">1. Integrations</li>
             <li [class.active]="step() === 1">2. First admin</li>
@@ -157,14 +159,22 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
                       (ngModelChange)="setMode(provider.code, $event)"
                       [ngModelOptions]="{ standalone: true }"
                     >
-                      <option *ngFor="let mode of provider.credentialModes; trackBy: trackMode" [value]="mode">
+                      <option
+                        *ngFor="let mode of provider.credentialModes; trackBy: trackMode"
+                        [value]="mode"
+                      >
                         {{ modeLabel(mode) }}
                       </option>
                     </select>
                   </label>
 
                   <label class="ui-field">
-                    <ng-container *ngIf="provider.code === 'smtp' && smtpConfigFor(provider.code) as smtpConfig; else genericSecretField">
+                    <ng-container
+                      *ngIf="
+                        provider.code === 'smtp' && smtpConfigFor(provider.code) as smtpConfig;
+                        else genericSecretField
+                      "
+                    >
                       <span>SMTP setup style</span>
                       <select
                         class="select select-bordered w-full"
@@ -177,8 +187,16 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
                       </select>
                     </ng-container>
                     <ng-template #genericSecretField>
-                      <ng-container *ngIf="credentialFields(provider.code).length > 0; else singleSecretField">
-                        <label class="ui-field" *ngFor="let field of credentialFields(provider.code); trackBy: trackCredentialField">
+                      <ng-container
+                        *ngIf="credentialFields(provider.code).length > 0; else singleSecretField"
+                      >
+                        <label
+                          class="ui-field"
+                          *ngFor="
+                            let field of credentialFields(provider.code);
+                            trackBy: trackCredentialField
+                          "
+                        >
                           <span>{{ field.label }}</span>
                           <input
                             class="input input-bordered w-full"
@@ -203,7 +221,9 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
                     </ng-template>
                   </label>
 
-                  <ng-container *ngIf="provider.code === 'smtp' && smtpConfigFor(provider.code) as smtpConfig">
+                  <ng-container
+                    *ngIf="provider.code === 'smtp' && smtpConfigFor(provider.code) as smtpConfig"
+                  >
                     <div class="smtp-config-panel" *ngIf="smtpConfig.style === 'connection-uri'">
                       <label class="ui-field">
                         <span>SMTP connection URI</span>
@@ -302,7 +322,10 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
                       <label class="provider-header smtp-checkbox">
                         <span>
                           <strong>Use secure SMTP</strong>
-                          <small>Turn this on for providers that require SSL/TLS on connect, such as port 465.</small>
+                          <small
+                            >Turn this on for providers that require SSL/TLS on connect, such as
+                            port 465.</small
+                          >
                         </span>
                         <input
                           type="checkbox"
@@ -360,11 +383,17 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
                     required
                     minlength="12"
                   />
-                  <button class="btn btn-outline" type="button" (click)="revealAdminPassword = !revealAdminPassword">
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="revealAdminPassword = !revealAdminPassword"
+                  >
                     {{ revealAdminPassword ? 'Hide' : 'Show' }}
                   </button>
                 </div>
-                <span class="field-hint">Use at least 12 characters. A longer passphrase works best.</span>
+                <span class="field-hint"
+                  >Use at least 12 characters. A longer passphrase works best.</span
+                >
               </label>
             </section>
 
@@ -394,7 +423,6 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
                   </li>
                 </ul>
               </div>
-
             </section>
 
             <section *ngSwitchCase="3" class="wizard-section">
@@ -566,7 +594,6 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
         gap: var(--spacing-5);
       }
 
-
       .wizard-section {
         display: grid;
         gap: var(--spacing-5);
@@ -689,9 +716,7 @@ export class SetupComponent {
   };
   protected revealAdminPassword = false;
 
-  private readonly selections = signal<
-    Record<string, IntegrationSelection>
-  >({});
+  private readonly selections = signal<Record<string, IntegrationSelection>>({});
 
   protected trackProvider(_index: number, provider: { code: string }) {
     return provider.code;
@@ -701,10 +726,7 @@ export class SetupComponent {
     return mode;
   }
 
-  protected trackCredentialField(
-    _index: number,
-    field: { key: string },
-  ) {
+  protected trackCredentialField(_index: number, field: { key: string }) {
     return field.key;
   }
 
@@ -961,10 +983,7 @@ export class SetupComponent {
     );
   }
 
-  private updateSelection(
-    code: string,
-    nextValue: IntegrationSelection,
-  ) {
+  private updateSelection(code: string, nextValue: IntegrationSelection) {
     this.selections.update((current) => ({
       ...current,
       [code]: nextValue,
@@ -994,17 +1013,14 @@ export class SetupComponent {
     }
 
     if (code !== 'smtp' || !selection.smtpConfig) {
-      return Object.fromEntries(
-        Object.entries(selection.credentials)
-          .map(([key, value]) => [key, value.trim()])
-          .filter(([, value]) => value.length > 0),
-      );
+      const entries = Object.entries(selection.credentials)
+        .map(([key, value]) => [key, value.trim()] as const)
+        .filter(([, value]) => value.length > 0);
+      return Object.fromEntries(entries);
     }
 
     if (selection.smtpConfig.style === 'connection-uri') {
-      return selection.smtpConfig.uri.trim()
-        ? { secret: selection.smtpConfig.uri.trim() }
-        : {};
+      return selection.smtpConfig.uri.trim() ? { secret: selection.smtpConfig.uri.trim() } : {};
     }
 
     const host = selection.smtpConfig.host.trim();
@@ -1019,23 +1035,17 @@ export class SetupComponent {
 
     return {
       secret: JSON.stringify({
-      auth: username || password ? { pass: password, user: username } : undefined,
-      fromAddress: fromAddress || undefined,
-      host,
-      port: port ? Number(port) : undefined,
-      secure: selection.smtpConfig.secure,
+        auth: username || password ? { pass: password, user: username } : undefined,
+        fromAddress: fromAddress || undefined,
+        host,
+        port: port ? Number(port) : undefined,
+        secure: selection.smtpConfig.secure,
       }),
     };
   }
 }
 
-function createEmptySmtpConfig(): SmtpConfigState {
-  return { ...EMPTY_SMTP_CONFIG };
-}
-
-function smtpPresetConfig(
-  preset: SmtpPresetId,
-): Pick<SmtpConfigState, 'host' | 'port' | 'secure'> {
+function smtpPresetConfig(preset: SmtpPresetId): Pick<SmtpConfigState, 'host' | 'port' | 'secure'> {
   switch (preset) {
     case 'gmail':
       return { host: 'smtp.gmail.com', port: '587', secure: false };

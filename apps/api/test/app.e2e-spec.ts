@@ -351,7 +351,16 @@ describe('API health endpoints (e2e)', () => {
       .set(adminHeaders)
       .expect(200);
 
-    expect(initialResponse.body.configuredIntegrations).toEqual(
+    const initialBody = initialResponse.body as {
+      configuredIntegrations: Array<{
+        code: string;
+        enabled: boolean;
+        hasCredentials: boolean;
+        mode: string;
+      }>;
+    };
+
+    expect(initialBody.configuredIntegrations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'smtp',
@@ -385,7 +394,15 @@ describe('API health endpoints (e2e)', () => {
       })
       .expect(200);
 
-    expect(updateResponse.body.configuredIntegrations).toEqual(
+    const updateBody = updateResponse.body as {
+      configuredIntegrations: Array<{
+        code: string;
+        enabled: boolean;
+        hasCredentials: boolean;
+      }>;
+    };
+
+    expect(updateBody.configuredIntegrations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           code: 'smtp',
@@ -425,7 +442,16 @@ describe('API health endpoints (e2e)', () => {
       .set(adminHeaders)
       .expect(200);
 
-    expect(outboxResponse.body.messages).toEqual(
+    const outboxBody = outboxResponse.body as {
+      messages: Array<{
+        kind: string;
+        recipientEmail: string;
+        subject: string;
+        transport: string;
+      }>;
+    };
+
+    expect(outboxBody.messages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: 'email-verification',

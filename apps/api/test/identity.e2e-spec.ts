@@ -41,12 +41,6 @@ type SessionResponse = {
   };
 };
 
-type AuthUserMutationResponse = {
-  user: {
-    authMethods: Array<{ kind: 'password' | 'social'; provider?: string }>;
-  };
-};
-
 type TokenDeliveryResponse = {
   tokenDelivery: {
     previewToken: string | null;
@@ -68,7 +62,9 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
 }
 
 function extractCookie(setCookieHeader: string | string[], cookieName: string) {
-  const values = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  const values = Array.isArray(setCookieHeader)
+    ? setCookieHeader
+    : [setCookieHeader];
   const match = values.find((value) => value.startsWith(`${cookieName}=`));
   return match?.split(';')[0] ?? null;
 }
@@ -260,9 +256,16 @@ describe('identity lifecycle (e2e)', () => {
   it('supports password reset and social link or unlink protection', async () => {
     await completeSetup();
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
       if (url.includes('oauth2.googleapis.com/token')) {
-        return Promise.resolve(jsonResponse({ access_token: 'google-access-token' }));
+        return Promise.resolve(
+          jsonResponse({ access_token: 'google-access-token' }),
+        );
       }
       if (url.includes('openidconnect.googleapis.com/v1/userinfo')) {
         return Promise.resolve(
@@ -275,7 +278,9 @@ describe('identity lifecycle (e2e)', () => {
         );
       }
       if (url.includes('github.com/login/oauth/access_token')) {
-        return Promise.resolve(jsonResponse({ access_token: 'github-access-token' }));
+        return Promise.resolve(
+          jsonResponse({ access_token: 'github-access-token' }),
+        );
       }
       if (url.endsWith('/user')) {
         return Promise.resolve(
@@ -335,7 +340,9 @@ describe('identity lifecycle (e2e)', () => {
       'smart_schedule_oauth_google',
     );
     const linkResponse = await request(getTestServer())
-      .get(`/auth/oauth/google/callback?code=google-code&state=${encodeURIComponent(googleState ?? '')}`)
+      .get(
+        `/auth/oauth/google/callback?code=google-code&state=${encodeURIComponent(googleState ?? '')}`,
+      )
       .set(
         'cookie',
         [session.cookie, googleStateCookie].filter(Boolean).join('; '),
@@ -343,7 +350,9 @@ describe('identity lifecycle (e2e)', () => {
       .redirects(0)
       .expect(302);
 
-    expect(linkResponse.headers.location).toContain('/settings?oauthStatus=google-linked');
+    expect(linkResponse.headers.location).toContain(
+      '/settings?oauthStatus=google-linked',
+    );
 
     const linkedSession = await request(getTestServer())
       .get('/auth/session')
@@ -351,7 +360,8 @@ describe('identity lifecycle (e2e)', () => {
       .expect(200);
 
     expect(
-      (linkedSession.body as SessionResponse['session']).user?.authMethods.length,
+      (linkedSession.body as SessionResponse['session']).user?.authMethods
+        .length,
     ).toBe(2);
 
     await request(getTestServer())
@@ -372,12 +382,16 @@ describe('identity lifecycle (e2e)', () => {
       'smart_schedule_oauth_github',
     );
     const socialOnlyResponse = await request(getTestServer())
-      .get(`/auth/oauth/github/callback?code=github-code&state=${encodeURIComponent(githubState ?? '')}`)
+      .get(
+        `/auth/oauth/github/callback?code=github-code&state=${encodeURIComponent(githubState ?? '')}`,
+      )
       .set('cookie', [githubStateCookie].filter(Boolean).join('; '))
       .redirects(0)
       .expect(302);
 
-    expect(socialOnlyResponse.headers.location).toContain('/home?oauthStatus=github-signed-in');
+    expect(socialOnlyResponse.headers.location).toContain(
+      '/home?oauthStatus=github-signed-in',
+    );
 
     const socialCookie = extractCookie(
       socialOnlyResponse.headers['set-cookie'],
@@ -387,7 +401,8 @@ describe('identity lifecycle (e2e)', () => {
       .get('/auth/session')
       .set('cookie', socialCookie)
       .expect(200);
-    const socialCsrf = (socialSession.body as SessionResponse['session']).csrfToken!;
+    const socialCsrf = (socialSession.body as SessionResponse['session'])
+      .csrfToken!;
 
     await request(getTestServer())
       .post('/auth/providers/github/unlink')

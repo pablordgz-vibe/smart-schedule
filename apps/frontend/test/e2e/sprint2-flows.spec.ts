@@ -4,13 +4,57 @@ type ContextKey = 'org:org-1' | 'personal' | 'system';
 
 type MockState = {
   activeContextKey: ContextKey;
-  calendars: Array<{ id: string; name: string; ownerUserId: string | null; type?: 'organization' | 'personal' }>;
-  groups: Array<{ id: string; members: Array<{ userId: string; name: string; email: string }>; name: string }>;
+  calendars: Array<{
+    id: string;
+    name: string;
+    ownerUserId: string | null;
+    type?: 'organization' | 'personal';
+  }>;
+  groups: Array<{
+    id: string;
+    members: Array<{ userId: string; name: string; email: string }>;
+    name: string;
+  }>;
   memberships: Array<{ userId: string; name: string; email: string; role: 'admin' | 'member' }>;
-  orgInvitations: Array<{ id: string; invitedEmail: string; role: 'admin' | 'member'; previewInviteCode?: string }>;
-  outbox: Array<{ createdAt: string; expiresAt: string; id: string; kind: string; recipientEmail: string; subject: string; transport: string }>;
-  integrationConfig: Array<{ code: string; enabled: boolean; hasCredentials: boolean; mode: 'api-key' | 'provider-login'; updatedAt: string }>;
-  tasks: Array<{ allocation: { allocatedMinutes: number; estimateMinutes: number | null; overAllocated: boolean; remainingMinutes: number | null }; dueAt: string | null; estimatedDurationMinutes: number | null; id: string; priority: 'low' | 'medium' | 'high' | 'urgent'; status: 'todo' | 'in_progress' | 'blocked' | 'completed'; subtaskSummary: { completed: number; total: number }; taskDependencyCount: number; title: string; workRelated: boolean }>;
+  orgInvitations: Array<{
+    id: string;
+    invitedEmail: string;
+    role: 'admin' | 'member';
+    previewInviteCode?: string;
+  }>;
+  outbox: Array<{
+    createdAt: string;
+    expiresAt: string;
+    id: string;
+    kind: string;
+    recipientEmail: string;
+    subject: string;
+    transport: string;
+  }>;
+  integrationConfig: Array<{
+    code: string;
+    enabled: boolean;
+    hasCredentials: boolean;
+    mode: 'api-key' | 'provider-login';
+    updatedAt: string;
+  }>;
+  tasks: Array<{
+    allocation: {
+      allocatedMinutes: number;
+      estimateMinutes: number | null;
+      overAllocated: boolean;
+      remainingMinutes: number | null;
+    };
+    dueAt: string | null;
+    estimatedDurationMinutes: number | null;
+    id: string;
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    status: 'todo' | 'in_progress' | 'blocked' | 'completed';
+    subtaskSummary: { completed: number; total: number };
+    taskDependencyCount: number;
+    title: string;
+    workRelated: boolean;
+  }>;
 };
 
 function buildSessionPayload(state: MockState) {
@@ -89,7 +133,12 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
       { userId: 'user-2', name: 'Mina Member', email: 'mina@example.com', role: 'member' },
     ],
     orgInvitations: [
-      { id: 'inv-1', invitedEmail: 'new.person@example.com', role: 'member', previewInviteCode: 'preview-1' },
+      {
+        id: 'inv-1',
+        invitedEmail: 'new.person@example.com',
+        role: 'member',
+        previewInviteCode: 'preview-1',
+      },
     ],
     outbox: [
       {
@@ -103,11 +152,22 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
       },
     ],
     integrationConfig: [
-      { code: 'smtp', enabled: true, hasCredentials: true, mode: 'api-key', updatedAt: '2026-03-13T09:00:00.000Z' },
+      {
+        code: 'smtp',
+        enabled: true,
+        hasCredentials: true,
+        mode: 'api-key',
+        updatedAt: '2026-03-13T09:00:00.000Z',
+      },
     ],
     tasks: [
       {
-        allocation: { allocatedMinutes: 0, estimateMinutes: 60, overAllocated: false, remainingMinutes: 60 },
+        allocation: {
+          allocatedMinutes: 0,
+          estimateMinutes: 60,
+          overAllocated: false,
+          remainingMinutes: 60,
+        },
         dueAt: '2026-03-14T09:00:00.000Z',
         estimatedDurationMinutes: 60,
         id: 'task-1',
@@ -119,7 +179,12 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
         workRelated: true,
       },
       {
-        allocation: { allocatedMinutes: 0, estimateMinutes: 30, overAllocated: false, remainingMinutes: 30 },
+        allocation: {
+          allocatedMinutes: 0,
+          estimateMinutes: 30,
+          overAllocated: false,
+          remainingMinutes: 30,
+        },
         dueAt: null,
         estimatedDurationMinutes: 30,
         id: 'task-2',
@@ -144,7 +209,10 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
       return fulfillJson(route, buildSessionPayload(state));
     }
     if (path === '/api/auth/context') {
-      const body = route.request().postDataJSON() as { contextType?: 'organization' | 'personal' | 'system'; organizationId?: string };
+      const body = route.request().postDataJSON() as {
+        contextType?: 'organization' | 'personal' | 'system';
+        organizationId?: string;
+      };
       state.activeContextKey =
         body.contextType === 'organization' && body.organizationId === 'org-1'
           ? 'org:org-1'
@@ -154,7 +222,9 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
       return fulfillJson(route, { session: buildSessionPayload(state) });
     }
     if (path === '/api/org/organizations/mine') {
-      return fulfillJson(route, { organizations: [{ id: 'org-1', membershipRole: 'admin', name: 'Atlas Ops' }] });
+      return fulfillJson(route, {
+        organizations: [{ id: 'org-1', membershipRole: 'admin', name: 'Atlas Ops' }],
+      });
     }
     if (path === '/api/org/invitations/mine') {
       return fulfillJson(route, { invitations: [] });
@@ -165,7 +235,12 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
     if (path === '/api/org/organizations/org-1/invitations') {
       if (route.request().method() === 'POST') {
         const body = route.request().postDataJSON() as { email: string; role: 'admin' | 'member' };
-        state.orgInvitations.unshift({ id: `inv-${state.orgInvitations.length + 1}`, invitedEmail: body.email, role: body.role, previewInviteCode: 'preview-new' });
+        state.orgInvitations.unshift({
+          id: `inv-${state.orgInvitations.length + 1}`,
+          invitedEmail: body.email,
+          role: body.role,
+          previewInviteCode: 'preview-new',
+        });
         return fulfillJson(route, { invitation: state.orgInvitations[0] }, 201);
       }
       return fulfillJson(route, { invitations: state.orgInvitations });
@@ -178,11 +253,18 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
       }
       return fulfillJson(route, { groups: state.groups });
     }
-    if (path === '/api/org/organizations/org-1/groups/grp-1/members' && route.request().method() === 'POST') {
+    if (
+      path === '/api/org/organizations/org-1/groups/grp-1/members' &&
+      route.request().method() === 'POST'
+    ) {
       const body = route.request().postDataJSON() as { userId: string };
       const member = state.memberships.find((entry) => entry.userId === body.userId);
       if (member) {
-        state.groups[0].members.push({ email: member.email, name: member.name, userId: member.userId });
+        state.groups[0].members.push({
+          email: member.email,
+          name: member.name,
+          userId: member.userId,
+        });
       }
       return fulfillJson(route, { result: { ok: true } });
     }
@@ -197,14 +279,32 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
         })),
       });
     }
-    if (path.startsWith('/api/org/organizations/org-1/calendars/') && route.request().method() === 'POST') {
+    if (
+      path.startsWith('/api/org/organizations/org-1/calendars/') &&
+      route.request().method() === 'POST'
+    ) {
       return fulfillJson(route, { result: { ok: true } });
     }
-    if (path.startsWith('/api/org/organizations/org-1/calendars/') && route.request().method() === 'DELETE') {
+    if (
+      path.startsWith('/api/org/organizations/org-1/calendars/') &&
+      route.request().method() === 'DELETE'
+    ) {
       return fulfillJson(route, { result: { ok: true } });
     }
     if (path === '/api/cal/calendars') {
-      return fulfillJson(route, { calendars: state.activeContextKey === 'personal' ? [{ id: 'cal-personal-1', name: 'Personal', ownerUserId: 'demo-user', type: 'personal' }] : state.calendars });
+      return fulfillJson(route, {
+        calendars:
+          state.activeContextKey === 'personal'
+            ? [
+                {
+                  id: 'cal-personal-1',
+                  name: 'Personal',
+                  ownerUserId: 'demo-user',
+                  type: 'personal',
+                },
+              ]
+            : state.calendars,
+      });
     }
     if (path === '/api/cal/contacts/imported') {
       return fulfillJson(route, { contacts: [] });
@@ -235,7 +335,12 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
           allDay: false,
           allDayEndDate: null,
           allDayStartDate: null,
-          allocation: { allocatedMinutes: 0, estimateMinutes: null, overAllocated: false, remainingMinutes: null },
+          allocation: {
+            allocatedMinutes: 0,
+            estimateMinutes: null,
+            overAllocated: false,
+            remainingMinutes: null,
+          },
           attachments: [],
           calendars: [{ calendarId: 'cal-org-1', calendarName: 'Operations' }],
           contacts: [],
@@ -257,14 +362,23 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
     }
     if (path === '/api/admin/global-integrations') {
       if (route.request().method() === 'PATCH') {
-        const body = route.request().postDataJSON() as { integrations: Array<{ code: string; enabled: boolean; mode: 'api-key' | 'provider-login'; credentials: Record<string, string> }> };
-        state.integrationConfig = body.integrations.filter((entry) => entry.enabled).map((entry) => ({
-          code: entry.code,
-          enabled: entry.enabled,
-          hasCredentials: Object.keys(entry.credentials).length > 0 || entry.code === 'smtp',
-          mode: entry.mode,
-          updatedAt: '2026-03-13T12:00:00.000Z',
-        }));
+        const body = route.request().postDataJSON() as {
+          integrations: Array<{
+            code: string;
+            enabled: boolean;
+            mode: 'api-key' | 'provider-login';
+            credentials: Record<string, string>;
+          }>;
+        };
+        state.integrationConfig = body.integrations
+          .filter((entry) => entry.enabled)
+          .map((entry) => ({
+            code: entry.code,
+            enabled: entry.enabled,
+            hasCredentials: Object.keys(entry.credentials).length > 0 || entry.code === 'smtp',
+            mode: entry.mode,
+            updatedAt: '2026-03-13T12:00:00.000Z',
+          }));
       }
       return fulfillJson(route, {
         configuredIntegrations: state.integrationConfig,
@@ -297,18 +411,26 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
   return state;
 }
 
-test('organization overview shows members and invitation delivery messaging without context errors', async ({ page }) => {
+test('organization overview shows members and invitation delivery messaging without context errors', async ({
+  page,
+}) => {
   await mockSprint2Apis(page, 'org:org-1');
   await page.goto('/org/overview');
 
   await expect(page.getByTestId('page-org-overview')).toBeVisible();
   await expect(page.getByText('Organization members')).toBeVisible();
-  await expect(page.getByText('Invitations are issued to the recipient email address.')).toBeVisible();
+  await expect(
+    page.getByText('Invitations are issued to the recipient email address.'),
+  ).toBeVisible();
   await expect(page.getByText('Alex Admin')).toBeVisible();
-  await expect(page.getByText('The active context is not permitted for this route.')).toHaveCount(0);
+  await expect(page.getByText('The active context is not permitted for this route.')).toHaveCount(
+    0,
+  );
 });
 
-test('group and calendar admin flows use searchable/selectable members instead of raw ids', async ({ page }) => {
+test('group and calendar admin flows use searchable/selectable members instead of raw ids', async ({
+  page,
+}) => {
   await mockSprint2Apis(page, 'org:org-1');
   await page.goto('/org/groups');
 
@@ -321,7 +443,9 @@ test('group and calendar admin flows use searchable/selectable members instead o
   await expect(page.getByTestId('page-org-calendars').getByLabel('User')).toBeVisible();
 });
 
-test('calendar page renders the day grid without calendarIds validation noise', async ({ page }) => {
+test('calendar page renders the day grid without calendarIds validation noise', async ({
+  page,
+}) => {
   await mockSprint2Apis(page, 'org:org-1');
   await page.goto('/calendar');
 
@@ -334,12 +458,17 @@ test('calendar page renders the day grid without calendarIds validation noise', 
 test('settings actions submit without empty-body parser errors', async ({ page }) => {
   await mockSprint2Apis(page, 'personal');
   await page.goto('/settings');
+  await expect(page.getByTestId('page-settings')).toBeVisible();
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/auth\/sign-in$/);
 
   await page.goto('/settings');
+  await expect(page.getByTestId('page-settings')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Demo User' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Delete account' }).click();
+  await expect(page.getByLabel('Confirmation text')).toBeVisible();
   await page.getByLabel('Confirmation text').fill('DELETE');
   await page.getByRole('button', { name: 'Confirm deletion' }).click();
   await expect(page).toHaveURL(/\/auth\/recover-account$/);
@@ -355,7 +484,9 @@ test('system admin can review email provider configuration and mail queue', asyn
   await expect(page.getByText('new.person@example.com')).toBeVisible();
 });
 
-test('task dependencies can be selected from task search instead of typing ids', async ({ page }) => {
+test('task dependencies can be selected from task search instead of typing ids', async ({
+  page,
+}) => {
   await mockSprint2Apis(page, 'personal');
   await page.goto('/tasks');
 

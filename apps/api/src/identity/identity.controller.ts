@@ -21,6 +21,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -30,6 +31,7 @@ import type {
   AuthMutationResult,
   AuthSessionSnapshot,
   SocialProviderCode,
+  UserSettingsSnapshot,
 } from '@smart-schedule/contracts';
 import { Public } from '../security/public-route.decorator';
 import {
@@ -97,6 +99,26 @@ class LinkSocialDto {
   @IsString()
   @MinLength(3)
   providerSubject!: string;
+}
+
+class UpdateUserSettingsDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  locale?: string;
+
+  @IsOptional()
+  @IsIn(['12h', '24h'])
+  timeFormat?: '12h' | '24h';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  timezone?: string;
+
+  @IsOptional()
+  @IsIn(['monday', 'sunday'])
+  weekStartsOn?: 'monday' | 'sunday';
 }
 
 class UpdateAuthConfigDto {
@@ -250,7 +272,7 @@ export class IdentityController {
 
   @Public()
   @Post('auth/sign-in/social')
-  async signInWithSocial(@Body() body: SocialAuthDto) {
+  signInWithSocial(@Body() body: SocialAuthDto) {
     void body;
     throw new BadRequestException(
       'Direct social sign-in is disabled. Start the OAuth flow instead.',
@@ -276,22 +298,15 @@ export class IdentityController {
       intent,
       provider,
       request,
-      returnTo:
-        query.returnTo ?? (intent === 'link' ? '/settings' : '/home'),
+      returnTo: query.returnTo ?? (intent === 'link' ? '/settings' : '/home'),
     });
-    const state =
-      new URL(authorizationUrl).searchParams.get('state') ?? '';
+    const state = new URL(authorizationUrl).searchParams.get('state') ?? '';
 
-    setCookie(
-      response,
-      oauthStateCookieName(provider),
-      state,
-      {
-        maxAge: 10 * 60,
-        path: oauthStateCookiePath,
-        sameSite: 'lax',
-      },
-    );
+    setCookie(response, oauthStateCookieName(provider), state, {
+      maxAge: 10 * 60,
+      path: oauthStateCookiePath,
+      sameSite: 'lax',
+    });
 
     response.code(302);
     return response.redirect(authorizationUrl);
@@ -307,7 +322,9 @@ export class IdentityController {
     @Req() request: ApiRequest,
     @Res() response: FastifyReply,
   ) {
-    const stateCookie = parseCookieHeader(request).get(oauthStateCookieName(provider));
+    const stateCookie = parseCookieHeader(request).get(
+      oauthStateCookieName(provider),
+    );
     clearCookie(response, oauthStateCookieName(provider), oauthStateCookiePath);
 
     if (!stateCookie || !state || stateCookie !== state) {
@@ -364,9 +381,13 @@ export class IdentityController {
 
         response.code(302);
         return response.redirect(
-          this.oauthService.buildFrontendRedirect(request, oauthState.returnTo, {
-            oauthStatus: `${provider}-linked`,
-          }),
+          this.oauthService.buildFrontendRedirect(
+            request,
+            oauthState.returnTo,
+            {
+              oauthStatus: `${provider}-linked`,
+            },
+          ),
         );
       }
 
@@ -455,13 +476,12 @@ export class IdentityController {
     requireContextId: true,
   })
   @Post('auth/providers/link')
-  async linkProvider(@Req() request: ApiRequest, @Body() body: LinkSocialDto) {
-    return {
-      user: await this.identityService.linkSocialIdentity(
-        request.requestContext!.actor.id!,
-        body,
-      ),
-    };
+  linkProvider(@Req() request: ApiRequest, @Body() body: LinkSocialDto) {
+    void request;
+    void body;
+    throw new BadRequestException(
+      'Social provider linking must complete through the OAuth link flow.',
+    );
   }
 
   @SecurityPolicy({
@@ -531,6 +551,36 @@ export class IdentityController {
     clearSessionCookie(response);
     return {
       loggedOut: true,
+    };
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    requireContextId: true,
+  })
+  @Get('auth/settings')
+  async getUserSettings(@Req() request: ApiRequest) {
+    return {
+      settings: await this.identityService.getUserSettings(
+        request.requestContext!.actor.id!,
+      ),
+    };
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    requireContextId: true,
+  })
+  @Patch('auth/settings')
+  async updateUserSettings(
+    @Req() request: ApiRequest,
+    @Body() body: UpdateUserSettingsDto,
+  ): Promise<{ settings: UserSettingsSnapshot }> {
+    return {
+      settings: await this.identityService.updateUserSettings(
+        request.requestContext!.actor.id!,
+        body,
+      ),
     };
   }
 
@@ -679,7 +729,9 @@ export class IdentityController {
   private async buildAuthConfiguration() {
     const config = await this.identityService.getAuthConfiguration();
     const configuredProviders = new Set(
-      (await this.oauthService.getConfiguredProviders()).map((provider) => provider.code),
+      (await this.oauthService.getConfiguredProviders()).map(
+        (provider) => provider.code,
+      ),
     );
     return {
       ...config,

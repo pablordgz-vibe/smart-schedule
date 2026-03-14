@@ -398,7 +398,9 @@ describe('organizations and context switching (e2e)', () => {
       ownerCalendars.find((calendar) => calendar.name === 'Alice Duty')
         ?.visibilityGrants,
     ).toEqual(
-      expect.arrayContaining([expect.objectContaining({ userId: bobMemberId })]),
+      expect.arrayContaining([
+        expect.objectContaining({ userId: bobMemberId }),
+      ]),
     );
 
     const bobAfterGrant = await request(getTestServer())

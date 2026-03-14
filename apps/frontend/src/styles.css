@@ -18,8 +18,7 @@ body {
   padding: 0;
   font-family: var(--font-family);
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.88)),
-    var(--bg-app);
+    linear-gradient(180deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.88)), var(--bg-app);
   color: var(--text-primary);
   text-rendering: optimizeLegibility;
 }

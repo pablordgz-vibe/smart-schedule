@@ -724,7 +724,13 @@ export function buildOpenApiDocument() {
             description: { type: 'string' },
             displayName: { type: 'string' },
           },
-          required: ['category', 'code', 'credentialModes', 'description', 'displayName'],
+          required: [
+            'category',
+            'code',
+            'credentialModes',
+            'description',
+            'displayName',
+          ],
           type: 'object',
         },
         AdminConfiguredIntegration: {
@@ -746,7 +752,9 @@ export function buildOpenApiDocument() {
           additionalProperties: false,
           properties: {
             configuredIntegrations: {
-              items: { $ref: '#/components/schemas/AdminConfiguredIntegration' },
+              items: {
+                $ref: '#/components/schemas/AdminConfiguredIntegration',
+              },
               type: 'array',
             },
             edition: {
@@ -1096,15 +1104,19 @@ export function buildOpenApiDocument() {
           security: authenticatedSecurity,
           responses: {
             '200': {
-              description: 'Configured global integrations and available providers for system admins.',
+              description:
+                'Configured global integrations and available providers for system admins.',
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/AdminGlobalIntegrationsResponse' },
+                  schema: {
+                    $ref: '#/components/schemas/AdminGlobalIntegrationsResponse',
+                  },
                 },
               },
             },
             '403': {
-              description: 'Only system administrators in system context may access this route.',
+              description:
+                'Only system administrators in system context may access this route.',
             },
           },
         },
@@ -1117,7 +1129,9 @@ export function buildOpenApiDocument() {
               description: 'Global integration settings updated.',
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/AdminGlobalIntegrationsResponse' },
+                  schema: {
+                    $ref: '#/components/schemas/AdminGlobalIntegrationsResponse',
+                  },
                 },
               },
             },
@@ -1130,7 +1144,8 @@ export function buildOpenApiDocument() {
               },
             },
             '403': {
-              description: 'Only system administrators in system context may access this route.',
+              description:
+                'Only system administrators in system context may access this route.',
             },
           },
         },
@@ -1142,7 +1157,8 @@ export function buildOpenApiDocument() {
           security: authenticatedSecurity,
           responses: {
             '200': {
-              description: 'Queued and delivered mail summary for system administrators.',
+              description:
+                'Queued and delivered mail summary for system administrators.',
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/MailOutboxResponse' },
@@ -1150,7 +1166,8 @@ export function buildOpenApiDocument() {
               },
             },
             '403': {
-              description: 'Only system administrators in system context may access this route.',
+              description:
+                'Only system administrators in system context may access this route.',
             },
           },
         },

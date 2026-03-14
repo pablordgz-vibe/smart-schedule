@@ -32,7 +32,9 @@ function resolveMigrationsDir() {
   return resolved;
 }
 
-async function readMigrationFiles(migrationsDir = resolveMigrationsDir()): Promise<MigrationFile[]> {
+async function readMigrationFiles(
+  migrationsDir = resolveMigrationsDir(),
+): Promise<MigrationFile[]> {
   const entries = await readdir(migrationsDir, { withFileTypes: true });
   const fileNames = entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
@@ -48,11 +50,15 @@ async function readMigrationFiles(migrationsDir = resolveMigrationsDir()): Promi
 }
 
 export async function applyMigrations(databaseClient: DatabaseClient) {
-  const client = isPool(databaseClient) ? await databaseClient.connect() : databaseClient;
+  const client = isPool(databaseClient)
+    ? await databaseClient.connect()
+    : databaseClient;
   let lockAcquired = false;
 
   try {
-    await client.query(`select pg_advisory_lock(hashtext($1))`, [migrationsLockId]);
+    await client.query(`select pg_advisory_lock(hashtext($1))`, [
+      migrationsLockId,
+    ]);
     lockAcquired = true;
 
     await client.query(`
@@ -66,7 +72,9 @@ export async function applyMigrations(databaseClient: DatabaseClient) {
     const appliedResult = await client.query<{ id: string }>(
       `select id from ${schemaMigrationsTable}`,
     );
-    const applied = new Set(appliedResult.rows.map((row: { id: string }) => row.id));
+    const applied = new Set(
+      appliedResult.rows.map((row: { id: string }) => row.id),
+    );
     const executed: string[] = [];
 
     for (const migration of migrationFiles) {
@@ -77,9 +85,10 @@ export async function applyMigrations(databaseClient: DatabaseClient) {
       await client.query('begin');
       try {
         await client.query(migration.sql);
-        await client.query(`insert into ${schemaMigrationsTable} (id) values ($1)`, [
-          migration.name,
-        ]);
+        await client.query(
+          `insert into ${schemaMigrationsTable} (id) values ($1)`,
+          [migration.name],
+        );
         await client.query('commit');
         executed.push(migration.name);
       } catch (error) {

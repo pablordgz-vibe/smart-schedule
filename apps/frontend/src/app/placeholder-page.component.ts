@@ -17,7 +17,9 @@ import { DirtyStateService } from './dirty-state.service';
             <h1 class="mt-3 text-3xl font-semibold tracking-tight">{{ title() }}</h1>
             <p class="mt-2 text-sm leading-6 text-base-content/65">{{ description() }}</p>
           </div>
-          <div class="badge badge-outline h-10 px-4 text-sm" data-testid="page-context-chip">{{ contextLabel() }}</div>
+          <div class="badge badge-outline h-10 px-4 text-sm" data-testid="page-context-chip">
+            {{ contextLabel() }}
+          </div>
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">
@@ -30,7 +32,8 @@ import { DirtyStateService } from './dirty-state.service';
           <div class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2 class="text-lg font-semibold">Sprint 0 Status</h2>
             <p class="mt-2 text-sm leading-6 text-base-content/60">
-              Skeleton route wired for navigation, guards, localization, and PWA-safe shell behavior.
+              Skeleton route wired for navigation, guards, localization, and PWA-safe shell
+              behavior.
             </p>
           </div>
         </div>
@@ -77,11 +80,7 @@ import { DirtyStateService } from './dirty-state.service';
         </div>
 
         <div>
-          <a
-            *ngIf="showBuilderLink()"
-            class="btn btn-outline"
-            routerLink="/schedules/builder"
-          >
+          <a *ngIf="showBuilderLink()" class="btn btn-outline" routerLink="/schedules/builder">
             Open Schedule Builder
           </a>
         </div>

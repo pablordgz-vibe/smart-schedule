@@ -32,6 +32,9 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: Build
+        run: pnpm run build
+
       - name: Boundary Check
         run: pnpm run boundary:check
 
@@ -40,6 +43,12 @@ jobs:
 
       - name: Unit Tests
         run: pnpm run test
+
+      - name: Repo Coverage Gate
+        run: pnpm run coverage:repo
+
+      - name: Critical Coverage Gate
+        run: pnpm run coverage:critical
 
   smoke-gate:
     runs-on: ubuntu-latest

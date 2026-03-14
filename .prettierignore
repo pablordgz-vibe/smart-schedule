@@ -1,0 +1,7 @@
+apps/**/coverage/**
+packages/**/coverage/**
+apps/**/dist/**
+packages/**/dist/**
+apps/frontend/playwright-report/**
+apps/frontend/test-results/**
+*.tsbuildinfo

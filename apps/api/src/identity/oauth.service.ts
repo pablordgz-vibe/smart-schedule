@@ -1,10 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { SocialProviderCode, SocialProviderDescriptor } from '@smart-schedule/contracts';
-import {
-  createHmac,
-  randomUUID,
-  timingSafeEqual,
-} from 'node:crypto';
+import type {
+  SocialProviderCode,
+  SocialProviderDescriptor,
+} from '@smart-schedule/contracts';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { ApiRequest } from '../security/request-context.types';
 import { getHeaderValue } from '../security/http-platform';
 import { DatabaseService } from '../persistence/database.service';
@@ -56,39 +55,41 @@ function normalizeEmail(value: string) {
 @Injectable()
 export class OAuthService {
   private readonly sessionSecret =
-    process.env.SESSION_SECRET ??
-    'development-session-secret-must-change-0001';
+    process.env.SESSION_SECRET ?? 'development-session-secret-must-change-0001';
 
   constructor(private readonly databaseService: DatabaseService) {}
 
-  private readonly providers: Record<SocialProviderCode, OAuthProviderDefinition> =
-    {
-      google: {
-        authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-        integrationCode: 'google-social-auth',
-        getScopes: () => ['openid', 'email', 'profile'],
-        resolveProfile: ({ accessToken }) =>
-          this.fetchGoogleProfile({ accessToken }),
-        resolveTokenUrl: () => 'https://oauth2.googleapis.com/token',
-      },
-      github: {
-        authorizeUrl: 'https://github.com/login/oauth/authorize',
-        integrationCode: 'github-social-auth',
-        getScopes: () => ['read:user', 'user:email'],
-        resolveProfile: ({ accessToken }) =>
-          this.fetchGitHubProfile({ accessToken }),
-        resolveTokenUrl: () => 'https://github.com/login/oauth/access_token',
-      },
-      microsoft: {
-        authorizeUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-        integrationCode: 'microsoft-social-auth',
-        getScopes: () => ['openid', 'email', 'profile', 'User.Read'],
-        resolveProfile: ({ accessToken }) =>
-          this.fetchMicrosoftProfile({ accessToken }),
-        resolveTokenUrl: () =>
-          'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-      },
-    };
+  private readonly providers: Record<
+    SocialProviderCode,
+    OAuthProviderDefinition
+  > = {
+    google: {
+      authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      integrationCode: 'google-social-auth',
+      getScopes: () => ['openid', 'email', 'profile'],
+      resolveProfile: ({ accessToken }) =>
+        this.fetchGoogleProfile({ accessToken }),
+      resolveTokenUrl: () => 'https://oauth2.googleapis.com/token',
+    },
+    github: {
+      authorizeUrl: 'https://github.com/login/oauth/authorize',
+      integrationCode: 'github-social-auth',
+      getScopes: () => ['read:user', 'user:email'],
+      resolveProfile: ({ accessToken }) =>
+        this.fetchGitHubProfile({ accessToken }),
+      resolveTokenUrl: () => 'https://github.com/login/oauth/access_token',
+    },
+    microsoft: {
+      authorizeUrl:
+        'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+      integrationCode: 'microsoft-social-auth',
+      getScopes: () => ['openid', 'email', 'profile', 'User.Read'],
+      resolveProfile: ({ accessToken }) =>
+        this.fetchMicrosoftProfile({ accessToken }),
+      resolveTokenUrl: () =>
+        'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    },
+  };
 
   async getConfiguredProviders() {
     const supported = await this.loadConfiguredProviderCodes();
@@ -98,7 +99,9 @@ export class OAuthService {
   async getAvailableProviders(
     supportedProviders: SocialProviderCode[],
   ): Promise<SocialProviderDescriptor[]> {
-    const configuredProviders = new Set(await this.loadConfiguredProviderCodes());
+    const configuredProviders = new Set(
+      await this.loadConfiguredProviderCodes(),
+    );
     return supportedProviders
       .filter((provider) => configuredProviders.has(provider))
       .map((provider) => socialProviderCatalog[provider]);
@@ -119,13 +122,16 @@ export class OAuthService {
     const callbackUrl = this.buildCallbackUrl(input.request, input.provider);
     const state = this.signState({
       actorId:
-        input.intent === 'link' ? input.request.requestContext?.actor.id ?? null : null,
+        input.intent === 'link'
+          ? (input.request.requestContext?.actor.id ?? null)
+          : null,
       expiresAt: Date.now() + oauthStateTtlMs,
       intent: input.intent,
       nonce: randomUUID(),
       provider: input.provider,
       returnTo: this.normalizeReturnTo(input.request, input.returnTo),
-      sessionId: input.intent === 'link' ? input.request.session?.id ?? null : null,
+      sessionId:
+        input.intent === 'link' ? (input.request.session?.id ?? null) : null,
     });
 
     const url = new URL(provider.authorizeUrl);
@@ -157,7 +163,10 @@ export class OAuthService {
       .digest('base64url');
     const actual = Buffer.from(signature);
     const expected = Buffer.from(expectedSignature);
-    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+    if (
+      actual.length !== expected.length ||
+      !timingSafeEqual(actual, expected)
+    ) {
       throw new BadRequestException('Invalid OAuth state signature.');
     }
 
@@ -238,7 +247,7 @@ export class OAuthService {
       throw new BadRequestException(
         'Return targets must stay within the current application origin.',
       );
-    };
+    }
 
     return `${resolved.pathname}${resolved.search}${resolved.hash}`;
   }
@@ -248,10 +257,14 @@ export class OAuthService {
   ): Promise<ConfiguredOAuthProviderDefinition> {
     const definition = this.providers[provider];
     if (!definition) {
-      throw new BadRequestException(`Unsupported social provider: ${provider}.`);
+      throw new BadRequestException(
+        `Unsupported social provider: ${provider}.`,
+      );
     }
 
-    const integration = await this.readProviderIntegration(definition.integrationCode);
+    const integration = await this.readProviderIntegration(
+      definition.integrationCode,
+    );
     if (!integration?.enabled) {
       throw new BadRequestException(
         `${socialProviderCatalog[provider].displayName} sign-in is not configured.`,
@@ -284,7 +297,9 @@ export class OAuthService {
 
   private resolveApiBaseUrl(request: Pick<ApiRequest, 'headers' | 'protocol'>) {
     const forwardedProto = getHeaderValue(request, 'x-forwarded-proto');
-    const host = getHeaderValue(request, 'x-forwarded-host') ?? getHeaderValue(request, 'host');
+    const host =
+      getHeaderValue(request, 'x-forwarded-host') ??
+      getHeaderValue(request, 'host');
     if (!host) {
       throw new BadRequestException('Unable to resolve the application host.');
     }
@@ -292,7 +307,9 @@ export class OAuthService {
     return `${forwardedProto ?? request.protocol ?? 'http'}://${host}`;
   }
 
-  private resolveReturnBaseUrl(request: Pick<ApiRequest, 'headers' | 'protocol'>) {
+  private resolveReturnBaseUrl(
+    request: Pick<ApiRequest, 'headers' | 'protocol'>,
+  ) {
     const originHeader = getHeaderValue(request, 'origin');
     if (originHeader) {
       return originHeader;
@@ -307,7 +324,9 @@ export class OAuthService {
   }
 
   private signState(payload: OAuthStatePayload) {
-    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
+      'base64url',
+    );
     const signature = createHmac('sha256', this.sessionSecret)
       .update(encodedPayload)
       .digest('base64url');
@@ -320,13 +339,13 @@ export class OAuthService {
     provider: SocialProviderCode,
   ) {
     const value = credentials[key];
-    if (!value) {
+    if (typeof value !== 'string' || value.trim().length === 0) {
       throw new BadRequestException(
         `${socialProviderCatalog[provider].displayName} sign-in is not configured.`,
       );
     }
 
-    return String(value);
+    return value;
   }
 
   private readOptionalCredential(
@@ -347,11 +366,19 @@ export class OAuthService {
          and code = any($1::text[])
          and coalesce(credentials ->> 'clientId', '') <> ''
          and coalesce(credentials ->> 'clientSecret', '') <> ''`,
-      [Object.values(this.providers).map((provider) => provider.integrationCode)],
+      [
+        Object.values(this.providers).map(
+          (provider) => provider.integrationCode,
+        ),
+      ],
     );
 
     const configuredCodes = new Set(result.rows.map((row) => row.code));
-    return (Object.entries(this.providers) as Array<[SocialProviderCode, OAuthProviderDefinition]>)
+    return (
+      Object.entries(this.providers) as Array<
+        [SocialProviderCode, OAuthProviderDefinition]
+      >
+    )
       .filter(([, provider]) => configuredCodes.has(provider.integrationCode))
       .map(([providerCode]) => providerCode);
   }
@@ -464,7 +491,12 @@ export class OAuthService {
       userPayload.email ??
       null;
 
-    if (!userResponse.ok || !emailResponse.ok || !primaryEmail || !userPayload.id) {
+    if (
+      !userResponse.ok ||
+      !emailResponse.ok ||
+      !primaryEmail ||
+      !userPayload.id
+    ) {
       throw new BadRequestException('GitHub did not return a usable profile.');
     }
 
@@ -496,7 +528,9 @@ export class OAuthService {
 
     const email = payload.mail ?? payload.userPrincipalName ?? null;
     if (!response.ok || !payload.id || !email) {
-      throw new BadRequestException('Microsoft did not return a usable profile.');
+      throw new BadRequestException(
+        'Microsoft did not return a usable profile.',
+      );
     }
 
     return {

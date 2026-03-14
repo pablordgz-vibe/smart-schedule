@@ -5,6 +5,10 @@ node_modules
 dist/
 playwright-report/
 test-results/
+coverage/
+**/playwright-report/
+**/test-results/
+**/coverage/
 
 .gemini/
 gha-creds-*.json

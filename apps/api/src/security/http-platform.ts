@@ -1,8 +1,5 @@
 import type { FastifyReply } from 'fastify';
-import {
-  serialize as serializeCookie,
-  type SerializeOptions,
-} from 'cookie';
+import { serialize as serializeCookie, type SerializeOptions } from 'cookie';
 import type { ApiRequest } from './request-context.types';
 
 export const sessionCookieName =

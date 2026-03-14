@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import nodemailer from 'nodemailer';
 import { DatabaseService } from '../persistence/database.service';
 
@@ -19,7 +24,10 @@ type SmtpTransportConfig = {
 @Injectable()
 export class MailDeliveryService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MailDeliveryService.name);
-  private readonly pollIntervalMs = readPositiveIntegerEnv('MAIL_POLL_INTERVAL_MS', 5000);
+  private readonly pollIntervalMs = readPositiveIntegerEnv(
+    'MAIL_POLL_INTERVAL_MS',
+    5000,
+  );
   private readonly maxAttempts = readPositiveIntegerEnv('MAIL_MAX_ATTEMPTS', 5);
   private readonly processingTimeoutMs = readPositiveIntegerEnv(
     'MAIL_PROCESSING_TIMEOUT_MS',
@@ -62,7 +70,9 @@ export class MailDeliveryService implements OnModuleInit, OnModuleDestroy {
           const transport = await this.loadTransportConfig();
           const textBody = this.extractTextBody(message.body);
           const transporter = nodemailer.createTransport(
-            transport.transportOptions as Parameters<typeof nodemailer.createTransport>[0],
+            transport.transportOptions as Parameters<
+              typeof nodemailer.createTransport
+            >[0],
           );
           await transporter.sendMail({
             from: transport.fromAddress,
@@ -82,8 +92,12 @@ export class MailDeliveryService implements OnModuleInit, OnModuleDestroy {
           );
         } catch (error) {
           const messageText =
-            error instanceof Error ? error.message.slice(0, 500) : 'Unknown mail delivery error.';
-          this.logger.error(`Failed to deliver mail ${message.id}: ${messageText}`);
+            error instanceof Error
+              ? error.message.slice(0, 500)
+              : 'Unknown mail delivery error.';
+          this.logger.error(
+            `Failed to deliver mail ${message.id}: ${messageText}`,
+          );
           await this.databaseService.query(
             `update mail_outbox
              set failed_at = now(),
@@ -158,7 +172,9 @@ export class MailDeliveryService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async loadTransportConfig(): Promise<SmtpTransportConfig> {
-    const result = await this.databaseService.query<{ credentials: Record<string, string> }>(
+    const result = await this.databaseService.query<{
+      credentials: Record<string, string>;
+    }>(
       `select credentials
        from setup_integrations
        where code = 'smtp'
@@ -176,7 +192,12 @@ export class MailDeliveryService implements OnModuleInit, OnModuleDestroy {
   private extractTextBody(body: string) {
     const lines = body.split('\n');
     const separatorIndex = lines.findIndex((line) => line.trim() === '');
-    return separatorIndex >= 0 ? lines.slice(separatorIndex + 1).join('\n').trim() : body.trim();
+    return separatorIndex >= 0
+      ? lines
+          .slice(separatorIndex + 1)
+          .join('\n')
+          .trim()
+      : body.trim();
   }
 }
 
@@ -222,7 +243,8 @@ export function parseSmtpTransportConfig(
   if (typeof parsed['url'] === 'string' && parsed['url'].trim()) {
     return {
       fromAddress:
-        typeof parsed['fromAddress'] === 'string' && parsed['fromAddress'].trim()
+        typeof parsed['fromAddress'] === 'string' &&
+        parsed['fromAddress'].trim()
           ? parsed['fromAddress'].trim()
           : fallbackFromAddress,
       transportKind: 'smtp',
@@ -233,7 +255,8 @@ export function parseSmtpTransportConfig(
   if (parsed['jsonTransport'] === true) {
     return {
       fromAddress:
-        typeof parsed['fromAddress'] === 'string' && parsed['fromAddress'].trim()
+        typeof parsed['fromAddress'] === 'string' &&
+        parsed['fromAddress'].trim()
           ? parsed['fromAddress'].trim()
           : fallbackFromAddress,
       transportKind: 'json-transport',
@@ -249,11 +272,15 @@ export function parseSmtpTransportConfig(
         ? Number(parsed['port'])
         : NaN;
   if (!host || !Number.isFinite(port)) {
-    throw new Error('SMTP JSON configuration must include valid host and port values.');
+    throw new Error(
+      'SMTP JSON configuration must include valid host and port values.',
+    );
   }
 
   const authCandidate =
-    parsed['auth'] && typeof parsed['auth'] === 'object' ? (parsed['auth'] as Record<string, unknown>) : null;
+    parsed['auth'] && typeof parsed['auth'] === 'object'
+      ? (parsed['auth'] as Record<string, unknown>)
+      : null;
   const auth =
     authCandidate &&
     typeof authCandidate['user'] === 'string' &&

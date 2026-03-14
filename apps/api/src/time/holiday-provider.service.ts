@@ -74,7 +74,8 @@ function toCalendarificLocationCode(locationCode: string) {
   const [countryCode, ...rest] = tokens;
   return {
     countryCode: countryCode.toUpperCase(),
-    location: rest.length > 0 ? `${countryCode}-${rest.join('-')}`.toLowerCase() : null,
+    location:
+      rest.length > 0 ? `${countryCode}-${rest.join('-')}`.toLowerCase() : null,
   };
 }
 
@@ -223,7 +224,10 @@ export class HolidayProviderService implements HolidayProviderContract {
         new Set(
           Array.from(
             rowHtml.matchAll(
-              new RegExp(`${rawCountryCode.toLowerCase()}-([a-z0-9-]{1,8})`, 'gi'),
+              new RegExp(
+                `${rawCountryCode.toLowerCase()}-([a-z0-9-]{1,8})`,
+                'gi',
+              ),
             ),
             (codeMatch) => codeMatch[1].toUpperCase(),
           ),
@@ -249,7 +253,8 @@ export class HolidayProviderService implements HolidayProviderContract {
         .filter(
           (entry, index, entries) =>
             entries.findIndex(
-              (candidate) => candidate.name.toLowerCase() === entry.name.toLowerCase(),
+              (candidate) =>
+                candidate.name.toLowerCase() === entry.name.toLowerCase(),
             ) === index,
         )
         .sort((left, right) => left.name.localeCompare(right.name));

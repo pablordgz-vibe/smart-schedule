@@ -58,7 +58,9 @@ export async function applyMigrations(
   let lockAcquired = false;
 
   try {
-    await client.query(`select pg_advisory_lock(hashtext($1))`, [migrationsLockId]);
+    await client.query(`select pg_advisory_lock(hashtext($1))`, [
+      migrationsLockId,
+    ]);
     lockAcquired = true;
 
     await client.query(`

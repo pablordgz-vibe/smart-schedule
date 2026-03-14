@@ -6,6 +6,7 @@ import type {
   AuthSessionSnapshot,
   IdentityUserSummary,
   SocialProviderCode,
+  UserSettingsSnapshot,
 } from './auth.types';
 
 type ApiErrorResponse = {
@@ -232,6 +233,30 @@ export class AuthStateService {
       method: 'POST',
     });
     return this.loadSession();
+  }
+
+  async loadUserSettings() {
+    const response = await this.fetchJson<{ settings: UserSettingsSnapshot }>(
+      '/api/auth/settings',
+      {
+        headers: this.authHeaders(),
+      },
+    );
+
+    return response.settings;
+  }
+
+  async updateUserSettings(input: Partial<UserSettingsSnapshot>) {
+    const response = await this.fetchJson<{ settings: UserSettingsSnapshot }>(
+      '/api/auth/settings',
+      {
+        body: JSON.stringify(input),
+        headers: this.authJsonHeaders(),
+        method: 'PATCH',
+      },
+    );
+
+    return response.settings;
   }
 
   async deleteAccount() {

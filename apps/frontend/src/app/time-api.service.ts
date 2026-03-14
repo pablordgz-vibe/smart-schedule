@@ -66,6 +66,7 @@ export class TimeApiService {
   private readonly authState = inject(AuthStateService);
 
   async listPolicies(input?: {
+    includeInactive?: boolean;
     policyType?: TimePolicyCategory;
     scopeLevel?: TimePolicyScopeLevel;
     targetGroupId?: string;
@@ -83,6 +84,9 @@ export class TimeApiService {
     }
     if (input?.targetUserId) {
       params.set('targetUserId', input.targetUserId);
+    }
+    if (input?.includeInactive) {
+      params.set('includeInactive', 'true');
     }
 
     const response = await this.fetchJson<{ policies: TimePolicySummary[] }>(
@@ -181,10 +185,7 @@ export class TimeApiService {
     return response.importResult;
   }
 
-  async getHolidayImportOptions(payload: {
-    providerCode?: string;
-    countryCode?: string;
-  }) {
+  async getHolidayImportOptions(payload: { providerCode?: string; countryCode?: string }) {
     const search = new URLSearchParams();
     if (payload.providerCode) {
       search.set('providerCode', payload.providerCode);
@@ -213,10 +214,7 @@ export class TimeApiService {
     return response.options;
   }
 
-  async getHolidayLocationCatalog(input: {
-    countryCode?: string;
-    providerCode: string;
-  }) {
+  async getHolidayLocationCatalog(input: { countryCode?: string; providerCode: string }) {
     const params = new URLSearchParams({
       providerCode: input.providerCode,
     });

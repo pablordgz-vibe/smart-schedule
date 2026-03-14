@@ -13,7 +13,9 @@ import { OrgApiService } from './org-api.service';
   template: `
     <section class="grid gap-6" [attr.data-testid]="pageTestId()">
       <div class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">{{ sectionLabel() }}</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+          {{ sectionLabel() }}
+        </p>
         <h1>{{ pageTitle() }}</h1>
         <p class="text-sm leading-6 text-base-content/65">
           {{ pageDescription() }}
@@ -22,7 +24,11 @@ import { OrgApiService } from './org-api.service';
         <div class="flex flex-wrap items-end gap-3" *ngIf="isEndUserRoute()">
           <label class="form-control grow gap-2">
             <span>New organization name</span>
-            <input class="input input-bordered w-full" [(ngModel)]="organizationName" [ngModelOptions]="{ standalone: true }" />
+            <input
+              class="input input-bordered w-full"
+              [(ngModel)]="organizationName"
+              [ngModelOptions]="{ standalone: true }"
+            />
           </label>
           <button class="btn btn-neutral" type="button" (click)="createOrganization()">
             Create organization
@@ -30,6 +36,7 @@ import { OrgApiService } from './org-api.service';
         </div>
 
         <p *ngIf="errorMessage()" class="alert alert-error">{{ errorMessage() }}</p>
+        <p *ngIf="isLoading()" class="alert alert-info">Loading organization workspace…</p>
 
         <div class="grid gap-4 xl:grid-cols-2" *ngIf="isEndUserRoute()">
           <article class="rounded-box border border-base-300 bg-base-100 p-4">
@@ -40,11 +47,7 @@ import { OrgApiService } from './org-api.service';
                   <strong>{{ org.name }}</strong>
                   <span class="badge badge-outline">{{ formatRole(org.membershipRole) }}</span>
                 </div>
-                <button
-                  class="btn btn-outline"
-                  type="button"
-                  (click)="enterOrganization(org)"
-                >
+                <button class="btn btn-outline" type="button" (click)="enterOrganization(org)">
                   {{ organizationCta(org) }}
                 </button>
               </li>
@@ -61,7 +64,8 @@ import { OrgApiService } from './org-api.service';
                 <div>
                   <strong>{{ invitation.organizationName }}</strong>
                   <p class="text-sm leading-6 text-base-content/65">
-                    {{ formatRole(invitation.role) }} · expires {{ formatDateTime(invitation.expiresAt) }}
+                    {{ formatRole(invitation.role) }} · expires
+                    {{ formatDateTime(invitation.expiresAt) }}
                   </p>
                 </div>
                 <button
@@ -72,26 +76,33 @@ import { OrgApiService } from './org-api.service';
                   Accept
                 </button>
               </li>
-              <li *ngIf="myInvitations().length === 0" class="text-sm text-base-content/60">No pending invitations.</li>
+              <li *ngIf="myInvitations().length === 0" class="text-sm text-base-content/60">
+                No pending invitations.
+              </li>
             </ul>
           </article>
         </div>
 
-        <article class="rounded-box border border-base-300 bg-base-100 p-4" *ngIf="!isEndUserRoute() && canAdministerActiveOrganization()">
+        <article
+          class="rounded-box border border-base-300 bg-base-100 p-4"
+          *ngIf="!isEndUserRoute() && canAdministerActiveOrganization()"
+        >
           <h2>Organization members</h2>
           <p class="text-sm leading-6 text-base-content/65">
-            Members for {{ activeOrganizationLabel() }}. Invite new people below and manage
-            existing members from this organization context.
+            Members for {{ activeOrganizationLabel() }}. Invite new people below and manage existing
+            members from this organization context.
           </p>
-            <ul class="simple-list">
-              <li *ngFor="let member of memberships()" data-testid="org-member-row">
-                <div class="flex flex-wrap items-center gap-2">
-                  <strong>{{ member.name }}</strong>
-                  <span>{{ member.email }}</span>
-                  <span class="badge badge-outline">{{ formatRole(member.role) }}</span>
-                </div>
-              </li>
-            <li *ngIf="memberships().length === 0" class="text-sm text-base-content/60">No members found.</li>
+          <ul class="simple-list">
+            <li *ngFor="let member of memberships()" data-testid="org-member-row">
+              <div class="flex flex-wrap items-center gap-2">
+                <strong>{{ member.name }}</strong>
+                <span>{{ member.email }}</span>
+                <span class="badge badge-outline">{{ formatRole(member.role) }}</span>
+              </div>
+            </li>
+            <li *ngIf="memberships().length === 0" class="text-sm text-base-content/60">
+              No members found.
+            </li>
           </ul>
 
           <h3>Invite member</h3>
@@ -102,11 +113,19 @@ import { OrgApiService } from './org-api.service';
           <div class="flex flex-wrap items-end gap-3">
             <label class="form-control grow gap-2">
               <span>Email</span>
-              <input class="input input-bordered w-full" [(ngModel)]="inviteEmail" [ngModelOptions]="{ standalone: true }" />
+              <input
+                class="input input-bordered w-full"
+                [(ngModel)]="inviteEmail"
+                [ngModelOptions]="{ standalone: true }"
+              />
             </label>
             <label class="form-control gap-2">
               <span>Role</span>
-              <select class="select select-bordered w-full" [(ngModel)]="inviteRole" [ngModelOptions]="{ standalone: true }">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="inviteRole"
+                [ngModelOptions]="{ standalone: true }"
+              >
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
               </select>
@@ -127,7 +146,9 @@ import { OrgApiService } from './org-api.service';
                 </small>
               </div>
             </li>
-            <li *ngIf="orgInvitations().length === 0" class="text-sm text-base-content/60">No pending invitations.</li>
+            <li *ngIf="orgInvitations().length === 0" class="text-sm text-base-content/60">
+              No pending invitations.
+            </li>
           </ul>
         </article>
       </div>
@@ -168,6 +189,7 @@ export class OrgOverviewComponent {
     }>
   >([]);
   readonly errorMessage = signal<string | null>(null);
+  readonly isLoading = signal(false);
 
   readonly activeOrganizationId = computed(() => this.orgApi.activeOrganizationId());
   readonly activeOrganizationLabel = computed(() => this.contextService.getContextLabel());
@@ -270,9 +292,7 @@ export class OrgOverviewComponent {
         organizationId: org.id,
       });
       this.contextService.applySessionSnapshot(session);
-      await this.router.navigateByUrl(
-        org.membershipRole === 'admin' ? '/org/overview' : '/home',
-      );
+      await this.router.navigateByUrl(org.membershipRole === 'admin' ? '/org/overview' : '/home');
     } catch (error) {
       this.errorMessage.set(
         error instanceof Error ? error.message : 'Failed to enter organization workspace.',
@@ -282,6 +302,7 @@ export class OrgOverviewComponent {
 
   private async reload() {
     try {
+      this.isLoading.set(true);
       this.errorMessage.set(null);
 
       if (this.isEndUserRoute()) {
@@ -314,6 +335,8 @@ export class OrgOverviewComponent {
       this.errorMessage.set(
         error instanceof Error ? error.message : 'Failed to load organization overview.',
       );
+    } finally {
+      this.isLoading.set(false);
     }
   }
 

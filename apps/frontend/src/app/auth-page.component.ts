@@ -20,9 +20,13 @@ type AuthMode =
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <section class="min-h-screen bg-base-200 px-4 py-8" data-testid="auth-page">
-      <div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-6 lg:grid-cols-[1.1fr_minmax(0,28rem)]">
+      <div
+        class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-6 lg:grid-cols-[1.1fr_minmax(0,28rem)]"
+      >
         <div class="hidden rounded-[2rem] border border-base-300 bg-base-100 p-10 lg:block">
-          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">SmartSchedule</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+            SmartSchedule
+          </p>
           <h1 class="mt-4 text-4xl font-semibold tracking-tight text-balance">
             A quieter workspace for schedules, tasks, and approvals.
           </h1>
@@ -31,21 +35,32 @@ type AuthMode =
             the rest of the product.
           </p>
           <div class="mt-8 grid gap-3 text-sm text-base-content/60">
-            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Clear states for sign-in, reset, recovery, and verification.</div>
-            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Consistent controls with the main app shell and settings flows.</div>
-            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Focused copy that explains the account state without product jargon.</div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">
+              Clear states for sign-in, reset, recovery, and verification.
+            </div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">
+              Consistent controls with the main app shell and settings flows.
+            </div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">
+              Focused copy that explains the account state without product jargon.
+            </div>
           </div>
         </div>
 
         <div class="card border border-base-300 bg-base-100 shadow-sm">
           <div class="card-body gap-5 p-6 md:p-8">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">Identity</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                Identity
+              </p>
               <h2 class="mt-3 text-3xl font-semibold tracking-tight">{{ title() }}</h2>
               <p class="mt-2 text-sm leading-6 text-base-content/65">{{ description() }}</p>
             </div>
 
-            <div class="alert alert-info rounded-box border border-base-300 bg-base-200 text-sm" *ngIf="message()">
+            <div
+              class="alert alert-info rounded-box border border-base-300 bg-base-200 text-sm"
+              *ngIf="message()"
+            >
               <span>{{ message() }}</span>
             </div>
             <div class="alert alert-error rounded-box text-sm" *ngIf="error()">
@@ -55,7 +70,13 @@ type AuthMode =
             <form class="grid gap-4" *ngIf="mode() === 'sign-in'" (ngSubmit)="signIn()">
               <label class="form-control">
                 <span class="label"><span class="label-text">Email</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="email" name="email" type="email" required />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="email"
+                  name="email"
+                  type="email"
+                  required
+                />
               </label>
               <label class="form-control">
                 <span class="label"><span class="label-text">Password</span></span>
@@ -68,7 +89,11 @@ type AuthMode =
                     required
                     minlength="12"
                   />
-                  <button class="btn btn-outline join-item" type="button" (click)="showPassword = !showPassword">
+                  <button
+                    class="btn btn-outline join-item"
+                    type="button"
+                    (click)="showPassword = !showPassword"
+                  >
                     {{ showPassword ? 'Hide' : 'Show' }}
                   </button>
                 </div>
@@ -79,11 +104,24 @@ type AuthMode =
             <form class="grid gap-4" *ngIf="mode() === 'sign-up'" (ngSubmit)="signUp()">
               <label class="form-control">
                 <span class="label"><span class="label-text">Name</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="name" name="name" type="text" required minlength="2" />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="name"
+                  name="name"
+                  type="text"
+                  required
+                  minlength="2"
+                />
               </label>
               <label class="form-control">
                 <span class="label"><span class="label-text">Email</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="email" name="signup-email" type="email" required />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="email"
+                  name="signup-email"
+                  type="email"
+                  required
+                />
               </label>
               <label class="form-control">
                 <span class="label"><span class="label-text">Password</span></span>
@@ -96,7 +134,11 @@ type AuthMode =
                     required
                     minlength="12"
                   />
-                  <button class="btn btn-outline join-item" type="button" (click)="showPassword = !showPassword">
+                  <button
+                    class="btn btn-outline join-item"
+                    type="button"
+                    (click)="showPassword = !showPassword"
+                  >
                     {{ showPassword ? 'Hide' : 'Show' }}
                   </button>
                 </div>
@@ -107,14 +149,24 @@ type AuthMode =
             <div class="grid gap-4" *ngIf="mode() === 'verify-email'">
               <label class="form-control">
                 <span class="label"><span class="label-text">Email</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="email" name="verify-email" type="email" />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="email"
+                  name="verify-email"
+                  type="email"
+                />
               </label>
               <button class="btn btn-outline" type="button" (click)="requestVerification()">
                 Send Verification Email
               </button>
               <label class="form-control">
                 <span class="label"><span class="label-text">Verification token</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="token" name="verify-token" type="text" />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="token"
+                  name="verify-token"
+                  type="text"
+                />
               </label>
               <button class="btn btn-neutral" type="button" (click)="confirmVerification()">
                 Confirm Email
@@ -124,14 +176,24 @@ type AuthMode =
             <div class="grid gap-4" *ngIf="mode() === 'reset-password'">
               <label class="form-control">
                 <span class="label"><span class="label-text">Email</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="email" name="reset-email" type="email" />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="email"
+                  name="reset-email"
+                  type="email"
+                />
               </label>
               <button class="btn btn-outline" type="button" (click)="requestPasswordReset()">
                 Send Reset Email
               </button>
               <label class="form-control">
                 <span class="label"><span class="label-text">Reset token</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="token" name="reset-token" type="text" />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="token"
+                  name="reset-token"
+                  type="text"
+                />
               </label>
               <label class="form-control">
                 <span class="label"><span class="label-text">New password</span></span>
@@ -143,7 +205,11 @@ type AuthMode =
                     [type]="showPassword ? 'text' : 'password'"
                     minlength="12"
                   />
-                  <button class="btn btn-outline join-item" type="button" (click)="showPassword = !showPassword">
+                  <button
+                    class="btn btn-outline join-item"
+                    type="button"
+                    (click)="showPassword = !showPassword"
+                  >
                     {{ showPassword ? 'Hide' : 'Show' }}
                   </button>
                 </div>
@@ -156,14 +222,24 @@ type AuthMode =
             <div class="grid gap-4" *ngIf="mode() === 'recover-account'">
               <label class="form-control">
                 <span class="label"><span class="label-text">Email</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="email" name="recover-email" type="email" />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="email"
+                  name="recover-email"
+                  type="email"
+                />
               </label>
               <button class="btn btn-outline" type="button" (click)="requestRecovery()">
                 Request Recovery
               </button>
               <label class="form-control">
                 <span class="label"><span class="label-text">Recovery token</span></span>
-                <input class="input input-bordered w-full" [(ngModel)]="token" name="recover-token" type="text" />
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="token"
+                  name="recover-token"
+                  type="text"
+                />
               </label>
               <button class="btn btn-neutral" type="button" (click)="recoverAccount()">
                 Recover Account
@@ -171,14 +247,19 @@ type AuthMode =
             </div>
 
             <div class="grid gap-4" *ngIf="mode() === 'deactivated'">
-              <div class="rounded-box border border-base-300 bg-base-200 p-4 text-sm leading-6 text-base-content/70">
+              <div
+                class="rounded-box border border-base-300 bg-base-200 p-4 text-sm leading-6 text-base-content/70"
+              >
                 This account has been deactivated by an administrator and cannot sign in right now.
                 Contact a system administrator to reactivate it, then return to sign in.
               </div>
               <a class="btn btn-outline" routerLink="/auth/sign-in">Back to sign in</a>
             </div>
 
-            <div class="grid gap-3" *ngIf="mode() !== 'deactivated' && socialProviders().length > 0">
+            <div
+              class="grid gap-3"
+              *ngIf="mode() !== 'deactivated' && socialProviders().length > 0"
+            >
               <button
                 *ngFor="let provider of socialProviders()"
                 class="btn btn-outline w-full px-4 py-2.5"
@@ -190,12 +271,36 @@ type AuthMode =
             </div>
 
             <nav class="grid grid-cols-2 gap-2 pt-2 text-sm sm:grid-cols-3">
-              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/sign-in">Sign in</a>
-              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/sign-up">Create account</a>
-              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/verify-email">Verify email</a>
-              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/reset-password">Reset password</a>
-              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/recover-account">Recover account</a>
-              <a class="btn btn-outline w-full justify-center px-4 py-2.5" routerLink="/auth/deactivated">Deactivated</a>
+              <a
+                class="btn btn-outline w-full justify-center px-4 py-2.5"
+                routerLink="/auth/sign-in"
+                >Sign in</a
+              >
+              <a
+                class="btn btn-outline w-full justify-center px-4 py-2.5"
+                routerLink="/auth/sign-up"
+                >Create account</a
+              >
+              <a
+                class="btn btn-outline w-full justify-center px-4 py-2.5"
+                routerLink="/auth/verify-email"
+                >Verify email</a
+              >
+              <a
+                class="btn btn-outline w-full justify-center px-4 py-2.5"
+                routerLink="/auth/reset-password"
+                >Reset password</a
+              >
+              <a
+                class="btn btn-outline w-full justify-center px-4 py-2.5"
+                routerLink="/auth/recover-account"
+                >Recover account</a
+              >
+              <a
+                class="btn btn-outline w-full justify-center px-4 py-2.5"
+                routerLink="/auth/deactivated"
+                >Deactivated</a
+              >
             </nav>
           </div>
         </div>
@@ -379,7 +484,7 @@ export class AuthPageComponent {
     }
   }
 
-  async socialSignIn(provider: SocialProviderCode) {
+  socialSignIn(provider: SocialProviderCode) {
     this.error.set('');
     this.message.set('');
     this.authState.startOAuth(provider, 'sign-in', '/home');

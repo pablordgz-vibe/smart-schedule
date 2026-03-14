@@ -272,7 +272,9 @@ export class OrgService {
     const expiresAt = new Date(
       Date.now() + 7 * 24 * 60 * 60 * 1000,
     ).toISOString();
-    const organizationResult = await this.databaseService.query<{ name: string }>(
+    const organizationResult = await this.databaseService.query<{
+      name: string;
+    }>(
       `select name
        from organizations
        where id = $1`,
@@ -810,7 +812,9 @@ export class OrgService {
     }
 
     return visibleCalendars.rows.map((calendar) => ({
-      defaultVisibility: calendar.owner_user_id ? 'owner-and-grants' : 'all-members',
+      defaultVisibility: calendar.owner_user_id
+        ? 'owner-and-grants'
+        : 'all-members',
       id: calendar.id,
       name: calendar.name,
       ownerUserId: calendar.owner_user_id,

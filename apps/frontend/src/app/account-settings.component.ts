@@ -5,7 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Router } from '@angular/router';
 import { AuthStateService } from './auth-state.service';
 import { ContextService } from './context.service';
-import type { SocialProviderCode } from './auth.types';
+import type { SocialProviderCode, UserSettingsSnapshot } from './auth.types';
 import { PersonalTimePoliciesComponent } from './personal-time-policies.component';
 
 @Component({
@@ -14,10 +14,15 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
   imports: [CommonModule, FormsModule, PersonalTimePoliciesComponent],
   template: `
     <section class="grid gap-6" data-testid="page-settings">
-      <div class="card border border-base-300 bg-base-100 p-6 shadow-sm" *ngIf="user() as currentUser">
+      <div
+        class="card border border-base-300 bg-base-100 p-6 shadow-sm"
+        *ngIf="user() as currentUser"
+      >
         <div class="grid gap-6">
           <div class="space-y-3">
-            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Identity</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+              Identity
+            </p>
             <div class="space-y-2">
               <h1 class="text-3xl font-semibold tracking-tight">{{ currentUser.name }}</h1>
               <p class="text-sm leading-6 text-base-content/65">
@@ -76,10 +81,16 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
                   <div class="flex items-center gap-2">
                     <strong>{{ provider.displayName }}</strong>
                     <span class="badge badge-outline" *ngIf="isLinked(provider.code)">Linked</span>
-                    <span class="badge badge-ghost" *ngIf="!isLinked(provider.code)">Not linked</span>
+                    <span class="badge badge-ghost" *ngIf="!isLinked(provider.code)"
+                      >Not linked</span
+                    >
                   </div>
                   <p class="text-sm leading-6 text-base-content/60">
-                    {{ isLinked(provider.code) ? 'Available for account sign-in.' : 'Not yet linked to this account.' }}
+                    {{
+                      isLinked(provider.code)
+                        ? 'Available for account sign-in.'
+                        : 'Not yet linked to this account.'
+                    }}
                   </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
@@ -104,35 +115,97 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
             </ul>
           </div>
 
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <div class="space-y-1">
+              <h2 class="text-lg font-semibold">Preferences</h2>
+              <p class="text-sm leading-6 text-base-content/65">
+                These defaults control how dates, times, and week boundaries are presented across
+                the app.
+              </p>
+            </div>
+
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <label class="form-control gap-2">
+                <span>Timezone</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="settingsDraft.timezone"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </label>
+
+              <label class="form-control gap-2">
+                <span>Locale</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="settingsDraft.locale"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </label>
+
+              <label class="form-control gap-2">
+                <span>Time format</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="settingsDraft.timeFormat"
+                  [ngModelOptions]="{ standalone: true }"
+                >
+                  <option value="24h">24-hour</option>
+                  <option value="12h">12-hour</option>
+                </select>
+              </label>
+
+              <label class="form-control gap-2">
+                <span>Week starts on</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="settingsDraft.weekStartsOn"
+                  [ngModelOptions]="{ standalone: true }"
+                >
+                  <option value="monday">Monday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-3">
+              <button class="btn btn-outline" type="button" (click)="saveSettings()">
+                Save preferences
+              </button>
+            </div>
+          </div>
+
           <div class="flex flex-wrap gap-3">
-            <button class="btn btn-outline" type="button" (click)="logout()">
-              Sign out
-            </button>
-            <button class="btn btn-outline btn-error" type="button" (click)="showDeleteConfirmation()">
+            <button class="btn btn-outline" type="button" (click)="logout()">Sign out</button>
+            <button
+              class="btn btn-outline btn-error"
+              type="button"
+              (click)="showDeleteConfirmation()"
+            >
               Delete account
             </button>
           </div>
 
-          <section class="rounded-box border border-error/30 bg-error/5 p-4" *ngIf="confirmDelete()">
+          <section class="rounded-box border border-error/30 bg-error/5 p-4">
             <div class="space-y-2">
               <h2 class="text-lg font-semibold">Confirm account deletion</h2>
               <p class="text-sm leading-6 text-base-content/70">
-                Type <strong>DELETE</strong> to confirm. The account remains recoverable for 30 days.
+                Type <strong>DELETE</strong> to confirm. The account remains recoverable for 30
+                days.
               </p>
             </div>
             <label class="form-control mt-4">
               <span class="label"><span class="label-text">Confirmation text</span></span>
               <input
                 class="input input-bordered w-full"
+                aria-label="Confirmation text"
                 [ngModel]="deleteConfirmationText()"
                 (ngModelChange)="deleteConfirmationText.set($event)"
                 [ngModelOptions]="{ standalone: true }"
               />
             </label>
             <div class="mt-4 flex flex-wrap gap-3">
-              <button class="btn btn-outline" type="button" (click)="cancelDelete()">
-                Cancel
-              </button>
+              <button class="btn btn-outline" type="button" (click)="cancelDelete()">Cancel</button>
               <button class="btn btn-error" type="button" (click)="confirmDeleteAccount()">
                 Confirm deletion
               </button>
@@ -146,11 +219,17 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
             *ngIf="activeContextType() !== 'personal'"
           >
             <h2 class="text-lg font-semibold">Time policy workspace</h2>
-            <p class="mt-2 text-sm leading-6 text-base-content/65" *ngIf="activeContextType() === 'organization'">
+            <p
+              class="mt-2 text-sm leading-6 text-base-content/65"
+              *ngIf="activeContextType() === 'organization'"
+            >
               Personal rules are managed in personal context. Organization rules live in the
               organization time-policies workspace so scope and preview stay explicit.
             </p>
-            <p class="mt-2 text-sm leading-6 text-base-content/65" *ngIf="activeContextType() !== 'organization'">
+            <p
+              class="mt-2 text-sm leading-6 text-base-content/65"
+              *ngIf="activeContextType() !== 'organization'"
+            >
               Switch into personal context to manage personal time policies.
             </p>
           </section>
@@ -173,6 +252,12 @@ export class AccountSettingsComponent {
   readonly error = signal('');
   readonly confirmDelete = signal(false);
   readonly deleteConfirmationText = signal('');
+  settingsDraft: UserSettingsSnapshot = {
+    locale: 'en',
+    timeFormat: '24h',
+    timezone: 'UTC',
+    weekStartsOn: 'monday',
+  };
 
   constructor() {
     const oauthStatus = this.route.snapshot.queryParamMap.get('oauthStatus');
@@ -183,6 +268,8 @@ export class AccountSettingsComponent {
     if (oauthError) {
       this.error.set(oauthError);
     }
+
+    void this.loadSettings();
   }
 
   async requestVerification() {
@@ -228,6 +315,14 @@ export class AccountSettingsComponent {
     });
   }
 
+  async saveSettings() {
+    await this.run(async () => {
+      const settings = await this.authState.updateUserSettings(this.settingsDraft);
+      this.settingsDraft = { ...settings };
+      this.message.set('Preferences saved.');
+    });
+  }
+
   async deleteAccount() {
     await this.run(async () => {
       await this.authState.deleteAccount();
@@ -264,6 +359,14 @@ export class AccountSettingsComponent {
       await task();
     } catch (error: unknown) {
       this.error.set(error instanceof Error ? error.message : 'Request failed.');
+    }
+  }
+
+  private async loadSettings() {
+    try {
+      this.settingsDraft = await this.authState.loadUserSettings();
+    } catch {
+      // Keep the defaults if the settings endpoint is not yet reachable.
     }
   }
 

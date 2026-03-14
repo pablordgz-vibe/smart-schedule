@@ -317,7 +317,7 @@ describe('time policies and advisory (e2e)', () => {
 
   it('loads holiday locations and keeps official holiday imports idempotent', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(
-      async (input: string | URL | Request) => {
+      (input: string | URL | Request) => {
         const url =
           typeof input === 'string'
             ? input
@@ -326,44 +326,54 @@ describe('time policies and advisory (e2e)', () => {
               : input.url;
 
         if (url === 'https://calendarific.test/supported-countries') {
-          return new Response(
-            `
-              <table>
-                <tr>
-                  <td>Spain</td>
-                  <td>es</td>
-                  <td>
-                    <a href="/api?location=es-md">Madrid</a>,
-                    <a href="/api?location=es-ct">Catalonia</a>
-                  </td>
-                </tr>
-                <tr>
-                  <td>United States</td>
-                  <td>us</td>
-                  <td>
-                    <a href="/api?location=us-ca">California</a>
-                  </td>
-                </tr>
-              </table>
-            `,
-            { status: 200 },
+          return Promise.resolve(
+            new Response(
+              `
+                <table>
+                  <tr>
+                    <td>Spain</td>
+                    <td>es</td>
+                    <td>
+                      <a href="/api?location=es-md">Madrid</a>,
+                      <a href="/api?location=es-ct">Catalonia</a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>United States</td>
+                    <td>us</td>
+                    <td>
+                      <a href="/api?location=us-ca">California</a>
+                    </td>
+                  </tr>
+                </table>
+              `,
+              { status: 200 },
+            ),
           );
         }
 
         if (url.startsWith('https://calendarific.test/api/v2/holidays')) {
-          return new Response(
-            JSON.stringify({
-              response: {
-                holidays: [
-                  { date: { iso: '2026-01-06T00:00:00+01:00' }, name: 'Epiphany' },
-                  { date: { iso: '2026-05-02T00:00:00+01:00' }, name: 'Community Day' },
-                ],
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                response: {
+                  holidays: [
+                    {
+                      date: { iso: '2026-01-06T00:00:00+01:00' },
+                      name: 'Epiphany',
+                    },
+                    {
+                      date: { iso: '2026-05-02T00:00:00+01:00' },
+                      name: 'Community Day',
+                    },
+                  ],
+                },
+              }),
+              {
+                headers: { 'content-type': 'application/json' },
+                status: 200,
               },
-            }),
-            {
-              headers: { 'content-type': 'application/json' },
-              status: 200,
-            },
+            ),
           );
         }
 
@@ -387,14 +397,23 @@ describe('time policies and advisory (e2e)', () => {
       .set('cookie', owner.cookie)
       .expect(200);
 
-    expect(catalogResponse.body.catalog.enabled).toBe(true);
-    expect(catalogResponse.body.catalog.configured).toBe(true);
-    expect(catalogResponse.body.catalog.countries).toEqual(
+    const catalogBody = catalogResponse.body as {
+      catalog: {
+        configured: boolean;
+        countries: Array<{ code: string; name: string }>;
+        enabled: boolean;
+        subdivisions: Array<{ code: string; name: string }>;
+      };
+    };
+
+    expect(catalogBody.catalog.enabled).toBe(true);
+    expect(catalogBody.catalog.configured).toBe(true);
+    expect(catalogBody.catalog.countries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'ES', name: 'Spain' }),
       ]),
     );
-    expect(catalogResponse.body.catalog.subdivisions).toEqual(
+    expect(catalogBody.catalog.subdivisions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'ES-MD', name: 'Madrid' }),
       ]),
@@ -412,7 +431,10 @@ describe('time policies and advisory (e2e)', () => {
       })
       .expect(201);
 
-    expect(firstImport.body.importResult).toMatchObject({
+    const firstImportBody = firstImport.body as {
+      importResult: { imported: number; replaced: number };
+    };
+    expect(firstImportBody.importResult).toMatchObject({
       imported: 2,
       replaced: 0,
     });
@@ -429,7 +451,10 @@ describe('time policies and advisory (e2e)', () => {
       })
       .expect(201);
 
-    expect(secondImport.body.importResult).toMatchObject({
+    const secondImportBody = secondImport.body as {
+      importResult: { imported: number; replaced: number };
+    };
+    expect(secondImportBody.importResult).toMatchObject({
       imported: 2,
       replaced: 2,
     });
@@ -440,10 +465,17 @@ describe('time policies and advisory (e2e)', () => {
       .expect(200);
 
     expect(
-      (policies.body as { policies: Array<{ sourceType: string; title: string }> }).policies,
+      (
+        policies.body as {
+          policies: Array<{ sourceType: string; title: string }>;
+        }
+      ).policies,
     ).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ sourceType: 'official', title: 'Community Day' }),
+        expect.objectContaining({
+          sourceType: 'official',
+          title: 'Community Day',
+        }),
         expect.objectContaining({ sourceType: 'official', title: 'Epiphany' }),
       ]),
     );

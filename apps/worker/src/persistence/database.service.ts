@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { envSchema } from '@smart-schedule/config';
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 import { applyMigrations } from './migrations';

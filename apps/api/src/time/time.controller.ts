@@ -10,6 +10,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -57,6 +58,11 @@ class ListPoliciesQuery {
   @IsOptional()
   @IsString()
   targetUserId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  includeInactive?: boolean;
 }
 
 class TimePolicyDto {
@@ -379,6 +385,7 @@ export class TimeController {
         scopeLevel: query.scopeLevel,
         targetGroupId: query.targetGroupId,
         targetUserId: query.targetUserId,
+        includeInactive: query.includeInactive ?? false,
       }),
     };
   }

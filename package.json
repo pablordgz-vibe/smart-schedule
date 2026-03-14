@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "coverage:critical": "node ./scripts/ci/coverage-gate.mjs critical",
+    "coverage:repo": "node ./scripts/ci/coverage-gate.mjs repo",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
+    "coverage:gate": "pnpm run coverage:repo && pnpm run coverage:critical",
     "typecheck": "node ./scripts/ci/typecheck.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,css,html,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,css,html,json,md,yml,yaml}\"",

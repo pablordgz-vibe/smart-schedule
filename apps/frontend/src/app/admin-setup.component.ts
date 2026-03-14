@@ -35,7 +35,11 @@ import type { AdminIntegrationSummary } from './setup/setup.types';
           <article class="rounded-box border border-base-300 bg-base-100 p-4">
             <h2 class="text-lg font-semibold">Bootstrap status</h2>
             <p class="mt-2 text-sm leading-6 text-base-content/65">
-              {{ setupComplete() ? 'Initial setup completed and locked.' : 'Initial setup still open.' }}
+              {{
+                setupComplete()
+                  ? 'Initial setup completed and locked.'
+                  : 'Initial setup still open.'
+              }}
             </p>
           </article>
 
@@ -51,8 +55,8 @@ import type { AdminIntegrationSummary } from './setup/setup.types';
           <div class="space-y-1">
             <h2 class="text-lg font-semibold">Deployment summary</h2>
             <p class="text-sm leading-6 text-base-content/65">
-              This instance is past first-run setup. Use the links below to manage users and
-              global provider credentials without going back through bootstrap routes.
+              This instance is past first-run setup. Use the links below to manage users and global
+              provider credentials without going back through bootstrap routes.
             </p>
           </div>
 
@@ -81,7 +85,9 @@ import type { AdminIntegrationSummary } from './setup/setup.types';
 
         <div class="flex flex-wrap gap-3">
           <a class="btn btn-neutral" routerLink="/admin/users">Open user controls</a>
-          <a class="btn btn-outline" routerLink="/admin/global-integrations">Open global integrations</a>
+          <a class="btn btn-outline" routerLink="/admin/global-integrations"
+            >Open global integrations</a
+          >
         </div>
       </article>
     </section>

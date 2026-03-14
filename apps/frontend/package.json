@@ -8,6 +8,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "vitest run --passWithNoTests",
+    "test:cov": "vitest run --coverage",
     "lint": "eslint . --fix",
     "test:e2e": "playwright test"
   },

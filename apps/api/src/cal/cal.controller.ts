@@ -50,7 +50,8 @@ class ListCalendarViewQuery {
       return undefined;
     }
 
-    return Array.isArray(value) ? value : [value];
+    const values = Array.isArray(value) ? value : [value];
+    return values.filter((entry): entry is string => typeof entry === 'string');
   })
   @IsArray()
   @IsString({ each: true })

@@ -77,13 +77,22 @@ const PROVIDER_CREDENTIAL_FIELDS: Readonly<
             </div>
 
             <div class="grid gap-4">
-              <article *ngFor="let integration of integrations(); trackBy: trackIntegration" class="rounded-box border border-base-300 bg-base-100 p-4">
+              <article
+                *ngFor="let integration of integrations(); trackBy: trackIntegration"
+                class="rounded-box border border-base-300 bg-base-100 p-4"
+              >
                 <div class="grid gap-4">
-                  <label class="flex items-start justify-between gap-4 rounded-box border border-base-300 bg-base-100 px-4 py-3">
+                  <label
+                    class="flex items-start justify-between gap-4 rounded-box border border-base-300 bg-base-100 px-4 py-3"
+                  >
                     <span class="min-w-0 space-y-1">
                       <strong class="block">{{ integration.displayName }}</strong>
                       <small class="block text-base-content/60">
-                        {{ integration.hasCredentials ? 'Credentials configured' : 'No credentials stored' }}
+                        {{
+                          integration.hasCredentials
+                            ? 'Credentials configured'
+                            : 'No credentials stored'
+                        }}
                       </small>
                     </span>
                     <input
@@ -107,9 +116,19 @@ const PROVIDER_CREDENTIAL_FIELDS: Readonly<
                     </select>
                   </label>
 
-                  <ng-container *ngIf="credentialFields(integration.code).length > 0; else genericSecretField">
-                    <label class="form-control" *ngFor="let field of credentialFields(integration.code); trackBy: trackCredentialField">
-                      <span class="label"><span class="label-text">{{ field.label }}</span></span>
+                  <ng-container
+                    *ngIf="credentialFields(integration.code).length > 0; else genericSecretField"
+                  >
+                    <label
+                      class="form-control"
+                      *ngFor="
+                        let field of credentialFields(integration.code);
+                        trackBy: trackCredentialField
+                      "
+                    >
+                      <span class="label"
+                        ><span class="label-text">{{ field.label }}</span></span
+                      >
                       <input
                         class="input input-bordered w-full"
                         [type]="field.secret ? 'password' : 'text'"
@@ -122,7 +141,13 @@ const PROVIDER_CREDENTIAL_FIELDS: Readonly<
                   </ng-container>
                   <ng-template #genericSecretField>
                     <label class="form-control">
-                      <span class="label"><span class="label-text">{{ integration.mode === 'provider-login' ? 'Provider login reference' : 'API key or secret' }}</span></span>
+                      <span class="label"
+                        ><span class="label-text">{{
+                          integration.mode === 'provider-login'
+                            ? 'Provider login reference'
+                            : 'API key or secret'
+                        }}</span></span
+                      >
                       <input
                         class="input input-bordered w-full"
                         [ngModel]="credentialValue(integration.code, 'secret')"
@@ -133,13 +158,19 @@ const PROVIDER_CREDENTIAL_FIELDS: Readonly<
                     </label>
                   </ng-template>
 
-                  <p class="text-sm leading-6 text-base-content/60" *ngIf="integration.code === 'smtp'">
+                  <p
+                    class="text-sm leading-6 text-base-content/60"
+                    *ngIf="integration.code === 'smtp'"
+                  >
                     Use an SMTP connection URI such as
                     <code>smtp://user:pass@mail.example.com:587</code> or a JSON object with
                     <code>host</code>, <code>port</code>, <code>auth</code>, and optional
                     <code>fromAddress</code>.
                   </p>
-                  <p class="text-sm leading-6 text-base-content/60" *ngIf="integration.code === 'microsoft-social-auth'">
+                  <p
+                    class="text-sm leading-6 text-base-content/60"
+                    *ngIf="integration.code === 'microsoft-social-auth'"
+                  >
                     Optional: set a Microsoft tenant ID. Leave blank to use the common tenant.
                   </p>
                 </div>
@@ -155,20 +186,33 @@ const PROVIDER_CREDENTIAL_FIELDS: Readonly<
             <div class="mb-4 space-y-1">
               <h2 class="text-xl font-semibold">Email delivery queue</h2>
               <p class="text-sm leading-6 text-base-content/65">
-                Verification, reset, and invite emails are queued here until delivery workers process them.
+                Verification, reset, and invite emails are queued here until delivery workers
+                process them.
               </p>
             </div>
 
             <ul class="grid gap-3">
-              <li *ngFor="let message of mailOutbox()" class="flex flex-col gap-3 rounded-box border border-base-300 bg-base-100 p-4 lg:flex-row lg:items-start lg:justify-between">
+              <li
+                *ngFor="let message of mailOutbox()"
+                class="flex flex-col gap-3 rounded-box border border-base-300 bg-base-100 p-4 lg:flex-row lg:items-start lg:justify-between"
+              >
                 <div class="grid gap-1">
                   <strong>{{ message.subject }}</strong>
-                  <span class="text-sm text-base-content/60">{{ message.recipientEmail }} · {{ message.kind }}</span>
-                  <span class="text-sm text-base-content/60">queued {{ formatDateTime(message.createdAt) }} · expires {{ formatDateTime(message.expiresAt) }}</span>
+                  <span class="text-sm text-base-content/60"
+                    >{{ message.recipientEmail }} · {{ message.kind }}</span
+                  >
+                  <span class="text-sm text-base-content/60"
+                    >queued {{ formatDateTime(message.createdAt) }} · expires
+                    {{ formatDateTime(message.expiresAt) }}</span
+                  >
                   <span class="text-sm text-base-content/60" *ngIf="message.lastAttemptAt">
-                    last attempt {{ formatDateTime(message.lastAttemptAt) }} · attempts {{ message.attempts }}
+                    last attempt {{ formatDateTime(message.lastAttemptAt) }} · attempts
+                    {{ message.attempts }}
                   </span>
-                  <span class="text-sm text-base-content/60" *ngIf="message.failedAt && message.failureReason">
+                  <span
+                    class="text-sm text-base-content/60"
+                    *ngIf="message.failedAt && message.failureReason"
+                  >
                     failed {{ formatDateTime(message.failedAt) }} · {{ message.failureReason }}
                   </span>
                   <span class="text-sm text-base-content/60" *ngIf="message.deliveredAt">
@@ -180,7 +224,10 @@ const PROVIDER_CREDENTIAL_FIELDS: Readonly<
                   <span class="badge badge-outline">{{ message.transport }}</span>
                 </div>
               </li>
-              <li *ngIf="mailOutbox().length === 0" class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55">
+              <li
+                *ngIf="mailOutbox().length === 0"
+                class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55"
+              >
                 No queued mail messages.
               </li>
             </ul>
@@ -279,14 +326,16 @@ export class AdminGlobalIntegrationsComponent {
     try {
       this.errorMessage.set(null);
       this.message.set(null);
-      const payload: SetupBootstrapPayload['integrations'] = this.integrations().map((integration) => {
-        return {
-          code: integration.code,
-          credentials: this.normalizedCredentials(integration),
-          enabled: integration.enabled,
-          mode: integration.mode,
-        };
-      });
+      const payload: SetupBootstrapPayload['integrations'] = this.integrations().map(
+        (integration) => {
+          return {
+            code: integration.code,
+            credentials: this.normalizedCredentials(integration),
+            enabled: integration.enabled,
+            mode: integration.mode,
+          };
+        },
+      );
       const snapshot = await this.setupState.saveAdminIntegrations(payload);
       this.applySnapshot(snapshot);
       this.mailOutbox.set(await this.setupState.loadMailOutbox());
@@ -320,7 +369,9 @@ export class AdminGlobalIntegrationsComponent {
   }
 
   credentialValue(code: string, key: string) {
-    return this.integrations().find((integration) => integration.code === code)?.credentials[key] ?? '';
+    return (
+      this.integrations().find((integration) => integration.code === code)?.credentials[key] ?? ''
+    );
   }
 
   credentialPlaceholder(integration: IntegrationFormState, key: string) {
@@ -331,17 +382,19 @@ export class AdminGlobalIntegrationsComponent {
     }
 
     if (integration.hasCredentials) {
-      return key === 'tenantId' ? 'Leave blank to keep current value or use common' : 'Leave blank to keep current value';
+      return key === 'tenantId'
+        ? 'Leave blank to keep current value or use common'
+        : 'Leave blank to keep current value';
     }
 
     return key === 'tenantId' ? 'common' : 'Enter value';
   }
 
-  private normalizedCredentials(integration: IntegrationFormState) {
-    return Object.fromEntries(
-      Object.entries(integration.credentials)
-        .map(([key, value]) => [key, value.trim()])
-        .filter(([, value]) => value.length > 0),
-    );
+  private normalizedCredentials(integration: IntegrationFormState): Record<string, string> {
+    const entries = Object.entries(integration.credentials)
+      .map(([key, value]) => [key, value.trim()] as const)
+      .filter(([, value]) => value.length > 0);
+
+    return Object.fromEntries(entries);
   }
 }

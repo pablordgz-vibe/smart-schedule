@@ -192,6 +192,7 @@ export class TimeService {
   async listPolicies(input: {
     context: RequestContext;
     actorId: string;
+    includeInactive?: boolean;
     policyType?: TimePolicyCategory;
     scopeLevel?: TimePolicyScopeLevel;
     targetGroupId?: string;
@@ -207,7 +208,7 @@ export class TimeService {
     });
 
     const scope = this.scopeFromContext(input.context, input.actorId);
-    const clauses = ['is_active = true'];
+    const clauses: string[] = [];
     const params: unknown[] = [];
 
     if (scope.organizationId) {
@@ -240,6 +241,10 @@ export class TimeService {
     if (input.targetUserId) {
       params.push(input.targetUserId);
       clauses.push(`target_user_id = $${params.length}`);
+    }
+
+    if (!input.includeInactive) {
+      clauses.push('is_active = true');
     }
 
     const result = await this.databaseService.query<{
@@ -571,10 +576,7 @@ export class TimeService {
     });
 
     const importedAt = nowIso();
-    const [yearStart, yearEnd] = [
-      `${input.year}-01-01`,
-      `${input.year}-12-31`,
-    ];
+    const [yearStart, yearEnd] = [`${input.year}-01-01`, `${input.year}-12-31`];
     const uniqueHolidays = Array.from(
       new Map(
         holidays.map((holiday) => [
@@ -1242,9 +1244,9 @@ export class TimeService {
       [context.context.id, actorId],
     );
 
-    if (!membership.rows[0]) {
+    if (!membership.rows[0] || membership.rows[0].role !== 'admin') {
       throw new ForbiddenException(
-        'You are not an active member of this organization.',
+        'Only organization administrators can review organization time policies.',
       );
     }
   }

@@ -166,7 +166,11 @@ function parseSubtasks(value: string) {
         </p>
 
         <div class="flex flex-wrap items-end gap-3">
-          <input class="input input-bordered w-full" placeholder="Search by name" [(ngModel)]="filters.name" />
+          <input
+            class="input input-bordered w-full"
+            placeholder="Search by name"
+            [(ngModel)]="filters.name"
+          />
           <select class="select select-bordered w-full" [(ngModel)]="filters.deadlinePeriod">
             <option value="all">All deadlines</option>
             <option value="none">No deadline</option>
@@ -188,13 +192,12 @@ function parseSubtasks(value: string) {
             <option value="high">High</option>
             <option value="urgent">Urgent</option>
           </select>
-          <button class="btn btn-outline" type="button" (click)="loadTasks()">
-            Apply
-          </button>
+          <button class="btn btn-outline" type="button" (click)="loadTasks()">Apply</button>
         </div>
 
         <p class="alert alert-warning" *ngIf="error()">{{ error() }}</p>
         <p class="alert alert-info" *ngIf="message()">{{ message() }}</p>
+        <p class="alert alert-info" *ngIf="isLoading()">Loading task workspace…</p>
       </article>
 
       <article class="card border border-base-300 bg-base-100 p-6 shadow-sm split-layout">
@@ -244,13 +247,21 @@ function parseSubtasks(value: string) {
               </label>
             </div>
             <div class="inline-grid">
-              <select class="select select-bordered w-full" [(ngModel)]="draft.status" name="task-status">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="draft.status"
+                name="task-status"
+              >
                 <option value="todo">Todo</option>
                 <option value="in_progress">In progress</option>
                 <option value="blocked">Blocked</option>
                 <option value="completed">Completed</option>
               </select>
-              <select class="select select-bordered w-full" [(ngModel)]="draft.priority" name="task-priority">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="draft.priority"
+                name="task-priority"
+              >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
@@ -375,11 +386,7 @@ function parseSubtasks(value: string) {
               [(ngModel)]="contactImport.phone"
               [ngModelOptions]="{ standalone: true }"
             />
-            <button
-              class="btn btn-outline"
-              type="button"
-              (click)="createImportedContact()"
-            >
+            <button class="btn btn-outline" type="button" (click)="createImportedContact()">
               Import contact into current context
             </button>
           </article>
@@ -442,7 +449,9 @@ function parseSubtasks(value: string) {
               >
                 Copy to Personal
               </button>
-              <button class="btn btn-outline" type="button" (click)="deleteTask()">Delete task</button>
+              <button class="btn btn-outline" type="button" (click)="deleteTask()">
+                Delete task
+              </button>
             </div>
 
             <div class="grid gap-4 md:grid-cols-2">
@@ -498,7 +507,11 @@ function parseSubtasks(value: string) {
 
             <form class="form-stack" (ngSubmit)="saveTaskUpdates()">
               <h3>Edit task</h3>
-              <input class="input input-bordered w-full" [(ngModel)]="editDraft.title" name="edit-task-title" />
+              <input
+                class="input input-bordered w-full"
+                [(ngModel)]="editDraft.title"
+                name="edit-task-title"
+              />
               <textarea
                 class="textarea textarea-bordered w-full"
                 rows="3"
@@ -520,7 +533,11 @@ function parseSubtasks(value: string) {
                 />
               </div>
               <div class="inline-grid">
-                <select class="select select-bordered w-full" [(ngModel)]="editDraft.status" name="edit-task-status">
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="editDraft.status"
+                  name="edit-task-status"
+                >
                   <option value="todo">Todo</option>
                   <option value="in_progress">In progress</option>
                   <option value="blocked">Blocked</option>
@@ -617,7 +634,10 @@ function parseSubtasks(value: string) {
                 <ul class="simple-list nested">
                   <li
                     *ngFor="
-                      let task of availableDependencyTasksForDraft(editDraft, selectedTaskId() ?? undefined)
+                      let task of availableDependencyTasksForDraft(
+                        editDraft,
+                        selectedTaskId() ?? undefined
+                      )
                     "
                   >
                     <button
@@ -725,7 +745,6 @@ function parseSubtasks(value: string) {
         gap: var(--spacing-3);
       }
 
-
       .split-layout > section {
         min-width: 0;
         display: grid;
@@ -814,6 +833,7 @@ export class TasksComponent {
   readonly contacts = signal<ImportedContact[]>([]);
   readonly calendars = signal<CalendarSummary[]>([]);
   readonly error = signal<string | null>(null);
+  readonly isLoading = signal(false);
   readonly message = signal<string | null>(null);
 
   filters: {
@@ -843,6 +863,7 @@ export class TasksComponent {
 
   async bootstrap() {
     this.error.set(null);
+    this.isLoading.set(true);
     try {
       const [contacts, calendars] = await Promise.all([
         this.calApi.listImportedContacts(),
@@ -857,6 +878,8 @@ export class TasksComponent {
       await this.selectRequestedTaskFromRoute();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to load tasks workspace.');
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
@@ -983,7 +1006,11 @@ export class TasksComponent {
       return;
     }
 
-    if (!window.confirm(`Delete task "${selected.title}"?`)) {
+    if (
+      !window.confirm(
+        `Delete task "${selected.title}" from ${this.contextService.getContextLabel()}?`,
+      )
+    ) {
       return;
     }
 
@@ -1003,7 +1030,11 @@ export class TasksComponent {
   async copyToPersonal(taskId: string) {
     this.error.set(null);
     this.message.set(null);
-    if (!window.confirm('Copy this task to your default personal calendar?')) {
+    if (
+      !window.confirm(
+        `Copy this task from ${this.contextService.getContextLabel()} to your default personal calendar?`,
+      )
+    ) {
       return;
     }
     try {
@@ -1012,9 +1043,7 @@ export class TasksComponent {
         itemId: taskId,
         itemType: 'task',
       })) as { id: string };
-      this.message.set(
-        `Copied task to your default personal calendar as ${copied.id}.`,
-      );
+      this.message.set(`Copied task to your default personal calendar as ${copied.id}.`);
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to copy task.');
     }

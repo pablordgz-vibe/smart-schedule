@@ -10,7 +10,9 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
   template: `
     <section class="grid gap-6" data-testid="page-org-calendars">
       <div class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">Organization Administration</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+          Organization Administration
+        </p>
         <h1>Organization Calendars</h1>
         <p class="text-sm leading-6 text-base-content/65">
           Create organization calendars and manage user visibility grants and revocations.
@@ -19,11 +21,19 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
         <div class="flex flex-wrap items-end gap-3" *ngIf="organizationId()">
           <label class="form-control grow gap-2">
             <span>Calendar name</span>
-            <input class="input input-bordered w-full" [(ngModel)]="calendarName" [ngModelOptions]="{ standalone: true }" />
+            <input
+              class="input input-bordered w-full"
+              [(ngModel)]="calendarName"
+              [ngModelOptions]="{ standalone: true }"
+            />
           </label>
           <label class="form-control gap-2">
             <span>Owner</span>
-            <select class="select select-bordered w-full" [(ngModel)]="ownerUserId" [ngModelOptions]="{ standalone: true }">
+            <select
+              class="select select-bordered w-full"
+              [(ngModel)]="ownerUserId"
+              [ngModelOptions]="{ standalone: true }"
+            >
               <option value="">Organization-owned</option>
               <option *ngFor="let member of memberships()" [value]="member.userId">
                 {{ member.name }}
@@ -67,7 +77,10 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
 
                 <div *ngIf="calendar.defaultVisibility === 'owner-and-grants'" class="space-y-2">
                   <p class="text-sm font-medium">Explicit visibility grants</p>
-                  <div class="flex flex-wrap gap-2" *ngIf="calendar.visibilityGrants.length > 0; else noGrants">
+                  <div
+                    class="flex flex-wrap gap-2"
+                    *ngIf="calendar.visibilityGrants.length > 0; else noGrants"
+                  >
                     <button
                       *ngFor="let grant of calendar.visibilityGrants"
                       class="btn btn-outline btn-sm"
@@ -78,7 +91,9 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
                     </button>
                   </div>
                   <ng-template #noGrants>
-                    <p class="text-sm text-base-content/60">Only the owner can currently see this calendar.</p>
+                    <p class="text-sm text-base-content/60">
+                      Only the owner can currently see this calendar.
+                    </p>
                   </ng-template>
                 </div>
               </li>
@@ -97,7 +112,11 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
             <div class="grid gap-4">
               <label class="form-control gap-2">
                 <span>Calendar</span>
-                <select class="select select-bordered w-full" [(ngModel)]="grantCalendarId" [ngModelOptions]="{ standalone: true }">
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="grantCalendarId"
+                  [ngModelOptions]="{ standalone: true }"
+                >
                   <option value="">Select calendar</option>
                   <option *ngFor="let calendar of grantableCalendars()" [value]="calendar.id">
                     {{ calendar.name }}
@@ -106,7 +125,11 @@ import { MembershipSummary, OrgApiService } from './org-api.service';
               </label>
               <label class="form-control gap-2">
                 <span>User</span>
-                <select class="select select-bordered w-full" [(ngModel)]="grantUserId" [ngModelOptions]="{ standalone: true }">
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="grantUserId"
+                  [ngModelOptions]="{ standalone: true }"
+                >
                   <option value="">Select user</option>
                   <option *ngFor="let member of availableGrantTargets()" [value]="member.userId">
                     {{ member.name }} · {{ member.email }}
@@ -158,13 +181,10 @@ export class OrgCalendarsComponent {
   readonly calendars = this.calendarsState.asReadonly();
   readonly memberships = this.membershipsState.asReadonly();
   readonly selectedGrantCalendar = computed(
-    () =>
-      this.calendarsState().find((calendar) => calendar.id === this.grantCalendarId) ?? null,
+    () => this.calendarsState().find((calendar) => calendar.id === this.grantCalendarId) ?? null,
   );
   readonly grantableCalendars = computed(() =>
-    this.calendarsState().filter(
-      (calendar) => calendar.defaultVisibility === 'owner-and-grants',
-    ),
+    this.calendarsState().filter((calendar) => calendar.defaultVisibility === 'owner-and-grants'),
   );
   readonly availableGrantTargets = computed(() => {
     const selectedCalendar = this.selectedGrantCalendar();
@@ -172,14 +192,11 @@ export class OrgCalendarsComponent {
       return [];
     }
 
-    const grantedUserIds = new Set(
-      selectedCalendar.visibilityGrants.map((grant) => grant.userId),
-    );
+    const grantedUserIds = new Set(selectedCalendar.visibilityGrants.map((grant) => grant.userId));
 
     return this.membershipsState().filter(
       (member) =>
-        member.userId !== selectedCalendar.ownerUserId &&
-        !grantedUserIds.has(member.userId),
+        member.userId !== selectedCalendar.ownerUserId && !grantedUserIds.has(member.userId),
     );
   });
 
@@ -244,11 +261,7 @@ export class OrgCalendarsComponent {
 
     try {
       this.errorMessage.set(null);
-      await this.orgApi.revokeCalendarVisibility(
-        this.organizationId()!,
-        calendarId,
-        userId,
-      );
+      await this.orgApi.revokeCalendarVisibility(this.organizationId()!, calendarId, userId);
       await this.reload();
       this.syncGrantSelection();
     } catch (error) {
@@ -309,9 +322,7 @@ export class OrgCalendarsComponent {
       this.grantCalendarId = grantableCalendars[0]?.id ?? '';
     }
 
-    if (
-      !this.availableGrantTargets().some((member) => member.userId === this.grantUserId)
-    ) {
+    if (!this.availableGrantTargets().some((member) => member.userId === this.grantUserId)) {
       this.grantUserId = this.availableGrantTargets()[0]?.userId ?? '';
     }
   }
