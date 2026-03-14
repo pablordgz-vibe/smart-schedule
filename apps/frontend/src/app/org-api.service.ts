@@ -31,9 +31,11 @@ export type GroupSummary = {
 };
 
 type CalendarSummary = {
+  defaultVisibility: 'all-members' | 'owner-and-grants';
   id: string;
   name: string;
   ownerUserId: string | null;
+  visibilityGrants: Array<{ userId: string; name: string; email: string }>;
 };
 
 type ApiErrorResponse = {

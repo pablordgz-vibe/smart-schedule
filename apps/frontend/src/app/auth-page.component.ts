@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthStateService } from './auth-state.service';
 import type { SocialProviderCode } from './auth.types';
+import { ContextService } from './context.service';
 
 type AuthMode =
   | 'deactivated'
@@ -26,13 +27,13 @@ type AuthMode =
             A quieter workspace for schedules, tasks, and approvals.
           </h1>
           <p class="mt-4 max-w-xl text-base leading-7 text-base-content/65">
-            DaisyUI now drives the core interaction patterns here, so the auth flow uses the same spacing,
-            input behavior, and visual hierarchy as the rest of the product.
+            Sign in, recover access, or verify your email with the same calm structure used across
+            the rest of the product.
           </p>
           <div class="mt-8 grid gap-3 text-sm text-base-content/60">
-            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Minimal contrast, clear states, consistent controls.</div>
-            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Library-based forms and actions instead of bespoke gradients.</div>
-            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">A calmer baseline closer to an editor than a dashboard.</div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Clear states for sign-in, reset, recovery, and verification.</div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Consistent controls with the main app shell and settings flows.</div>
+            <div class="rounded-box border border-base-300 bg-base-200 px-4 py-3">Focused copy that explains the account state without product jargon.</div>
           </div>
         </div>
 
@@ -206,6 +207,7 @@ export class AuthPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly authState = inject(AuthStateService);
+  private readonly contextService = inject(ContextService);
 
   readonly mode = computed(() => this.route.snapshot.data['mode'] as AuthMode);
   readonly title = computed(() => {
@@ -272,7 +274,7 @@ export class AuthPageComponent {
         email: this.email,
         password: this.password,
       });
-      await this.router.navigateByUrl('/home');
+      await this.router.navigateByUrl(this.contextService.fallbackRoute());
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to sign in.';
       if (message.toLowerCase().includes('deactivated')) {
@@ -371,7 +373,7 @@ export class AuthPageComponent {
     this.error.set('');
     try {
       await this.authState.recoverAccount(this.token);
-      await this.router.navigateByUrl('/home');
+      await this.router.navigateByUrl(this.contextService.fallbackRoute());
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Unable to recover account.');
     }

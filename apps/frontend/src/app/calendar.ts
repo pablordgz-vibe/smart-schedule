@@ -430,7 +430,7 @@ function createAttachmentDraft(): AttachmentDraft {
                       </div>
                       <p class="alert alert-warning" *ngIf="event.provenance">
                         Copied from {{ event.provenance.sourceContextType }} item
-                        {{ event.provenance.sourceItemId }} on {{ event.provenance.copiedAt }}.
+                        {{ event.provenance.sourceItemId }} on {{ formatDateTime(event.provenance.copiedAt) }}.
                       </p>
                       <p class="ui-copy" *ngIf="event.linkedTaskId">
                         Allocation: {{ event.allocation.allocatedMinutes }}m of {{ event.allocation.estimateMinutes ?? 'n/a' }}m.
@@ -519,7 +519,7 @@ function createAttachmentDraft(): AttachmentDraft {
                         <div>
                           <p class="ui-kicker">Task</p>
                           <h4>{{ taskEntry.title }}</h4>
-                          <p class="ui-copy">{{ taskEntry.dueAt || 'No deadline' }}</p>
+                          <p class="ui-copy">{{ formatDateTime(taskEntry.dueAt, 'No deadline') }}</p>
                         </div>
                         <div class="context-actions">
                           <button *ngIf="isOrganizationContext()" class="btn btn-outline btn-sm" type="button" (click)="copySelectedEntryToPersonal()">Copy to Personal</button>
@@ -532,7 +532,7 @@ function createAttachmentDraft(): AttachmentDraft {
                       <p class="ui-copy" *ngIf="taskEntry.workRelated">Marked as work related.</p>
                       <p class="alert alert-warning" *ngIf="taskEntry.provenance">
                         Copied from {{ taskEntry.provenance.sourceContextType }} item
-                        {{ taskEntry.provenance.sourceItemId }} on {{ taskEntry.provenance.copiedAt }}.
+                        {{ taskEntry.provenance.sourceItemId }} on {{ formatDateTime(taskEntry.provenance.copiedAt) }}.
                       </p>
                       <div class="context-actions">
                         <button class="btn btn-ghost" type="button" (click)="selectDay(bucket.key)">Back to day</button>
@@ -560,7 +560,7 @@ function createAttachmentDraft(): AttachmentDraft {
                     <p class="ui-copy" *ngIf="aiMessage()">{{ aiMessage() }}</p>
                     <ul class="entry-list compact-list" *ngIf="showAlternatives()">
                       <li *ngFor="let slot of advisory()!.alternativeSlots" class="entry-item">
-                        <p class="ui-copy">{{ slot.startAt }} to {{ slot.endAt }} · {{ slot.reason }}</p>
+                        <p class="ui-copy">{{ formatDateTime(slot.startAt) }} to {{ formatDateTime(slot.endAt) }} · {{ slot.reason }}</p>
                         <button class="btn btn-outline" type="button" (click)="applyAlternative(slot.startAt, slot.endAt)">Use this slot</button>
                       </li>
                       <li *ngIf="advisory()!.alternativeSlots.length === 0" class="ui-copy">No alternative slots available.</li>
@@ -937,8 +937,7 @@ export class CalendarComponent {
   }
 
   private createDefaultEventDraft(dayKey?: string): EventDraft {
-    const defaultCalendarIds =
-      this.selectedCalendarIds().length > 0 ? this.selectedCalendarIds() : [];
+    const defaultCalendarIds = this.defaultDraftCalendarIds();
     const startAt = dayKey ? this.isoLocalValue(this.dateForDayKey(dayKey, 9)) : this.nextRoundedHour(1);
     const endAt = dayKey ? this.isoLocalValue(this.dateForDayKey(dayKey, 10)) : this.nextRoundedHour(2);
 
@@ -961,8 +960,7 @@ export class CalendarComponent {
   }
 
   private createDefaultDeadlineTaskDraft(dayKey?: string): DeadlineTaskDraft {
-    const defaultCalendarIds =
-      this.selectedCalendarIds().length > 0 ? this.selectedCalendarIds() : [];
+    const defaultCalendarIds = this.defaultDraftCalendarIds();
     return {
       calendarIds: [...defaultCalendarIds],
       contactIds: [],
@@ -999,10 +997,10 @@ export class CalendarComponent {
         })),
       );
       if (this.eventDraft.calendarIds.length === 0) {
-        this.eventDraft.calendarIds = [...activeSelections];
+        this.eventDraft.calendarIds = this.defaultDraftCalendarIds();
       }
       if (this.deadlineTaskDraft.calendarIds.length === 0) {
-        this.deadlineTaskDraft.calendarIds = [...activeSelections];
+        this.deadlineTaskDraft.calendarIds = this.defaultDraftCalendarIds();
       }
       await this.loadView();
     } catch (error) {
@@ -1160,7 +1158,7 @@ export class CalendarComponent {
   }
 
   formatEntryMoment(entry: CalendarEntry) {
-    return entry.startAt || entry.dueAt || entry.endAt || 'No time';
+    return this.formatDateTime(entry.startAt || entry.dueAt || entry.endAt, 'No time');
   }
 
   formatEventTiming(event: EventDetail) {
@@ -1168,7 +1166,23 @@ export class CalendarComponent {
       return `${event.allDayStartDate ?? 'No start'} to ${event.allDayEndDate ?? 'No end'} · All day`;
     }
 
-    return `${event.startAt ?? 'No start'} to ${event.endAt ?? 'No end'}`;
+    return `${this.formatDateTime(event.startAt, 'No start')} to ${this.formatDateTime(event.endAt, 'No end')}`;
+  }
+
+  formatDateTime(value: string | null | undefined, fallback = 'n/a') {
+    if (!value) {
+      return fallback;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 
   joinLabels(items: Array<Record<string, string | null>>, key: string) {
@@ -1695,6 +1709,9 @@ export class CalendarComponent {
   private async copyEntryToPersonal(entry: CalendarEntry) {
     this.error.set(null);
     this.message.set(null);
+    if (!window.confirm(`Copy this ${entry.itemType} to your default personal calendar?`)) {
+      return;
+    }
 
     try {
       const copied = (await this.calApi.copyToPersonal({
@@ -1702,7 +1719,9 @@ export class CalendarComponent {
         itemId: entry.id,
         itemType: entry.itemType,
       })) as { id: string };
-      this.message.set(`Copied ${entry.itemType} to personal context as ${copied.id}.`);
+      this.message.set(
+        `Copied ${entry.itemType} to your default personal calendar as ${copied.id}.`,
+      );
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to copy item to personal.');
     }
@@ -1711,6 +1730,14 @@ export class CalendarComponent {
   private isoLocalValue(date: Date) {
     const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
     return offsetDate.toISOString().slice(0, 16);
+  }
+
+  private defaultDraftCalendarIds() {
+    return this.selectedCalendarIds().length > 0
+      ? [this.selectedCalendarIds()[0]]
+      : this.calendars()
+          .slice(0, 1)
+          .map((calendar) => calendar.id);
   }
 
   private calendarBucketKey(entry: CalendarEntry) {

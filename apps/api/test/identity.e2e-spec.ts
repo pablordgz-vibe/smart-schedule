@@ -336,7 +336,10 @@ describe('identity lifecycle (e2e)', () => {
     );
     const linkResponse = await request(getTestServer())
       .get(`/auth/oauth/google/callback?code=google-code&state=${encodeURIComponent(googleState ?? '')}`)
-      .set('cookie', [session.cookie, googleStateCookie].filter(Boolean) as string[])
+      .set(
+        'cookie',
+        [session.cookie, googleStateCookie].filter(Boolean).join('; '),
+      )
       .redirects(0)
       .expect(302);
 
@@ -370,7 +373,7 @@ describe('identity lifecycle (e2e)', () => {
     );
     const socialOnlyResponse = await request(getTestServer())
       .get(`/auth/oauth/github/callback?code=github-code&state=${encodeURIComponent(githubState ?? '')}`)
-      .set('cookie', [githubStateCookie].filter(Boolean) as string[])
+      .set('cookie', [githubStateCookie].filter(Boolean).join('; '))
       .redirects(0)
       .expect(302);
 

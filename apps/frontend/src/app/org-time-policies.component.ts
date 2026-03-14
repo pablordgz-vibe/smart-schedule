@@ -46,7 +46,12 @@ type TimeTab = {
           </button>
         </div>
 
+        <p class="text-sm leading-6 text-base-content/65">
+          {{ activeTabDescription() }}
+        </p>
+
         <p *ngIf="errorMessage()" class="alert alert-error">{{ errorMessage() }}</p>
+        <p *ngIf="successMessage()" class="alert alert-info">{{ successMessage() }}</p>
 
         <div class="grid gap-4 xl:grid-cols-2" *ngIf="organizationId(); else noContext">
           <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
@@ -313,6 +318,7 @@ type TimeTab = {
                   class="input input-bordered w-full"
                   [(ngModel)]="holidayImport.subdivisionSearch"
                   [ngModelOptions]="{ standalone: true }"
+                  [disabled]="!holidayImport.countryCode"
                   placeholder="Search regions or leave blank for country-wide holidays"
                 />
               </label>
@@ -322,6 +328,7 @@ type TimeTab = {
                   class="select select-bordered w-full"
                   [(ngModel)]="holidayImport.subdivisionCode"
                   [ngModelOptions]="{ standalone: true }"
+                  [disabled]="!holidayImport.countryCode"
                 >
                   <option value="">Country-wide holidays only</option>
                   <option *ngFor="let subdivision of filteredHolidaySubdivisions()" [value]="subdivision.code ?? ''">
@@ -338,6 +345,30 @@ type TimeTab = {
                 />
               </label>
             </div>
+            <div class="grid gap-4 md:grid-cols-3">
+              <label class="form-control gap-2">
+                <span>Import scope</span>
+                <select class="select select-bordered w-full" [(ngModel)]="holidayImport.scopeLevel" [ngModelOptions]="{ standalone: true }">
+                  <option value="organization">organization</option>
+                  <option value="group">group</option>
+                  <option value="user">user</option>
+                </select>
+              </label>
+              <label class="form-control gap-2" *ngIf="holidayImport.scopeLevel === 'group'">
+                <span>Target group</span>
+                <select class="select select-bordered w-full" [(ngModel)]="holidayImport.targetGroupId" [ngModelOptions]="{ standalone: true }">
+                  <option value="">Select group</option>
+                  <option *ngFor="let group of groups()" [value]="group.id">{{ group.name }}</option>
+                </select>
+              </label>
+              <label class="form-control gap-2" *ngIf="holidayImport.scopeLevel === 'user'">
+                <span>Target user</span>
+                <select class="select select-bordered w-full" [(ngModel)]="holidayImport.targetUserId" [ngModelOptions]="{ standalone: true }">
+                  <option value="">Select user</option>
+                  <option *ngFor="let user of memberships()" [value]="user.userId">{{ user.name }}</option>
+                </select>
+              </label>
+            </div>
             <div class="flex flex-wrap items-center gap-3">
               <button class="btn btn-outline" type="button" (click)="importHolidays()">
                 Import official holidays
@@ -346,9 +377,22 @@ type TimeTab = {
                 {{ catalog.countries.length }} supported countries loaded
               </span>
             </div>
+            <p class="text-sm text-base-content/60" *ngIf="holidayImport.countrySearch.trim().length > 0">
+              Country matches: {{ filteredHolidayCountries().length }}
+            </p>
+            <p class="text-sm text-base-content/60" *ngIf="holidayImport.subdivisionSearch.trim().length > 0">
+              Region matches: {{ filteredHolidaySubdivisions().length }}
+            </p>
+            <p class="text-sm text-base-content/60" *ngIf="selectedHolidayLocationCode()">
+              Import target: {{ selectedHolidayLocationLabel() }} · {{ importScopeSummary() }}
+            </p>
+            <p class="alert alert-warning" *ngIf="holidayCatalogErrorMessage()">
+              {{ holidayCatalogErrorMessage() }}
+            </p>
             <p class="text-sm leading-6 text-base-content/65" *ngIf="lastImportMessage()">{{ lastImportMessage() }}</p>
 
             <h2>Effective policy preview</h2>
+            <p class="alert alert-warning" *ngIf="previewErrorMessage()">{{ previewErrorMessage() }}</p>
             <label class="form-control gap-2">
               <span>Preview user</span>
               <select class="select select-bordered w-full"
@@ -368,6 +412,7 @@ type TimeTab = {
                 <strong>{{ formatPolicyCategory(item.category) }}</strong>
                 <span class="badge badge-outline">{{ formatScopeLabel(item.scope) }}</span>
                 <span class="text-sm text-base-content/60">rules: {{ item.ruleCount }}</span>
+                <span class="text-sm text-base-content/60">{{ item.summary }}</span>
               </li>
             </ul>
           </section>
@@ -379,8 +424,9 @@ type TimeTab = {
             <li *ngFor="let policy of filteredPolicies()" data-testid="time-policy-row">
               <div>
                 <strong>{{ policy.title }}</strong>
-                <p class="text-sm leading-6 text-base-content/65">
-                  {{ formatScopeLabel(policy.scopeLevel) }} · {{ formatSourceLabel(policy.sourceType) }} · {{ policy.updatedAt }}
+                <p class="text-sm leading-6 text-base-content/65">{{ describePolicy(policy) }}</p>
+                <p class="text-sm leading-6 text-base-content/55">
+                  {{ policyTargetLabel(policy) }} · {{ formatSourceLabel(policy.sourceType) }} · updated {{ formatDateTime(policy.updatedAt) }}
                 </p>
               </div>
               <button class="btn btn-outline" type="button" (click)="removePolicy(policy.id)">
@@ -457,7 +503,10 @@ export class OrgTimePoliciesComponent {
   readonly activeTab = signal<TimePolicyCategory>('working_hours');
   readonly organizationId = computed(() => this.orgApi.activeOrganizationId());
   readonly errorMessage = signal<string | null>(null);
+  readonly successMessage = signal<string | null>(null);
   readonly lastImportMessage = signal<string | null>(null);
+  readonly previewErrorMessage = signal<string | null>(null);
+  readonly holidayCatalogErrorMessage = signal<string | null>(null);
   readonly holidayCatalog = signal<HolidayLocationCatalog | null>(null);
 
   private readonly policiesState = signal<TimePolicySummary[]>([]);
@@ -473,7 +522,13 @@ export class OrgTimePoliciesComponent {
 
   previewUserId = '';
   private readonly previewState = signal<
-    Record<string, { resolvedFromScope: TimePolicyScopeLevel | null; rules: Array<{ id: string }> }>
+    Record<
+      string,
+      {
+        resolvedFromScope: TimePolicyScopeLevel | null;
+        rules: Array<{ id: string; rule: Record<string, unknown> }>;
+      }
+    >
   >({});
 
   form: {
@@ -512,8 +567,11 @@ export class OrgTimePoliciesComponent {
     countryCode: '',
     countrySearch: '',
     providerCode: 'calendarific',
+    scopeLevel: 'organization' as TimePolicyScopeLevel,
     subdivisionCode: '',
     subdivisionSearch: '',
+    targetGroupId: '',
+    targetUserId: '',
     year: new Date().getUTCFullYear(),
   };
 
@@ -526,12 +584,14 @@ export class OrgTimePoliciesComponent {
       category,
       ruleCount: entry.rules.length,
       scope: entry.resolvedFromScope ?? 'none',
+      summary: this.describePreviewRules(entry.rules),
     })),
   );
 
   readonly activeTabLabel = computed(
     () => this.tabs.find((tab) => tab.id === this.activeTab())?.label ?? this.activeTab(),
   );
+  readonly activeTabDescription = computed(() => this.describeActiveTab(this.activeTab()));
   readonly filteredHolidayCountries = computed(() => {
     const catalog = this.holidayCatalog();
     const search = this.holidayImport.countrySearch.trim().toLowerCase();
@@ -602,9 +662,21 @@ export class OrgTimePoliciesComponent {
       return;
     }
 
+    if (!this.validateScopedTarget(this.form.scopeLevel, this.form.targetGroupId, this.form.targetUserId)) {
+      return;
+    }
+
     try {
       this.errorMessage.set(null);
+      this.successMessage.set(null);
+      if (this.form.scopeLevel === 'group' && !this.form.targetGroupId) {
+        throw new Error('Select a target group for a group-scoped rule.');
+      }
+      if (this.form.scopeLevel === 'user' && !this.form.targetUserId) {
+        throw new Error('Select a target user for a user-scoped rule.');
+      }
       await this.timeApi.createPolicy(this.buildPolicyPayload());
+      this.successMessage.set(`${this.activeTabLabel()} policy saved.`);
       await this.reloadPolicies();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to create policy.');
@@ -614,7 +686,9 @@ export class OrgTimePoliciesComponent {
   async removePolicy(policyId: string) {
     try {
       this.errorMessage.set(null);
+      this.successMessage.set(null);
       await this.timeApi.deletePolicy(policyId);
+      this.successMessage.set('Policy deleted.');
       await this.reloadPolicies();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to delete policy.');
@@ -622,28 +696,56 @@ export class OrgTimePoliciesComponent {
   }
 
   async importHolidays() {
+    if (
+      !this.validateScopedTarget(
+        this.holidayImport.scopeLevel,
+        this.holidayImport.targetGroupId,
+        this.holidayImport.targetUserId,
+      )
+    ) {
+      return;
+    }
+
     try {
       this.errorMessage.set(null);
+      this.successMessage.set(null);
       this.lastImportMessage.set(null);
+      this.holidayCatalogErrorMessage.set(null);
       const locationCode = this.selectedHolidayLocationCode();
       if (!locationCode) {
         this.errorMessage.set('Select a country before importing official holidays.');
+        return;
+      }
+      if (this.holidayImport.scopeLevel === 'group' && !this.holidayImport.targetGroupId) {
+        this.errorMessage.set('Select a target group for a group-scoped holiday import.');
+        return;
+      }
+      if (this.holidayImport.scopeLevel === 'user' && !this.holidayImport.targetUserId) {
+        this.errorMessage.set('Select a target user for a user-scoped holiday import.');
         return;
       }
 
       const result = await this.timeApi.importOfficialHolidays({
         locationCode,
         providerCode: this.holidayImport.providerCode,
-        scopeLevel: this.form.scopeLevel,
+        scopeLevel: this.holidayImport.scopeLevel,
         targetGroupId:
-          this.form.scopeLevel === 'group' ? this.form.targetGroupId || undefined : undefined,
+          this.holidayImport.scopeLevel === 'group'
+            ? this.holidayImport.targetGroupId || undefined
+            : undefined,
         targetUserId:
-          this.form.scopeLevel === 'user' ? this.form.targetUserId || undefined : undefined,
+          this.holidayImport.scopeLevel === 'user'
+            ? this.holidayImport.targetUserId || undefined
+            : undefined,
         year: this.holidayImport.year,
       });
 
+      this.activeTab.set('holiday');
+      if (this.holidayImport.scopeLevel === 'user' && this.holidayImport.targetUserId) {
+        this.previewUserId = this.holidayImport.targetUserId;
+      }
       this.lastImportMessage.set(
-        `${result.imported} official holidays imported. Replaced ${result.replaced} previous imported holidays for this scope.`,
+        `${result.imported} official holidays imported for ${this.selectedHolidayLocationLabel()} (${this.importScopeSummary()}). Replaced ${result.replaced} previous imported holidays for this scope.`,
       );
       await this.reloadPolicies();
       await this.loadPreview();
@@ -654,6 +756,7 @@ export class OrgTimePoliciesComponent {
 
   async loadHolidayCatalog() {
     try {
+      this.holidayCatalogErrorMessage.set(null);
       const catalog = await this.timeApi.getHolidayLocationCatalog({
         countryCode: this.holidayImport.countryCode || undefined,
         providerCode: this.holidayImport.providerCode,
@@ -661,7 +764,7 @@ export class OrgTimePoliciesComponent {
       this.holidayCatalog.set(catalog);
     } catch (error) {
       this.holidayCatalog.set(null);
-      this.errorMessage.set(
+      this.holidayCatalogErrorMessage.set(
         error instanceof Error ? error.message : 'Failed to load holiday locations.',
       );
     }
@@ -676,10 +779,12 @@ export class OrgTimePoliciesComponent {
 
   async loadPreview() {
     try {
+      this.previewErrorMessage.set(null);
       const preview = await this.timeApi.previewEffectivePolicies(this.previewUserId || undefined);
       this.previewState.set(preview.categories);
     } catch (error) {
-      this.errorMessage.set(
+      this.previewState.set({});
+      this.previewErrorMessage.set(
         error instanceof Error ? error.message : 'Failed to load policy preview.',
       );
     }
@@ -716,12 +821,45 @@ export class OrgTimePoliciesComponent {
     this.policiesState.set(await this.timeApi.listPolicies());
   }
 
-  private selectedHolidayLocationCode() {
+  selectedHolidayLocationCode() {
     if (!this.holidayImport.countryCode) {
       return '';
     }
 
     return this.holidayImport.subdivisionCode || this.holidayImport.countryCode;
+  }
+
+  selectedHolidayLocationLabel() {
+    const country =
+      this.holidayCatalog()
+        ?.countries.find((entry) => entry.code === this.holidayImport.countryCode)
+        ?.name ?? this.holidayImport.countryCode;
+    const subdivision =
+      this.holidayCatalog()
+        ?.subdivisions.find(
+          (entry) => (entry.code ?? '') === this.holidayImport.subdivisionCode,
+        )
+        ?.name ?? '';
+
+    return subdivision ? `${country} / ${subdivision}` : country || 'the selected location';
+  }
+
+  importScopeSummary() {
+    if (this.holidayImport.scopeLevel === 'organization') {
+      return 'organization scope';
+    }
+
+    if (this.holidayImport.scopeLevel === 'group') {
+      const groupName =
+        this.groupsState().find((group) => group.id === this.holidayImport.targetGroupId)?.name ??
+        'selected group';
+      return `group scope: ${groupName}`;
+    }
+
+    const userName =
+      this.membershipsState().find((user) => user.userId === this.holidayImport.targetUserId)?.name ??
+      'selected user';
+    return `user scope: ${userName}`;
   }
 
   private buildPolicyPayload() {
@@ -773,5 +911,141 @@ export class OrgTimePoliciesComponent {
     }
 
     return payload;
+  }
+
+  describePolicy(policy: TimePolicySummary) {
+    const rule = policy.rule;
+
+    if (
+      policy.policyType === 'working_hours' ||
+      policy.policyType === 'availability' ||
+      policy.policyType === 'unavailability'
+    ) {
+      const days = Array.isArray(rule['daysOfWeek'])
+        ? (rule['daysOfWeek'] as number[]).join(', ')
+        : 'custom days';
+      return `${days} · ${rule['startTime'] ?? '--:--'} to ${rule['endTime'] ?? '--:--'}`;
+    }
+
+    if (policy.policyType === 'holiday') {
+      return `${rule['date'] ?? 'No date'} · ${rule['holidayName'] ?? 'Holiday'}`;
+    }
+
+    if (policy.policyType === 'blackout') {
+      return `${this.formatDateTime(rule['startAt'])} to ${this.formatDateTime(rule['endAt'])}`;
+    }
+
+    if (policy.policyType === 'rest') {
+      return `Minimum rest: ${rule['minRestMinutes'] ?? '?'} minutes`;
+    }
+
+    if (policy.policyType === 'max_hours') {
+      return `Daily: ${rule['maxDailyMinutes'] ?? 'n/a'} min · Weekly: ${rule['maxWeeklyMinutes'] ?? 'n/a'} min`;
+    }
+
+    return '';
+  }
+
+  policyTargetLabel(policy: TimePolicySummary) {
+    if (policy.scopeLevel === 'organization') {
+      return 'Organization scope';
+    }
+
+    if (policy.scopeLevel === 'group') {
+      const groupName =
+        this.groupsState().find((group) => group.id === policy.targetGroupId)?.name ??
+        policy.targetGroupId ??
+        'Unknown group';
+      return `Group: ${groupName}`;
+    }
+
+    const userName =
+      this.membershipsState().find((user) => user.userId === policy.targetUserId)?.name ??
+      policy.targetUserId ??
+      'Unknown user';
+    return `User: ${userName}`;
+  }
+
+  describePreviewRules(rules: Array<{ id: string; rule: Record<string, unknown> }>) {
+    const firstRule = rules[0]?.rule ?? {};
+
+    if (rules.length === 0) {
+      return 'No effective rule.';
+    }
+
+    if (firstRule['holidayName']) {
+      return `${firstRule['holidayName']} on ${firstRule['date'] ?? 'n/a'}`;
+    }
+
+    if (firstRule['startTime'] || firstRule['endTime']) {
+      return `${firstRule['startTime'] ?? '--:--'} to ${firstRule['endTime'] ?? '--:--'}`;
+    }
+
+    if (firstRule['startAt'] || firstRule['endAt']) {
+      return `${this.formatDateTime(firstRule['startAt'])} to ${this.formatDateTime(firstRule['endAt'])}`;
+    }
+
+    if (firstRule['minRestMinutes']) {
+      return `Minimum rest ${firstRule['minRestMinutes']} minutes`;
+    }
+
+    if (firstRule['maxDailyMinutes'] || firstRule['maxWeeklyMinutes']) {
+      return `Daily ${firstRule['maxDailyMinutes'] ?? 'n/a'} · Weekly ${firstRule['maxWeeklyMinutes'] ?? 'n/a'}`;
+    }
+
+    return `${rules.length} rule${rules.length === 1 ? '' : 's'} active.`;
+  }
+
+  formatDateTime(value: unknown) {
+    if (typeof value !== 'string' || value.length === 0) {
+      return 'n/a';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
+  }
+
+  describeActiveTab(tab: TimePolicyCategory) {
+    switch (tab) {
+      case 'working_hours':
+        return 'Organization hours set the baseline. User rules override group rules, and group rules override organization rules.';
+      case 'availability':
+        return 'Use availability for extra time when a user or group can be scheduled.';
+      case 'unavailability':
+        return 'Use unavailability for recurring periods that should raise scheduling warnings.';
+      case 'holiday':
+        return 'Use manual holidays for named dates, or import official holidays by country and region below.';
+      case 'blackout':
+        return 'Use blackout periods for hard no-schedule windows with explicit start and end datetimes.';
+      case 'rest':
+        return 'Use rest rules to warn when a new activity leaves too little recovery time between shifts.';
+      case 'max_hours':
+        return 'Use maximum-hours rules to warn when workload exceeds daily or weekly limits.';
+    }
+  }
+
+  private validateScopedTarget(
+    scopeLevel: TimePolicyScopeLevel,
+    targetGroupId: string,
+    targetUserId: string,
+  ) {
+    if (scopeLevel === 'group' && !targetGroupId) {
+      this.errorMessage.set('Select a target group for group-scoped rules or imports.');
+      return false;
+    }
+
+    if (scopeLevel === 'user' && !targetUserId) {
+      this.errorMessage.set('Select a target user for user-scoped rules or imports.');
+      return false;
+    }
+
+    return true;
   }
 }

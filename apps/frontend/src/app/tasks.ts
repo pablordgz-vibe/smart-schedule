@@ -395,7 +395,7 @@ function parseSubtasks(value: string) {
               <div>
                 <strong>{{ task.title }}</strong>
                 <p class="ui-copy">
-                  {{ task.status }} · {{ task.priority }} · due {{ task.dueAt || 'none' }}
+                  {{ task.status }} · {{ task.priority }} · due {{ formatDateTime(task.dueAt) }}
                 </p>
                 <p class="ui-copy">
                   allocated {{ task.allocation.allocatedMinutes }}m / est
@@ -430,7 +430,7 @@ function parseSubtasks(value: string) {
 
             <p class="alert alert-warning" *ngIf="task.provenance">
               Copied from {{ task.provenance.sourceContextType }} item
-              {{ task.provenance.sourceItemId }} on {{ task.provenance.copiedAt }}.
+              {{ task.provenance.sourceItemId }} on {{ formatDateTime(task.provenance.copiedAt) }}.
             </p>
 
             <div class="flex flex-wrap items-center gap-3">
@@ -466,7 +466,7 @@ function parseSubtasks(value: string) {
                 <h3>Linked work events</h3>
                 <ul>
                   <li *ngFor="let event of task.linkedEvents">
-                    {{ event.title }} ({{ event.startAt || 'n/a' }})
+                    {{ event.title }} ({{ formatDateTime(event.startAt) }})
                   </li>
                   <li *ngIf="task.linkedEvents.length === 0">No linked events.</li>
                 </ul>
@@ -851,7 +851,7 @@ export class TasksComponent {
       this.contacts.set(contacts);
       this.calendars.set(calendars);
       if (this.draft.calendarIds.length === 0) {
-        this.draft.calendarIds = calendars.map((calendar) => calendar.id);
+        this.draft.calendarIds = this.defaultDraftCalendarIds(calendars);
       }
       await this.loadTasks();
       await this.selectRequestedTaskFromRoute();
@@ -935,7 +935,7 @@ export class TasksComponent {
 
       this.draft = {
         ...createTaskDraft(),
-        calendarIds: this.calendars().map((calendar) => calendar.id),
+        calendarIds: this.defaultDraftCalendarIds(this.calendars()),
       };
       this.message.set('Task created.');
       await this.loadTasks();
@@ -1003,13 +1003,18 @@ export class TasksComponent {
   async copyToPersonal(taskId: string) {
     this.error.set(null);
     this.message.set(null);
+    if (!window.confirm('Copy this task to your default personal calendar?')) {
+      return;
+    }
     try {
       const copied = (await this.calApi.copyToPersonal({
         calendarIds: [],
         itemId: taskId,
         itemType: 'task',
       })) as { id: string };
-      this.message.set(`Copied task to personal context as ${copied.id}.`);
+      this.message.set(
+        `Copied task to your default personal calendar as ${copied.id}.`,
+      );
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to copy task.');
     }
@@ -1107,5 +1112,25 @@ export class TasksComponent {
   private isoLocalValue(date: Date) {
     const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
     return offsetDate.toISOString().slice(0, 16);
+  }
+
+  private defaultDraftCalendarIds(calendars: CalendarSummary[]) {
+    return calendars.slice(0, 1).map((calendar) => calendar.id);
+  }
+
+  formatDateTime(value: string | null) {
+    if (!value) {
+      return 'none';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 }

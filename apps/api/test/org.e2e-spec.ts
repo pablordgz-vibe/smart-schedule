@@ -375,6 +375,32 @@ describe('organizations and context switching (e2e)', () => {
       .send({ userId: bobMemberId })
       .expect(201);
 
+    const ownerCalendarResponse = await request(getTestServer())
+      .get(`/org/organizations/${organizationId}/calendars`)
+      .set(ownerOrgHeaders)
+      .expect(200);
+
+    const ownerCalendars = (
+      ownerCalendarResponse.body as {
+        calendars: Array<{
+          defaultVisibility: 'all-members' | 'owner-and-grants';
+          name: string;
+          visibilityGrants: Array<{ userId: string }>;
+        }>;
+      }
+    ).calendars;
+
+    expect(
+      ownerCalendars.find((calendar) => calendar.name === 'General Team')
+        ?.defaultVisibility,
+    ).toBe('all-members');
+    expect(
+      ownerCalendars.find((calendar) => calendar.name === 'Alice Duty')
+        ?.visibilityGrants,
+    ).toEqual(
+      expect.arrayContaining([expect.objectContaining({ userId: bobMemberId })]),
+    );
+
     const bobAfterGrant = await request(getTestServer())
       .get(`/org/organizations/${organizationId}/calendars`)
       .set('cookie', bobOrgCookie)

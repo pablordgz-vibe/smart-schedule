@@ -739,8 +739,9 @@ export class OrgService {
       );
     }
 
+    const isAdmin = membership.role === 'admin';
     const visibleCalendars =
-      membership.role === 'admin' || membership.canViewAllCalendars
+      isAdmin || membership.canViewAllCalendars
         ? await this.databaseService.query<{
             id: string;
             name: string;
@@ -772,10 +773,48 @@ export class OrgService {
             [input.organizationId, input.actorId],
           );
 
+    const grantsByCalendarId = new Map<
+      string,
+      Array<{ email: string; name: string; userId: string }>
+    >();
+
+    if (isAdmin && visibleCalendars.rows.length > 0) {
+      const visibilityGrants = await this.databaseService.query<{
+        calendar_id: string;
+        email: string;
+        name: string;
+        user_id: string;
+      }>(
+        `select
+           g.calendar_id,
+           u.email,
+           u.name,
+           u.id as user_id
+         from organization_calendar_visibility_grants g
+         inner join users u
+           on u.id = g.user_id
+         where g.organization_id = $1
+         order by g.calendar_id asc, u.email asc`,
+        [input.organizationId],
+      );
+
+      for (const grant of visibilityGrants.rows) {
+        const existing = grantsByCalendarId.get(grant.calendar_id) ?? [];
+        existing.push({
+          email: grant.email,
+          name: grant.name,
+          userId: grant.user_id,
+        });
+        grantsByCalendarId.set(grant.calendar_id, existing);
+      }
+    }
+
     return visibleCalendars.rows.map((calendar) => ({
+      defaultVisibility: calendar.owner_user_id ? 'owner-and-grants' : 'all-members',
       id: calendar.id,
       name: calendar.name,
       ownerUserId: calendar.owner_user_id,
+      visibilityGrants: grantsByCalendarId.get(calendar.id) ?? [],
     }));
   }
 

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Router } from '@angular/router';
 import { AuthStateService } from './auth-state.service';
+import { ContextService } from './context.service';
 import type { SocialProviderCode } from './auth.types';
 import { PersonalTimePoliciesComponent } from './personal-time-policies.component';
 
@@ -24,7 +25,7 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
                 {{ currentUser.emailVerified ? 'Email verified' : 'Email pending verification' }}
               </p>
               <p class="text-sm leading-6 text-base-content/65" *ngIf="currentUser.recoverUntil">
-                Recoverable until {{ currentUser.recoverUntil }}
+                Recoverable until {{ formatDateTime(currentUser.recoverUntil) }}
               </p>
             </div>
           </div>
@@ -138,7 +139,21 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
             </div>
           </section>
 
-          <app-personal-time-policies />
+          <app-personal-time-policies *ngIf="activeContextType() === 'personal'" />
+
+          <section
+            class="rounded-box border border-base-300 bg-base-100 p-4"
+            *ngIf="activeContextType() !== 'personal'"
+          >
+            <h2 class="text-lg font-semibold">Time policy workspace</h2>
+            <p class="mt-2 text-sm leading-6 text-base-content/65" *ngIf="activeContextType() === 'organization'">
+              Personal rules are managed in personal context. Organization rules live in the
+              organization time-policies workspace so scope and preview stay explicit.
+            </p>
+            <p class="mt-2 text-sm leading-6 text-base-content/65" *ngIf="activeContextType() !== 'organization'">
+              Switch into personal context to manage personal time policies.
+            </p>
+          </section>
         </div>
       </div>
     </section>
@@ -146,10 +161,12 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
 })
 export class AccountSettingsComponent {
   private readonly authState = inject(AuthStateService);
+  private readonly contextService = inject(ContextService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   readonly user = computed(() => this.authState.user());
+  readonly activeContextType = computed(() => this.contextService.activeContext().contextType);
   readonly providers = computed(() => this.authState.providers());
   readonly requireEmailVerification = computed(() => this.authState.requireEmailVerification());
   readonly message = signal('');
@@ -248,5 +265,21 @@ export class AccountSettingsComponent {
     } catch (error: unknown) {
       this.error.set(error instanceof Error ? error.message : 'Request failed.');
     }
+  }
+
+  formatDateTime(value: string | null) {
+    if (!value) {
+      return 'n/a';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 }

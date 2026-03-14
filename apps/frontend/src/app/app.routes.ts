@@ -285,11 +285,12 @@ export const routes: Routes = [
       },
       {
         path: 'admin/setup',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./admin-setup.component').then((module) => module.AdminSetupComponent),
         canActivate: [routeAreaGuard],
         data: {
           title: 'Setup / Deployment',
-          description: 'System administration setup and deployment surface scaffold.',
+          description: 'Deployment summary and post-bootstrap administration workspace.',
           sectionLabel: 'System Administration',
           testId: 'page-admin-setup',
           area: 'system-admin',

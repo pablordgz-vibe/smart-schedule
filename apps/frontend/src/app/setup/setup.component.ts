@@ -887,7 +887,7 @@ export class SetupComponent {
     this.errorMessage.set('');
 
     if (this.step() === 3) {
-      await this.router.navigateByUrl('/home');
+      await this.router.navigateByUrl('/auth/sign-in');
       return;
     }
 

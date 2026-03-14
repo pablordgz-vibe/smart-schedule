@@ -187,7 +187,15 @@ async function mockSprint2Apis(page: Page, initialContextKey: ContextKey) {
       return fulfillJson(route, { result: { ok: true } });
     }
     if (path === '/api/org/organizations/org-1/calendars') {
-      return fulfillJson(route, { calendars: state.calendars.map(({ id, name, ownerUserId }) => ({ id, name, ownerUserId })) });
+      return fulfillJson(route, {
+        calendars: state.calendars.map(({ id, name, ownerUserId }) => ({
+          defaultVisibility: ownerUserId ? 'owner-and-grants' : 'all-members',
+          id,
+          name,
+          ownerUserId,
+          visibilityGrants: [],
+        })),
+      });
     }
     if (path.startsWith('/api/org/organizations/org-1/calendars/') && route.request().method() === 'POST') {
       return fulfillJson(route, { result: { ok: true } });

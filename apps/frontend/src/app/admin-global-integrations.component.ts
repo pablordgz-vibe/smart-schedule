@@ -164,15 +164,15 @@ const PROVIDER_CREDENTIAL_FIELDS: Readonly<
                 <div class="grid gap-1">
                   <strong>{{ message.subject }}</strong>
                   <span class="text-sm text-base-content/60">{{ message.recipientEmail }} · {{ message.kind }}</span>
-                  <span class="text-sm text-base-content/60">queued {{ message.createdAt }} · expires {{ message.expiresAt }}</span>
+                  <span class="text-sm text-base-content/60">queued {{ formatDateTime(message.createdAt) }} · expires {{ formatDateTime(message.expiresAt) }}</span>
                   <span class="text-sm text-base-content/60" *ngIf="message.lastAttemptAt">
-                    last attempt {{ message.lastAttemptAt }} · attempts {{ message.attempts }}
+                    last attempt {{ formatDateTime(message.lastAttemptAt) }} · attempts {{ message.attempts }}
                   </span>
                   <span class="text-sm text-base-content/60" *ngIf="message.failedAt && message.failureReason">
-                    failed {{ message.failedAt }} · {{ message.failureReason }}
+                    failed {{ formatDateTime(message.failedAt) }} · {{ message.failureReason }}
                   </span>
                   <span class="text-sm text-base-content/60" *ngIf="message.deliveredAt">
-                    delivered {{ message.deliveredAt }}
+                    delivered {{ formatDateTime(message.deliveredAt) }}
                   </span>
                 </div>
                 <div class="flex flex-wrap gap-2">
@@ -257,6 +257,22 @@ export class AdminGlobalIntegrationsComponent {
           : integration,
       ),
     );
+  }
+
+  formatDateTime(value: string | null) {
+    if (!value) {
+      return 'n/a';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 
   async save() {

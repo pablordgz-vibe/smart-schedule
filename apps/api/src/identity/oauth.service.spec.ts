@@ -56,7 +56,6 @@ describe('OAuthService', () => {
           id: 'user-1',
           roles: ['user'],
           state: 'active',
-          type: 'user',
         },
         context: { id: 'user-1', tenantId: null, type: 'personal' },
         createdAt: new Date().toISOString(),

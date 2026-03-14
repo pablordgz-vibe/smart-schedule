@@ -43,9 +43,9 @@ import { OrgApiService } from './org-api.service';
                 <button
                   class="btn btn-outline"
                   type="button"
-                  (click)="enterOrganization(org.id)"
+                  (click)="enterOrganization(org)"
                 >
-                  {{ activeOrganizationId() === org.id ? 'Open admin view' : 'Enter workspace' }}
+                  {{ organizationCta(org) }}
                 </button>
               </li>
               <li *ngIf="organizations().length === 0" class="ui-copy">
@@ -61,7 +61,7 @@ import { OrgApiService } from './org-api.service';
                 <div>
                   <strong>{{ invitation.organizationName }}</strong>
                   <p class="text-sm leading-6 text-base-content/65">
-                    {{ formatRole(invitation.role) }} · expires {{ invitation.expiresAt }}
+                    {{ formatRole(invitation.role) }} · expires {{ formatDateTime(invitation.expiresAt) }}
                   </p>
                 </div>
                 <button
@@ -213,7 +213,10 @@ export class OrgOverviewComponent {
       const created = await this.orgApi.createOrganization(trimmedName);
       this.organizationName = '';
       if (!this.activeOrganizationId()) {
-        await this.enterOrganization(created.organization.id);
+        await this.enterOrganization({
+          id: created.organization.id,
+          membershipRole: 'admin',
+        });
         return;
       }
 
@@ -259,15 +262,17 @@ export class OrgOverviewComponent {
     }
   }
 
-  async enterOrganization(organizationId: string) {
+  async enterOrganization(org: { id: string; membershipRole: 'admin' | 'member' }) {
     try {
       this.errorMessage.set(null);
       const session = await this.authState.switchContext({
         contextType: 'organization',
-        organizationId,
+        organizationId: org.id,
       });
       this.contextService.applySessionSnapshot(session);
-      await this.router.navigateByUrl('/org/overview');
+      await this.router.navigateByUrl(
+        org.membershipRole === 'admin' ? '/org/overview' : '/home',
+      );
     } catch (error) {
       this.errorMessage.set(
         error instanceof Error ? error.message : 'Failed to enter organization workspace.',
@@ -323,5 +328,29 @@ export class OrgOverviewComponent {
 
   formatRole(role: 'admin' | 'member') {
     return role === 'admin' ? 'Admin' : 'Member';
+  }
+
+  organizationCta(org: { id: string; membershipRole: 'admin' | 'member' }) {
+    if (this.activeOrganizationId() === org.id) {
+      return org.membershipRole === 'admin' ? 'Open admin view' : 'Open workspace';
+    }
+
+    return org.membershipRole === 'admin' ? 'Enter admin workspace' : 'Enter workspace';
+  }
+
+  formatDateTime(value?: string) {
+    if (!value) {
+      return 'unknown';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 }

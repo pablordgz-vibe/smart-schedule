@@ -61,7 +61,7 @@ type HomeTaskSummary = {
               <li *ngFor="let entry of upcomingEntries()">
                 <div class="flex items-start justify-between rounded-box border border-base-300 px-4 py-3">
                   <strong class="font-medium">{{ entry.title }}</strong>
-                  <span class="text-sm text-base-content/55">{{ entry.startAt || entry.dueAt || 'No date' }}</span>
+                  <span class="text-sm text-base-content/55">{{ formatMoment(entry.startAt || entry.dueAt) }}</span>
                 </div>
               </li>
               <li *ngIf="upcomingEntries().length === 0" class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/55">
@@ -146,5 +146,21 @@ export class HomeComponent {
         error instanceof Error ? error.message : 'Failed to load home summary.',
       );
     }
+  }
+
+  formatMoment(value: string | null | undefined) {
+    if (!value) {
+      return 'No date';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 }
