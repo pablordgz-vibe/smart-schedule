@@ -9,7 +9,6 @@ import {
   resolveEffectivePolicies,
   type AdvisoryActivity,
   type AdvisoryCandidate,
-  type HolidayProviderContract,
   type RouteAdvisoryContract,
   type TimePolicyCategory,
   type TimePolicyRecord,
@@ -19,6 +18,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type { RequestContext } from '@smart-schedule/contracts';
 import { DatabaseService } from '../persistence/database.service';
+import { HolidayProviderService } from './holiday-provider.service';
 
 type ScopeInput = {
   organizationId: string | null;
@@ -120,25 +120,6 @@ function toIsoString(value: Date | string) {
   return new Date(value).toISOString();
 }
 
-class InMemoryHolidayProvider implements HolidayProviderContract {
-  loadOfficialHolidays(input: {
-    locationCode: string;
-    providerCode: string;
-    year: number;
-  }) {
-    const year = input.year;
-
-    return Promise.resolve([
-      { date: `${year}-01-01`, name: `New Year (${input.locationCode})` },
-      {
-        date: `${year}-07-04`,
-        name: `Midyear Holiday (${input.locationCode})`,
-      },
-      { date: `${year}-12-25`, name: `Winter Holiday (${input.locationCode})` },
-    ]);
-  }
-}
-
 class InMemoryRouteAdvisoryProvider implements RouteAdvisoryContract {
   estimateCommute(input: {
     arrivalLocation: string;
@@ -198,14 +179,15 @@ class InMemoryWeatherAdvisoryProvider implements WeatherAdvisoryContract {
 
 @Injectable()
 export class TimeService {
-  private readonly holidayProvider: HolidayProviderContract =
-    new InMemoryHolidayProvider();
   private readonly routeProvider: RouteAdvisoryContract =
     new InMemoryRouteAdvisoryProvider();
   private readonly weatherProvider: WeatherAdvisoryContract =
     new InMemoryWeatherAdvisoryProvider();
 
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly holidayProvider: HolidayProviderService,
+  ) {}
 
   async listPolicies(input: {
     context: RequestContext;
@@ -589,9 +571,47 @@ export class TimeService {
     });
 
     const importedAt = nowIso();
+    const [yearStart, yearEnd] = [
+      `${input.year}-01-01`,
+      `${input.year}-12-31`,
+    ];
+    const uniqueHolidays = Array.from(
+      new Map(
+        holidays.map((holiday) => [
+          `${holiday.date}:${holiday.name.toLowerCase()}`,
+          holiday,
+        ]),
+      ).values(),
+    );
 
-    await this.databaseService.transaction(async (client) => {
-      for (const holiday of holidays) {
+    const replaced = await this.databaseService.transaction(async (client) => {
+      const deleteResult = await client.query(
+        `delete from time_policies
+         where policy_type = 'holiday'
+           and source_type = 'official'
+           and scope_level = $1
+           and coalesce(organization_id, '') = coalesce($2, '')
+           and coalesce(personal_owner_user_id, '') = coalesce($3, '')
+           and coalesce(target_group_id, '') = coalesce($4, '')
+           and coalesce(target_user_id, '') = coalesce($5, '')
+           and rule_data ->> 'providerCode' = $6
+           and rule_data ->> 'locationCode' = $7
+           and rule_data ->> 'date' >= $8
+           and rule_data ->> 'date' <= $9`,
+        [
+          input.scopeLevel,
+          scope.organizationId,
+          scope.personalOwnerUserId,
+          target.targetGroupId,
+          target.targetUserId,
+          input.providerCode,
+          input.locationCode,
+          yearStart,
+          yearEnd,
+        ],
+      );
+
+      for (const holiday of uniqueHolidays) {
         const rule = {
           date: holiday.date,
           holidayName: holiday.name,
@@ -650,17 +670,27 @@ export class TimeService {
           ],
         );
       }
+
+      return deleteResult.rowCount ?? 0;
     });
 
     return {
-      imported: holidays.length,
+      imported: uniqueHolidays.length,
       locationCode: input.locationCode,
       providerCode: input.providerCode,
+      replaced,
       scopeLevel: input.scopeLevel,
       targetGroupId: target.targetGroupId,
       targetUserId: target.targetUserId,
       year: input.year,
     };
+  }
+
+  async getHolidayLocationCatalog(input: {
+    providerCode: string;
+    countryCode?: string;
+  }) {
+    return this.holidayProvider.getLocationCatalog(input);
   }
 
   private async getPolicyForContext(input: {

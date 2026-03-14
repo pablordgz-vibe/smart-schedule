@@ -135,6 +135,14 @@ export class AuthStateService {
     return result;
   }
 
+  startOAuth(provider: SocialProviderCode, intent: 'link' | 'sign-in', returnTo: string) {
+    const params = new URLSearchParams({
+      intent,
+      returnTo,
+    });
+    window.location.assign(`/api/auth/oauth/${provider}/start?${params.toString()}`);
+  }
+
   async requestEmailVerification(email: string) {
     return this.fetchJson<{ tokenDelivery: AuthMutationResult['tokenDelivery'] }>(
       '/api/auth/verify-email/request',

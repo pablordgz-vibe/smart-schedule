@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Router } from '@angular/router';
 import { AuthStateService } from './auth-state.service';
 import type { SocialProviderCode } from './auth.types';
@@ -57,24 +58,52 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
             </div>
           </div>
 
-          <div class="grid gap-4 xl:grid-cols-[minmax(0,20rem)_auto] xl:items-end">
-            <label class="form-control">
-              <span class="label"><span class="label-text">Provider to link</span></span>
-              <select class="select select-bordered w-full" [(ngModel)]="selectedProvider" name="selected-provider">
-                <option *ngFor="let provider of providers()" [value]="provider.code">
-                  {{ provider.displayName }}
-                </option>
-              </select>
-            </label>
-            <button class="btn btn-outline xl:self-end" type="button" (click)="linkProvider()">
-              Link provider
-            </button>
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <div class="space-y-1">
+              <h2 class="text-lg font-semibold">Social sign-in providers</h2>
+              <p class="text-sm leading-6 text-base-content/65">
+                Link and unlink the same OAuth providers used on the sign-in page.
+              </p>
+            </div>
+
+            <ul class="mt-4 grid gap-3">
+              <li
+                *ngFor="let provider of providers()"
+                class="flex flex-col gap-3 rounded-box border border-base-300 bg-base-100 p-4 lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <strong>{{ provider.displayName }}</strong>
+                    <span class="badge badge-outline" *ngIf="isLinked(provider.code)">Linked</span>
+                    <span class="badge badge-ghost" *ngIf="!isLinked(provider.code)">Not linked</span>
+                  </div>
+                  <p class="text-sm leading-6 text-base-content/60">
+                    {{ isLinked(provider.code) ? 'Available for account sign-in.' : 'Not yet linked to this account.' }}
+                  </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="linkProvider(provider.code)"
+                    *ngIf="!isLinked(provider.code)"
+                  >
+                    Link {{ provider.displayName }}
+                  </button>
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="unlinkProvider(provider.code)"
+                    *ngIf="isLinked(provider.code)"
+                  >
+                    Unlink {{ provider.displayName }}
+                  </button>
+                </div>
+              </li>
+            </ul>
           </div>
 
           <div class="flex flex-wrap gap-3">
-            <button class="btn btn-outline" type="button" (click)="unlinkProvider()">
-              Unlink selected provider
-            </button>
             <button class="btn btn-outline" type="button" (click)="logout()">
               Sign out
             </button>
@@ -117,6 +146,7 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
 })
 export class AccountSettingsComponent {
   private readonly authState = inject(AuthStateService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   readonly user = computed(() => this.authState.user());
@@ -127,7 +157,16 @@ export class AccountSettingsComponent {
   readonly confirmDelete = signal(false);
   readonly deleteConfirmationText = signal('');
 
-  selectedProvider: SocialProviderCode = 'google';
+  constructor() {
+    const oauthStatus = this.route.snapshot.queryParamMap.get('oauthStatus');
+    const oauthError = this.route.snapshot.queryParamMap.get('oauthError');
+    if (oauthStatus?.endsWith('-linked')) {
+      this.message.set(`${oauthStatus.replace('-linked', '')} linked.`);
+    }
+    if (oauthError) {
+      this.error.set(oauthError);
+    }
+  }
 
   async requestVerification() {
     await this.run(async () => {
@@ -144,24 +183,24 @@ export class AccountSettingsComponent {
     });
   }
 
-  async linkProvider() {
-    await this.run(async () => {
-      const currentUser = this.user();
-      if (!currentUser) {
-        return;
-      }
-      await this.authState.linkProvider(
-        this.selectedProvider,
-        `${this.selectedProvider}:${currentUser.email}`,
-      );
-      this.message.set('Provider linked.');
-    });
+  isLinked(provider: SocialProviderCode) {
+    return (
+      this.user()?.authMethods.some(
+        (method) => method.kind === 'social' && method.provider === provider,
+      ) ?? false
+    );
   }
 
-  async unlinkProvider() {
+  linkProvider(provider: SocialProviderCode) {
+    this.error.set('');
+    this.message.set('');
+    this.authState.startOAuth(provider, 'link', '/settings');
+  }
+
+  async unlinkProvider(provider: SocialProviderCode) {
     await this.run(async () => {
-      await this.authState.unlinkProvider(this.selectedProvider);
-      this.message.set('Provider unlinked.');
+      await this.authState.unlinkProvider(provider);
+      this.message.set(`${provider} unlinked.`);
     });
   }
 

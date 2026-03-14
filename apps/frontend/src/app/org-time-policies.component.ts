@@ -3,6 +3,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OrgApiService } from './org-api.service';
 import {
+  type HolidayLocationCatalog,
   TimeApiService,
   type TimePolicyCategory,
   type TimePolicyScopeLevel,
@@ -250,21 +251,83 @@ type TimeTab = {
           </section>
 
           <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
-            <h2>Official holiday import selector</h2>
+            <div class="space-y-2">
+              <h2>Holiday Import Integration</h2>
+              <p class="text-sm leading-6 text-base-content/65">
+                Import official holidays from the configured provider. Country and region selectors
+                are tied directly to this holiday import integration.
+              </p>
+            </div>
+
+            <div
+              class="alert alert-warning"
+              *ngIf="holidayCatalog() && (!holidayCatalog()!.enabled || !holidayCatalog()!.configured)"
+            >
+              <span>
+                {{
+                  !holidayCatalog()!.enabled
+                    ? 'Enable Calendarific in Global Integrations before importing holidays.'
+                    : 'Calendarific is enabled but still needs its API key in Global Integrations.'
+                }}
+              </span>
+            </div>
+
             <div class="inline-fields">
               <label class="form-control gap-2">
                 <span>Provider</span>
-                <input class="input input-bordered w-full"
+                <select
+                  class="select select-bordered w-full"
                   [(ngModel)]="holidayImport.providerCode"
                   [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="loadHolidayCatalog()"
+                >
+                  <option value="calendarific">Calendarific</option>
+                </select>
+              </label>
+              <label class="form-control gap-2">
+                <span>Country search</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="holidayImport.countrySearch"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="Search countries"
                 />
               </label>
               <label class="form-control gap-2">
-                <span>Location</span>
-                <input class="input input-bordered w-full"
-                  [(ngModel)]="holidayImport.locationCode"
+                <span>Country</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.countryCode"
                   [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="selectHolidayCountry($event)"
+                >
+                  <option value="">Select a country</option>
+                  <option *ngFor="let country of filteredHolidayCountries()" [value]="country.code">
+                    {{ country.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="form-control gap-2">
+                <span>Region search</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="holidayImport.subdivisionSearch"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="Search regions or leave blank for country-wide holidays"
                 />
+              </label>
+              <label class="form-control gap-2">
+                <span>Region / state</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.subdivisionCode"
+                  [ngModelOptions]="{ standalone: true }"
+                >
+                  <option value="">Country-wide holidays only</option>
+                  <option *ngFor="let subdivision of filteredHolidaySubdivisions()" [value]="subdivision.code ?? ''">
+                    {{ subdivision.name }}
+                  </option>
+                </select>
               </label>
               <label class="form-control gap-2">
                 <span>Year</span>
@@ -275,9 +338,14 @@ type TimeTab = {
                 />
               </label>
             </div>
-            <button class="btn btn-outline" type="button" (click)="importHolidays()">
-              Import official holidays
-            </button>
+            <div class="flex flex-wrap items-center gap-3">
+              <button class="btn btn-outline" type="button" (click)="importHolidays()">
+                Import official holidays
+              </button>
+              <span class="text-sm text-base-content/60" *ngIf="holidayCatalog() as catalog">
+                {{ catalog.countries.length }} supported countries loaded
+              </span>
+            </div>
             <p class="text-sm leading-6 text-base-content/65" *ngIf="lastImportMessage()">{{ lastImportMessage() }}</p>
 
             <h2>Effective policy preview</h2>
@@ -390,6 +458,7 @@ export class OrgTimePoliciesComponent {
   readonly organizationId = computed(() => this.orgApi.activeOrganizationId());
   readonly errorMessage = signal<string | null>(null);
   readonly lastImportMessage = signal<string | null>(null);
+  readonly holidayCatalog = signal<HolidayLocationCatalog | null>(null);
 
   private readonly policiesState = signal<TimePolicySummary[]>([]);
   readonly policies = this.policiesState.asReadonly();
@@ -440,8 +509,11 @@ export class OrgTimePoliciesComponent {
   };
 
   holidayImport = {
-    locationCode: 'US',
-    providerCode: 'public-holidays',
+    countryCode: '',
+    countrySearch: '',
+    providerCode: 'calendarific',
+    subdivisionCode: '',
+    subdivisionSearch: '',
     year: new Date().getUTCFullYear(),
   };
 
@@ -460,6 +532,34 @@ export class OrgTimePoliciesComponent {
   readonly activeTabLabel = computed(
     () => this.tabs.find((tab) => tab.id === this.activeTab())?.label ?? this.activeTab(),
   );
+  readonly filteredHolidayCountries = computed(() => {
+    const catalog = this.holidayCatalog();
+    const search = this.holidayImport.countrySearch.trim().toLowerCase();
+    const countries = catalog?.countries ?? [];
+    if (!search) {
+      return countries;
+    }
+
+    return countries.filter(
+      (country) =>
+        country.name.toLowerCase().includes(search) ||
+        country.code.toLowerCase().includes(search),
+    );
+  });
+  readonly filteredHolidaySubdivisions = computed(() => {
+    const catalog = this.holidayCatalog();
+    const search = this.holidayImport.subdivisionSearch.trim().toLowerCase();
+    const subdivisions = catalog?.subdivisions ?? [];
+    if (!search) {
+      return subdivisions;
+    }
+
+    return subdivisions.filter(
+      (subdivision) =>
+        subdivision.name.toLowerCase().includes(search) ||
+        (subdivision.code ?? '').toLowerCase().includes(search),
+    );
+  });
 
 
   formatPolicyCategory(category: string): string {
@@ -490,6 +590,7 @@ export class OrgTimePoliciesComponent {
       void organizationId;
       void this.reload();
     });
+    void this.loadHolidayCatalog();
   }
 
   setActiveTab(tab: TimePolicyCategory) {
@@ -524,9 +625,14 @@ export class OrgTimePoliciesComponent {
     try {
       this.errorMessage.set(null);
       this.lastImportMessage.set(null);
+      const locationCode = this.selectedHolidayLocationCode();
+      if (!locationCode) {
+        this.errorMessage.set('Select a country before importing official holidays.');
+        return;
+      }
 
       const result = await this.timeApi.importOfficialHolidays({
-        locationCode: this.holidayImport.locationCode,
+        locationCode,
         providerCode: this.holidayImport.providerCode,
         scopeLevel: this.form.scopeLevel,
         targetGroupId:
@@ -536,12 +642,36 @@ export class OrgTimePoliciesComponent {
         year: this.holidayImport.year,
       });
 
-      this.lastImportMessage.set(`${result.imported} official holidays imported.`);
+      this.lastImportMessage.set(
+        `${result.imported} official holidays imported. Replaced ${result.replaced} previous imported holidays for this scope.`,
+      );
       await this.reloadPolicies();
       await this.loadPreview();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to import holidays.');
     }
+  }
+
+  async loadHolidayCatalog() {
+    try {
+      const catalog = await this.timeApi.getHolidayLocationCatalog({
+        countryCode: this.holidayImport.countryCode || undefined,
+        providerCode: this.holidayImport.providerCode,
+      });
+      this.holidayCatalog.set(catalog);
+    } catch (error) {
+      this.holidayCatalog.set(null);
+      this.errorMessage.set(
+        error instanceof Error ? error.message : 'Failed to load holiday locations.',
+      );
+    }
+  }
+
+  async selectHolidayCountry(countryCode: string) {
+    this.holidayImport.countryCode = countryCode;
+    this.holidayImport.subdivisionCode = '';
+    this.holidayImport.subdivisionSearch = '';
+    await this.loadHolidayCatalog();
   }
 
   async loadPreview() {
@@ -584,6 +714,14 @@ export class OrgTimePoliciesComponent {
 
   private async reloadPolicies() {
     this.policiesState.set(await this.timeApi.listPolicies());
+  }
+
+  private selectedHolidayLocationCode() {
+    if (!this.holidayImport.countryCode) {
+      return '';
+    }
+
+    return this.holidayImport.subdivisionCode || this.holidayImport.countryCode;
   }
 
   private buildPolicyPayload() {

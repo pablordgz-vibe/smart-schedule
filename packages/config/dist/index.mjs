@@ -17,8 +17,14 @@ var envSchema = z.object({
   SESSION_COOKIE_NAME: z.string().default("smart_schedule_session"),
   SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(43200),
   MAIL_FROM_ADDRESS: z.string().email().default("no-reply@smart-schedule.local"),
+  MAIL_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5e3),
+  MAIL_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  MAIL_PROCESSING_TIMEOUT_MS: z.coerce.number().int().positive().default(3e5),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(6e4),
-  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60)
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
+  AUTH_SOCIAL_PROVIDERS: z.string().optional(),
+  CALENDARIFIC_API_BASE_URL: z.string().url().default("https://calendarific.com/api/v2"),
+  CALENDARIFIC_PORTAL_BASE_URL: z.string().url().default("https://calendarific.com")
 });
 
 // src/index.ts

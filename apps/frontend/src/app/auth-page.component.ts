@@ -250,6 +250,21 @@ export class AuthPageComponent {
   token = '';
   showPassword = false;
 
+  constructor() {
+    const oauthStatus = this.route.snapshot.queryParamMap.get('oauthStatus');
+    const oauthError = this.route.snapshot.queryParamMap.get('oauthError');
+    if (oauthStatus) {
+      this.message.set(
+        oauthStatus.endsWith('-signed-in')
+          ? `${oauthStatus.replace('-signed-in', '')} sign-in completed.`
+          : oauthStatus.replace(/-/g, ' '),
+      );
+    }
+    if (oauthError) {
+      this.error.set(oauthError);
+    }
+  }
+
   async signIn() {
     this.error.set('');
     try {
@@ -364,18 +379,7 @@ export class AuthPageComponent {
 
   async socialSignIn(provider: SocialProviderCode) {
     this.error.set('');
-    try {
-      const email = this.email || `${provider}.user@example.com`;
-      const name = this.name || `${provider[0].toUpperCase()}${provider.slice(1)} User`;
-      await this.authState.signInWithSocial({
-        email,
-        name,
-        provider,
-        providerSubject: `${provider}:${email.toLowerCase()}`,
-      });
-      await this.router.navigateByUrl('/home');
-    } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Unable to continue with provider.');
-    }
+    this.message.set('');
+    this.authState.startOAuth(provider, 'sign-in', '/home');
   }
 }

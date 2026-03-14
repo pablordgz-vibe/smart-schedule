@@ -18,6 +18,27 @@ type PersistedSetupState = {
 
 const integrationCatalog: SetupIntegrationProvider[] = [
   {
+    category: 'identity',
+    code: 'google-social-auth',
+    credentialModes: ['api-key'],
+    description: 'Google OAuth sign-in and account linking.',
+    displayName: 'Google Social Auth',
+  },
+  {
+    category: 'identity',
+    code: 'github-social-auth',
+    credentialModes: ['api-key'],
+    description: 'GitHub OAuth sign-in and account linking.',
+    displayName: 'GitHub Social Auth',
+  },
+  {
+    category: 'identity',
+    code: 'microsoft-social-auth',
+    credentialModes: ['api-key'],
+    description: 'Microsoft OAuth sign-in and account linking.',
+    displayName: 'Microsoft Social Auth',
+  },
+  {
     category: 'calendar',
     code: 'google-calendar',
     credentialModes: ['api-key', 'provider-login'],

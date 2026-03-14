@@ -13,9 +13,9 @@ type SmtpConfigStyle = 'connection-uri' | 'smtp-details';
 type SmtpPresetId = 'custom' | 'gmail' | 'amazon-ses' | 'sendgrid';
 
 type IntegrationSelection = {
+  credentials: Record<string, string>;
   enabled: boolean;
   mode: SetupIntegrationCredentialMode;
-  secret: string;
   smtpConfig: SmtpConfigState | null;
 };
 
@@ -31,6 +31,50 @@ type SmtpConfigState = {
   uri: string;
   username: string;
 };
+
+const EMPTY_CREDENTIAL_FIELDS: ReadonlyArray<{
+  key: string;
+  label: string;
+  secret: boolean;
+}> = [];
+
+const PROVIDER_CREDENTIAL_FIELDS: Readonly<
+  Record<
+    string,
+    ReadonlyArray<{
+      key: string;
+      label: string;
+      secret: boolean;
+    }>
+  >
+> = {
+  'github-social-auth': [
+    { key: 'clientId', label: 'Client ID', secret: false },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+  ],
+  'google-social-auth': [
+    { key: 'clientId', label: 'Client ID', secret: false },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+  ],
+  'microsoft-social-auth': [
+    { key: 'clientId', label: 'Client ID', secret: false },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+    { key: 'tenantId', label: 'Tenant ID', secret: false },
+  ],
+};
+
+const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
+  fromAddress: '',
+  host: '',
+  password: '',
+  port: '',
+  preset: 'custom',
+  revealPassword: false,
+  secure: false,
+  style: 'connection-uri',
+  uri: '',
+  username: '',
+});
 
 @Component({
   standalone: true,
@@ -88,7 +132,7 @@ type SmtpConfigState = {
               </div>
 
               <article
-                *ngFor="let provider of providers()"
+                *ngFor="let provider of providers(); trackBy: trackProvider"
                 class="provider-card"
                 [attr.data-testid]="'provider-' + provider.code"
               >
@@ -113,7 +157,7 @@ type SmtpConfigState = {
                       (ngModelChange)="setMode(provider.code, $event)"
                       [ngModelOptions]="{ standalone: true }"
                     >
-                      <option *ngFor="let mode of provider.credentialModes" [value]="mode">
+                      <option *ngFor="let mode of provider.credentialModes; trackBy: trackMode" [value]="mode">
                         {{ modeLabel(mode) }}
                       </option>
                     </select>
@@ -133,14 +177,29 @@ type SmtpConfigState = {
                       </select>
                     </ng-container>
                     <ng-template #genericSecretField>
-                      <span>{{ secretFieldLabel(modeFor(provider.code)) }}</span>
-                      <input
-                        class="input input-bordered w-full"
-                        [ngModel]="secretFor(provider.code)"
-                        (ngModelChange)="setSecret(provider.code, $event)"
-                        [ngModelOptions]="{ standalone: true }"
-                        [placeholder]="secretPlaceholder(modeFor(provider.code))"
-                      />
+                      <ng-container *ngIf="credentialFields(provider.code).length > 0; else singleSecretField">
+                        <label class="ui-field" *ngFor="let field of credentialFields(provider.code); trackBy: trackCredentialField">
+                          <span>{{ field.label }}</span>
+                          <input
+                            class="input input-bordered w-full"
+                            [type]="field.secret ? 'password' : 'text'"
+                            [ngModel]="credentialValue(provider.code, field.key)"
+                            (ngModelChange)="setCredential(provider.code, field.key, $event)"
+                            [ngModelOptions]="{ standalone: true }"
+                            [placeholder]="credentialPlaceholder(provider.code, field.key)"
+                          />
+                        </label>
+                      </ng-container>
+                      <ng-template #singleSecretField>
+                        <span>{{ secretFieldLabel(modeFor(provider.code)) }}</span>
+                        <input
+                          class="input input-bordered w-full"
+                          [ngModel]="secretFor(provider.code)"
+                          (ngModelChange)="setSecret(provider.code, $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          [placeholder]="secretPlaceholder(modeFor(provider.code))"
+                        />
+                      </ng-template>
                     </ng-template>
                   </label>
 
@@ -253,6 +312,9 @@ type SmtpConfigState = {
                       </label>
                     </div>
                   </ng-container>
+                  <p class="field-hint" *ngIf="provider.code === 'microsoft-social-auth'">
+                    Tenant ID is optional. Leave it blank to use the common Microsoft tenant.
+                  </p>
                 </div>
               </article>
             </section>
@@ -631,6 +693,21 @@ export class SetupComponent {
     Record<string, IntegrationSelection>
   >({});
 
+  protected trackProvider(_index: number, provider: { code: string }) {
+    return provider.code;
+  }
+
+  protected trackMode(_index: number, mode: string) {
+    return mode;
+  }
+
+  protected trackCredentialField(
+    _index: number,
+    field: { key: string },
+  ) {
+    return field.key;
+  }
+
   protected isEnabled(code: string): boolean {
     return this.selections()[code]?.enabled ?? false;
   }
@@ -640,38 +717,57 @@ export class SetupComponent {
   }
 
   protected secretFor(code: string): string {
-    return this.selections()[code]?.secret ?? '';
+    return this.selections()[code]?.credentials['secret'] ?? '';
+  }
+
+  protected credentialValue(code: string, key: string): string {
+    return this.selections()[code]?.credentials[key] ?? '';
   }
 
   protected toggleProvider(code: string, enabled: boolean) {
     this.updateSelection(code, {
+      credentials: this.credentialsFor(code),
       enabled,
       mode: this.modeFor(code),
-      secret: this.secretFor(code),
       smtpConfig: this.smtpConfigFor(code),
     });
   }
 
   protected setMode(code: string, mode: SetupIntegrationCredentialMode) {
     this.updateSelection(code, {
+      credentials: this.credentialsFor(code),
       enabled: this.isEnabled(code),
       mode,
-      secret: this.secretFor(code),
       smtpConfig: this.smtpConfigFor(code),
     });
   }
 
   protected setSecret(code: string, secret: string) {
     this.updateSelection(code, {
+      credentials: {
+        ...this.credentialsFor(code),
+        secret,
+      },
       enabled: this.isEnabled(code),
       mode: this.modeFor(code),
-      secret,
+      smtpConfig: this.smtpConfigFor(code),
+    });
+  }
+
+  protected setCredential(code: string, key: string, value: string) {
+    this.updateSelection(code, {
+      credentials: {
+        ...this.credentialsFor(code),
+        [key]: value,
+      },
+      enabled: this.isEnabled(code),
+      mode: this.modeFor(code),
       smtpConfig: this.smtpConfigFor(code),
     });
   }
 
   protected smtpConfigFor(code: string): SmtpConfigState | null {
-    return this.selections()[code]?.smtpConfig ?? (code === 'smtp' ? createEmptySmtpConfig() : null);
+    return this.selections()[code]?.smtpConfig ?? (code === 'smtp' ? EMPTY_SMTP_CONFIG : null);
   }
 
   protected setSmtpStyle(code: string, style: SmtpConfigStyle) {
@@ -680,9 +776,9 @@ export class SetupComponent {
       return;
     }
     this.updateSelection(code, {
+      credentials: this.credentialsFor(code),
       enabled: this.isEnabled(code),
       mode: this.modeFor(code),
-      secret: this.secretFor(code),
       smtpConfig: { ...smtpConfig, style },
     });
   }
@@ -697,9 +793,9 @@ export class SetupComponent {
       return;
     }
     this.updateSelection(code, {
+      credentials: this.credentialsFor(code),
       enabled: this.isEnabled(code),
       mode: this.modeFor(code),
-      secret: this.secretFor(code),
       smtpConfig: { ...smtpConfig, [field]: value },
     });
   }
@@ -710,9 +806,9 @@ export class SetupComponent {
       return;
     }
     this.updateSelection(code, {
+      credentials: this.credentialsFor(code),
       enabled: this.isEnabled(code),
       mode: this.modeFor(code),
-      secret: this.secretFor(code),
       smtpConfig: { ...smtpConfig, secure },
     });
   }
@@ -723,9 +819,9 @@ export class SetupComponent {
       return;
     }
     this.updateSelection(code, {
+      credentials: this.credentialsFor(code),
       enabled: this.isEnabled(code),
       mode: this.modeFor(code),
-      secret: this.secretFor(code),
       smtpConfig: {
         ...smtpConfig,
         preset,
@@ -740,11 +836,24 @@ export class SetupComponent {
       return;
     }
     this.updateSelection(code, {
+      credentials: this.credentialsFor(code),
       enabled: this.isEnabled(code),
       mode: this.modeFor(code),
-      secret: this.secretFor(code),
       smtpConfig: { ...smtpConfig, revealPassword: !smtpConfig.revealPassword },
     });
+  }
+
+  protected credentialFields(code: string) {
+    return PROVIDER_CREDENTIAL_FIELDS[code] ?? EMPTY_CREDENTIAL_FIELDS;
+  }
+
+  protected credentialPlaceholder(code: string, key: string) {
+    if (key === 'tenantId') {
+      return 'common';
+    }
+    return code === 'github-social-auth'
+      ? 'Paste the GitHub OAuth value'
+      : 'Paste the provider value';
   }
 
   protected secretFieldLabel(mode: SetupIntegrationCredentialMode): string {
@@ -784,7 +893,7 @@ export class SetupComponent {
 
     if (this.step() === 0) {
       const invalidSelection = this.selectedProviders().some(
-        (provider) => this.serializedSecretFor(provider.code).trim().length === 0,
+        (provider) => !this.hasRequiredCredentials(provider.code),
       );
       if (invalidSelection) {
         this.errorMessage.set(
@@ -826,7 +935,7 @@ export class SetupComponent {
       integrations: this.providers().map((provider) => ({
         code: provider.code,
         credentials: this.isEnabled(provider.code)
-          ? { secret: this.serializedSecretFor(provider.code).trim() }
+          ? this.serializedCredentialsFor(provider.code)
           : ({} as Record<string, string>),
         enabled: this.isEnabled(provider.code),
         mode: this.modeFor(provider.code),
@@ -862,18 +971,40 @@ export class SetupComponent {
     }));
   }
 
-  private serializedSecretFor(code: string): string {
+  private credentialsFor(code: string) {
+    return this.selections()[code]?.credentials ?? {};
+  }
+
+  private hasRequiredCredentials(code: string) {
+    const serialized = this.serializedCredentialsFor(code);
+    const fields = this.credentialFields(code);
+    if (fields.length === 0) {
+      return Object.keys(serialized).length > 0;
+    }
+
+    return fields
+      .filter((field) => field.key !== 'tenantId')
+      .every((field) => (serialized[field.key] ?? '').trim().length > 0);
+  }
+
+  private serializedCredentialsFor(code: string): Record<string, string> {
     const selection = this.selections()[code];
     if (!selection) {
-      return '';
+      return {};
     }
 
     if (code !== 'smtp' || !selection.smtpConfig) {
-      return selection.secret;
+      return Object.fromEntries(
+        Object.entries(selection.credentials)
+          .map(([key, value]) => [key, value.trim()])
+          .filter(([, value]) => value.length > 0),
+      );
     }
 
     if (selection.smtpConfig.style === 'connection-uri') {
-      return selection.smtpConfig.uri.trim();
+      return selection.smtpConfig.uri.trim()
+        ? { secret: selection.smtpConfig.uri.trim() }
+        : {};
     }
 
     const host = selection.smtpConfig.host.trim();
@@ -883,32 +1014,23 @@ export class SetupComponent {
     const fromAddress = selection.smtpConfig.fromAddress.trim();
 
     if (!host && !port && !username && !password && !fromAddress && !selection.smtpConfig.secure) {
-      return '';
+      return {};
     }
 
-    return JSON.stringify({
+    return {
+      secret: JSON.stringify({
       auth: username || password ? { pass: password, user: username } : undefined,
       fromAddress: fromAddress || undefined,
       host,
       port: port ? Number(port) : undefined,
       secure: selection.smtpConfig.secure,
-    });
+      }),
+    };
   }
 }
 
 function createEmptySmtpConfig(): SmtpConfigState {
-  return {
-    fromAddress: '',
-    host: '',
-    password: '',
-    port: '',
-    preset: 'custom',
-    revealPassword: false,
-    secure: false,
-    style: 'connection-uri',
-    uri: '',
-    username: '',
-  };
+  return { ...EMPTY_SMTP_CONFIG };
 }
 
 function smtpPresetConfig(

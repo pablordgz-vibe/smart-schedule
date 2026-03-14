@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -41,7 +42,14 @@ describe('time policies and advisory (e2e)', () => {
 
   const getTestServer = () => app.getHttpServer();
 
-  async function completeSetup() {
+  async function completeSetup(
+    integrations: Array<{
+      code: string;
+      credentials: Record<string, string>;
+      enabled: boolean;
+      mode: 'api-key' | 'provider-login';
+    }> = [],
+  ) {
     await request(getTestServer())
       .post('/setup/complete')
       .send({
@@ -50,7 +58,7 @@ describe('time policies and advisory (e2e)', () => {
           name: 'Initial Admin',
           password: 'setup-password-123',
         },
-        integrations: [],
+        integrations,
       })
       .expect(201);
   }
@@ -127,6 +135,8 @@ describe('time policies and advisory (e2e)', () => {
 
   beforeEach(async () => {
     process.env.APP_EDITION = 'community';
+    process.env.CALENDARIFIC_API_BASE_URL = 'https://calendarific.test/api/v2';
+    process.env.CALENDARIFIC_PORTAL_BASE_URL = 'https://calendarific.test';
     process.env.NODE_ENV = 'test';
     process.env.DATABASE_URL = databaseUrl;
     await resetTestDb(databaseUrl);
@@ -145,6 +155,7 @@ describe('time policies and advisory (e2e)', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     if (app) {
       await app.close();
     }
@@ -302,6 +313,141 @@ describe('time policies and advisory (e2e)', () => {
         targetUserId: 'someone-else',
       })
       .expect(400);
+  });
+
+  it('loads holiday locations and keeps official holiday imports idempotent', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: string | URL | Request) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (url === 'https://calendarific.test/supported-countries') {
+          return new Response(
+            `
+              <table>
+                <tr>
+                  <td>Spain</td>
+                  <td>es</td>
+                  <td>
+                    <a href="/api?location=es-md">Madrid</a>,
+                    <a href="/api?location=es-ct">Catalonia</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td>United States</td>
+                  <td>us</td>
+                  <td>
+                    <a href="/api?location=us-ca">California</a>
+                  </td>
+                </tr>
+              </table>
+            `,
+            { status: 200 },
+          );
+        }
+
+        if (url.startsWith('https://calendarific.test/api/v2/holidays')) {
+          return new Response(
+            JSON.stringify({
+              response: {
+                holidays: [
+                  { date: { iso: '2026-01-06T00:00:00+01:00' }, name: 'Epiphany' },
+                  { date: { iso: '2026-05-02T00:00:00+01:00' }, name: 'Community Day' },
+                ],
+              },
+            }),
+            {
+              headers: { 'content-type': 'application/json' },
+              status: 200,
+            },
+          );
+        }
+
+        throw new Error(`Unexpected fetch: ${url}`);
+      },
+    );
+
+    await completeSetup([
+      {
+        code: 'calendarific',
+        credentials: { secret: 'calendarific-key' },
+        enabled: true,
+        mode: 'api-key',
+      },
+    ]);
+    await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
+    const owner = await signIn('owner@example.com', 'owner-password-123');
+
+    const catalogResponse = await request(getTestServer())
+      .get('/time/holidays/locations?providerCode=calendarific&countryCode=ES')
+      .set('cookie', owner.cookie)
+      .expect(200);
+
+    expect(catalogResponse.body.catalog.enabled).toBe(true);
+    expect(catalogResponse.body.catalog.configured).toBe(true);
+    expect(catalogResponse.body.catalog.countries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'ES', name: 'Spain' }),
+      ]),
+    );
+    expect(catalogResponse.body.catalog.subdivisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'ES-MD', name: 'Madrid' }),
+      ]),
+    );
+
+    const firstImport = await request(getTestServer())
+      .post('/time/holidays/import')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        locationCode: 'ES-MD',
+        providerCode: 'calendarific',
+        scopeLevel: 'user',
+        year: 2026,
+      })
+      .expect(201);
+
+    expect(firstImport.body.importResult).toMatchObject({
+      imported: 2,
+      replaced: 0,
+    });
+
+    const secondImport = await request(getTestServer())
+      .post('/time/holidays/import')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({
+        locationCode: 'ES-MD',
+        providerCode: 'calendarific',
+        scopeLevel: 'user',
+        year: 2026,
+      })
+      .expect(201);
+
+    expect(secondImport.body.importResult).toMatchObject({
+      imported: 2,
+      replaced: 2,
+    });
+
+    const policies = await request(getTestServer())
+      .get('/time/policies?policyType=holiday')
+      .set('cookie', owner.cookie)
+      .expect(200);
+
+    expect(
+      (policies.body as { policies: Array<{ sourceType: string; title: string }> }).policies,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceType: 'official', title: 'Community Day' }),
+        expect.objectContaining({ sourceType: 'official', title: 'Epiphany' }),
+      ]),
+    );
+    expect((policies.body as { policies: unknown[] }).policies).toHaveLength(2);
   });
 
   it('evaluates org advisory activity for the target user based on visible org calendars, not creator ownership', async () => {

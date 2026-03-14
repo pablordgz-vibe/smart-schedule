@@ -6,6 +6,22 @@ type ApiErrorResponse = {
   message?: string | string[];
 };
 
+export type HolidayLocationCatalog = {
+  configured: boolean;
+  countries: Array<{
+    code: string;
+    name: string;
+  }>;
+  enabled: boolean;
+  providerCode: string;
+  providerDisplayName: string;
+  subdivisions: Array<{
+    code: string | null;
+    countryCode: string;
+    name: string;
+  }>;
+};
+
 export type TimePolicyCategory =
   | 'working_hours'
   | 'availability'
@@ -154,6 +170,7 @@ export class TimeApiService {
     const response = await this.fetchJson<{
       importResult: {
         imported: number;
+        replaced: number;
       };
     }>(`/api/time/holidays/import`, {
       body: JSON.stringify(payload),
@@ -162,6 +179,58 @@ export class TimeApiService {
     });
 
     return response.importResult;
+  }
+
+  async getHolidayImportOptions(payload: {
+    providerCode?: string;
+    countryCode?: string;
+  }) {
+    const search = new URLSearchParams();
+    if (payload.providerCode) {
+      search.set('providerCode', payload.providerCode);
+    }
+    if (payload.countryCode) {
+      search.set('countryCode', payload.countryCode);
+    }
+
+    const response = await this.fetchJson<{
+      options: {
+        configured: boolean;
+        countries: Array<{ code: string; name: string }>;
+        enabled: boolean;
+        providerCode: string;
+        providerDisplayName: string;
+        subdivisions: Array<{
+          code: string | null;
+          countryCode: string;
+          name: string;
+        }>;
+      };
+    }>(`/api/time/holidays/import-options?${search.toString()}`, {
+      headers: this.authHeaders(),
+    });
+
+    return response.options;
+  }
+
+  async getHolidayLocationCatalog(input: {
+    countryCode?: string;
+    providerCode: string;
+  }) {
+    const params = new URLSearchParams({
+      providerCode: input.providerCode,
+    });
+    if (input.countryCode) {
+      params.set('countryCode', input.countryCode);
+    }
+
+    const response = await this.fetchJson<{
+      catalog: HolidayLocationCatalog;
+    }>(`/api/time/holidays/locations?${params.toString()}`, {
+      headers: this.authHeaders(),
+    });
+
+    return response.catalog;
   }
 
   private authHeaders() {

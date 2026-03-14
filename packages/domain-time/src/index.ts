@@ -866,10 +866,35 @@ export type OfficialHolidayRecord = {
   name: string;
 };
 
+export type OfficialHolidayLocation = {
+  code: string;
+  name: string;
+};
+
+export type OfficialHolidaySubdivision = {
+  code: string | null;
+  countryCode: string;
+  name: string;
+};
+
+export type OfficialHolidayLocationCatalog = {
+  configured: boolean;
+  countries: OfficialHolidayLocation[];
+  enabled: boolean;
+  providerCode: string;
+  providerDisplayName: string;
+  subdivisions: OfficialHolidaySubdivision[];
+};
+
 export interface HolidayProviderContract {
   loadOfficialHolidays(
     input: OfficialHolidayImportRequest,
   ): Promise<OfficialHolidayRecord[]>;
+
+  getLocationCatalog(input: {
+    countryCode?: string;
+    providerCode: string;
+  }): Promise<OfficialHolidayLocationCatalog>;
 }
 
 export interface RouteAdvisoryContract {

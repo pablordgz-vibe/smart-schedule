@@ -57,6 +57,22 @@ type UserListResponse = {
   users: Array<{ email: string }>;
 };
 
+function jsonResponse(body: unknown, init?: ResponseInit) {
+  return new Response(JSON.stringify(body), {
+    headers: {
+      'content-type': 'application/json',
+    },
+    status: 200,
+    ...init,
+  });
+}
+
+function extractCookie(setCookieHeader: string | string[], cookieName: string) {
+  const values = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  const match = values.find((value) => value.startsWith(`${cookieName}=`));
+  return match?.split(';')[0] ?? null;
+}
+
 describe('identity lifecycle (e2e)', () => {
   let app: NestFastifyApplication;
   let databaseUrl: string;
@@ -73,7 +89,35 @@ describe('identity lifecycle (e2e)', () => {
           name: 'Initial Admin',
           password: 'setup-password-123',
         },
-        integrations: [],
+        integrations: [
+          {
+            code: 'google-social-auth',
+            credentials: {
+              clientId: 'google-client-id',
+              clientSecret: 'google-client-secret',
+            },
+            enabled: true,
+            mode: 'api-key',
+          },
+          {
+            code: 'github-social-auth',
+            credentials: {
+              clientId: 'github-client-id',
+              clientSecret: 'github-client-secret',
+            },
+            enabled: true,
+            mode: 'api-key',
+          },
+          {
+            code: 'microsoft-social-auth',
+            credentials: {
+              clientId: 'microsoft-client-id',
+              clientSecret: 'microsoft-client-secret',
+            },
+            enabled: true,
+            mode: 'api-key',
+          },
+        ],
       })
       .expect(201);
   }
@@ -139,6 +183,7 @@ describe('identity lifecycle (e2e)', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     if (app) {
       await app.close();
     }
@@ -214,6 +259,47 @@ describe('identity lifecycle (e2e)', () => {
 
   it('supports password reset and social link or unlink protection', async () => {
     await completeSetup();
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('oauth2.googleapis.com/token')) {
+        return Promise.resolve(jsonResponse({ access_token: 'google-access-token' }));
+      }
+      if (url.includes('openidconnect.googleapis.com/v1/userinfo')) {
+        return Promise.resolve(
+          jsonResponse({
+            email: 'user@example.com',
+            email_verified: true,
+            name: 'Example User',
+            sub: 'google-user-123',
+          }),
+        );
+      }
+      if (url.includes('github.com/login/oauth/access_token')) {
+        return Promise.resolve(jsonResponse({ access_token: 'github-access-token' }));
+      }
+      if (url.endsWith('/user')) {
+        return Promise.resolve(
+          jsonResponse({
+            id: 42,
+            login: 'social-only',
+            name: 'Social Only',
+          }),
+        );
+      }
+      if (url.endsWith('/user/emails')) {
+        return Promise.resolve(
+          jsonResponse([
+            {
+              email: 'social-only@example.com',
+              primary: true,
+              verified: true,
+            },
+          ]),
+        );
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
+    });
 
     const signUpResponse = await request(getTestServer())
       .post('/auth/sign-up')
@@ -236,18 +322,33 @@ describe('identity lifecycle (e2e)', () => {
       'example-password-123',
     );
 
-    const linkResponse = await request(getTestServer())
-      .post('/auth/providers/link')
+    const linkStartResponse = await request(getTestServer())
+      .get('/auth/oauth/google/start?intent=link&returnTo=%2Fsettings')
       .set('cookie', session.cookie)
-      .set('x-csrf-token', session.csrfToken)
-      .send({
-        provider: 'google',
-        providerSubject: 'google:user@example.com',
-      })
-      .expect(201);
+      .redirects(0)
+      .expect(302);
+    const googleState = new URL(
+      linkStartResponse.headers.location,
+    ).searchParams.get('state');
+    const googleStateCookie = extractCookie(
+      linkStartResponse.headers['set-cookie'],
+      'smart_schedule_oauth_google',
+    );
+    const linkResponse = await request(getTestServer())
+      .get(`/auth/oauth/google/callback?code=google-code&state=${encodeURIComponent(googleState ?? '')}`)
+      .set('cookie', [session.cookie, googleStateCookie].filter(Boolean) as string[])
+      .redirects(0)
+      .expect(302);
+
+    expect(linkResponse.headers.location).toContain('/settings?oauthStatus=google-linked');
+
+    const linkedSession = await request(getTestServer())
+      .get('/auth/session')
+      .set('cookie', session.cookie)
+      .expect(200);
 
     expect(
-      (linkResponse.body as AuthUserMutationResponse).user.authMethods.length,
+      (linkedSession.body as SessionResponse['session']).user?.authMethods.length,
     ).toBe(2);
 
     await request(getTestServer())
@@ -256,19 +357,34 @@ describe('identity lifecycle (e2e)', () => {
       .set('x-csrf-token', session.csrfToken)
       .expect(201);
 
+    const githubStartResponse = await request(getTestServer())
+      .get('/auth/oauth/github/start?returnTo=%2Fhome')
+      .redirects(0)
+      .expect(302);
+    const githubState = new URL(
+      githubStartResponse.headers.location,
+    ).searchParams.get('state');
+    const githubStateCookie = extractCookie(
+      githubStartResponse.headers['set-cookie'],
+      'smart_schedule_oauth_github',
+    );
     const socialOnlyResponse = await request(getTestServer())
-      .post('/auth/sign-in/social')
-      .send({
-        email: 'social-only@example.com',
-        name: 'Social Only',
-        provider: 'github',
-        providerSubject: 'github:social-only@example.com',
-      })
-      .expect(201);
+      .get(`/auth/oauth/github/callback?code=github-code&state=${encodeURIComponent(githubState ?? '')}`)
+      .set('cookie', [githubStateCookie].filter(Boolean) as string[])
+      .redirects(0)
+      .expect(302);
 
-    const socialCookie = socialOnlyResponse.headers['set-cookie'][0];
-    const socialCsrf = (socialOnlyResponse.body as SessionResponse).session
-      .csrfToken!;
+    expect(socialOnlyResponse.headers.location).toContain('/home?oauthStatus=github-signed-in');
+
+    const socialCookie = extractCookie(
+      socialOnlyResponse.headers['set-cookie'],
+      'smart_schedule_session',
+    ) as string;
+    const socialSession = await request(getTestServer())
+      .get('/auth/session')
+      .set('cookie', socialCookie)
+      .expect(200);
+    const socialCsrf = (socialSession.body as SessionResponse['session']).csrfToken!;
 
     await request(getTestServer())
       .post('/auth/providers/github/unlink')

@@ -1,7 +1,7 @@
 export type SetupIntegrationCredentialMode = 'api-key' | 'provider-login';
 
 export type SetupIntegrationProvider = {
-  category: 'ai' | 'calendar' | 'email' | 'holiday-data';
+  category: 'ai' | 'calendar' | 'email' | 'holiday-data' | 'identity';
   code: string;
   credentialModes: SetupIntegrationCredentialMode[];
   description: string;

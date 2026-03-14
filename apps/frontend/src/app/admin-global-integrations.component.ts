@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SetupStateService } from './setup/setup-state.service';
 import type {
@@ -11,11 +11,42 @@ import type {
 
 type IntegrationFormState = {
   code: string;
+  credentials: Record<string, string>;
   displayName: string;
   enabled: boolean;
   hasCredentials: boolean;
   mode: SetupIntegrationCredentialMode;
-  secret: string;
+};
+
+const EMPTY_CREDENTIAL_FIELDS: ReadonlyArray<{
+  key: string;
+  label: string;
+  secret: boolean;
+}> = [];
+
+const PROVIDER_CREDENTIAL_FIELDS: Readonly<
+  Record<
+    string,
+    ReadonlyArray<{
+      key: string;
+      label: string;
+      secret: boolean;
+    }>
+  >
+> = {
+  'github-social-auth': [
+    { key: 'clientId', label: 'Client ID', secret: false },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+  ],
+  'google-social-auth': [
+    { key: 'clientId', label: 'Client ID', secret: false },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+  ],
+  'microsoft-social-auth': [
+    { key: 'clientId', label: 'Client ID', secret: false },
+    { key: 'clientSecret', label: 'Client secret', secret: true },
+    { key: 'tenantId', label: 'Tenant ID', secret: false },
+  ],
 };
 
 @Component({
@@ -46,7 +77,7 @@ type IntegrationFormState = {
             </div>
 
             <div class="grid gap-4">
-              <article *ngFor="let integration of integrations()" class="rounded-box border border-base-300 bg-base-100 p-4">
+              <article *ngFor="let integration of integrations(); trackBy: trackIntegration" class="rounded-box border border-base-300 bg-base-100 p-4">
                 <div class="grid gap-4">
                   <label class="flex items-start justify-between gap-4 rounded-box border border-base-300 bg-base-100 px-4 py-3">
                     <span class="min-w-0 space-y-1">
@@ -76,22 +107,40 @@ type IntegrationFormState = {
                     </select>
                   </label>
 
-                  <label class="form-control">
-                    <span class="label"><span class="label-text">{{ integration.mode === 'provider-login' ? 'Provider login reference' : 'API key or secret' }}</span></span>
-                    <input
-                      class="input input-bordered w-full"
-                      [ngModel]="integration.secret"
-                      (ngModelChange)="setSecret(integration.code, $event)"
-                      [ngModelOptions]="{ standalone: true }"
-                      [placeholder]="secretPlaceholder(integration)"
-                    />
-                  </label>
+                  <ng-container *ngIf="credentialFields(integration.code).length > 0; else genericSecretField">
+                    <label class="form-control" *ngFor="let field of credentialFields(integration.code); trackBy: trackCredentialField">
+                      <span class="label"><span class="label-text">{{ field.label }}</span></span>
+                      <input
+                        class="input input-bordered w-full"
+                        [type]="field.secret ? 'password' : 'text'"
+                        [ngModel]="credentialValue(integration.code, field.key)"
+                        (ngModelChange)="setCredential(integration.code, field.key, $event)"
+                        [ngModelOptions]="{ standalone: true }"
+                        [placeholder]="credentialPlaceholder(integration, field.key)"
+                      />
+                    </label>
+                  </ng-container>
+                  <ng-template #genericSecretField>
+                    <label class="form-control">
+                      <span class="label"><span class="label-text">{{ integration.mode === 'provider-login' ? 'Provider login reference' : 'API key or secret' }}</span></span>
+                      <input
+                        class="input input-bordered w-full"
+                        [ngModel]="credentialValue(integration.code, 'secret')"
+                        (ngModelChange)="setCredential(integration.code, 'secret', $event)"
+                        [ngModelOptions]="{ standalone: true }"
+                        [placeholder]="credentialPlaceholder(integration, 'secret')"
+                      />
+                    </label>
+                  </ng-template>
 
                   <p class="text-sm leading-6 text-base-content/60" *ngIf="integration.code === 'smtp'">
                     Use an SMTP connection URI such as
                     <code>smtp://user:pass@mail.example.com:587</code> or a JSON object with
                     <code>host</code>, <code>port</code>, <code>auth</code>, and optional
                     <code>fromAddress</code>.
+                  </p>
+                  <p class="text-sm leading-6 text-base-content/60" *ngIf="integration.code === 'microsoft-social-auth'">
+                    Optional: set a Microsoft tenant ID. Leave blank to use the common tenant.
                   </p>
                 </div>
               </article>
@@ -151,9 +200,15 @@ export class AdminGlobalIntegrationsComponent {
   readonly editionLabel = signal<'commercial' | 'community'>('community');
 
   constructor() {
-    effect(() => {
-      void this.load();
-    });
+    void this.load();
+  }
+
+  trackIntegration(_index: number, integration: IntegrationFormState) {
+    return integration.code;
+  }
+
+  trackCredentialField(_index: number, field: { key: string }) {
+    return field.key;
   }
 
   async load() {
@@ -188,10 +243,18 @@ export class AdminGlobalIntegrationsComponent {
     );
   }
 
-  setSecret(code: string, secret: string) {
+  setCredential(code: string, key: string, value: string) {
     this.integrations.update((current) =>
       current.map((integration) =>
-        integration.code === code ? { ...integration, secret } : integration,
+        integration.code === code
+          ? {
+              ...integration,
+              credentials: {
+                ...integration.credentials,
+                [key]: value,
+              },
+            }
+          : integration,
       ),
     );
   }
@@ -201,12 +264,9 @@ export class AdminGlobalIntegrationsComponent {
       this.errorMessage.set(null);
       this.message.set(null);
       const payload: SetupBootstrapPayload['integrations'] = this.integrations().map((integration) => {
-        const credentials: Record<string, string> = integration.secret.trim()
-          ? { secret: integration.secret.trim() }
-          : {};
         return {
           code: integration.code,
-          credentials,
+          credentials: this.normalizedCredentials(integration),
           enabled: integration.enabled,
           mode: integration.mode,
         };
@@ -234,18 +294,38 @@ export class AdminGlobalIntegrationsComponent {
         enabled: configuredMap.get(provider.code)?.enabled ?? false,
         hasCredentials: configuredMap.get(provider.code)?.hasCredentials ?? false,
         mode: configuredMap.get(provider.code)?.mode ?? provider.credentialModes[0] ?? 'api-key',
-        secret: '',
+        credentials: {},
       })),
     );
   }
 
-  secretPlaceholder(integration: IntegrationFormState) {
+  credentialFields(code: string) {
+    return PROVIDER_CREDENTIAL_FIELDS[code] ?? EMPTY_CREDENTIAL_FIELDS;
+  }
+
+  credentialValue(code: string, key: string) {
+    return this.integrations().find((integration) => integration.code === code)?.credentials[key] ?? '';
+  }
+
+  credentialPlaceholder(integration: IntegrationFormState, key: string) {
     if (integration.code === 'smtp') {
       return integration.hasCredentials
         ? 'Leave blank to keep current SMTP connection URI'
         : 'smtp://user:pass@mail.example.com:587';
     }
 
-    return integration.hasCredentials ? 'Leave blank to keep current secret' : 'Enter secret';
+    if (integration.hasCredentials) {
+      return key === 'tenantId' ? 'Leave blank to keep current value or use common' : 'Leave blank to keep current value';
+    }
+
+    return key === 'tenantId' ? 'common' : 'Enter value';
+  }
+
+  private normalizedCredentials(integration: IntegrationFormState) {
+    return Object.fromEntries(
+      Object.entries(integration.credentials)
+        .map(([key, value]) => [key, value.trim()])
+        .filter(([, value]) => value.length > 0),
+    );
   }
 }

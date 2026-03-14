@@ -16,6 +16,9 @@ type RuntimeEnvironmentContract = {
     SESSION_TTL_SECONDS: number;
     RATE_LIMIT_WINDOW_MS: number;
     RATE_LIMIT_MAX: number;
+    AUTH_SOCIAL_PROVIDERS?: string;
+    CALENDARIFIC_API_BASE_URL: string;
+    CALENDARIFIC_PORTAL_BASE_URL: string;
 };
 
 declare const requestContextHeaderNames: {
@@ -104,7 +107,7 @@ type RateLimitPolicy = {
 type AppEdition = "commercial" | "community";
 type SetupIntegrationCredentialMode = "api-key" | "provider-login";
 type SetupIntegrationProvider = {
-    category: "ai" | "calendar" | "email" | "holiday-data";
+    category: "ai" | "calendar" | "email" | "holiday-data" | "identity";
     code: string;
     credentialModes: SetupIntegrationCredentialMode[];
     description: string;

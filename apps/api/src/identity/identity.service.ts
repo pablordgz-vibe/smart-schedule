@@ -24,6 +24,8 @@ import {
 import type { PoolClient } from 'pg';
 import { DatabaseService } from '../persistence/database.service';
 import { AuditService } from '../security/audit.service';
+import { OAuthService } from './oauth.service';
+import { socialProviderCatalog } from './social-provider.catalog';
 
 type TokenKind = 'account-recovery' | 'email-verification' | 'password-reset';
 
@@ -102,15 +104,6 @@ type TokenIssueResult = {
   previewToken: string | null;
 };
 
-const socialProviderCatalog: Record<
-  SocialProviderCode,
-  SocialProviderDescriptor
-> = {
-  github: { code: 'github', displayName: 'GitHub' },
-  google: { code: 'google', displayName: 'Google' },
-  microsoft: { code: 'microsoft', displayName: 'Microsoft' },
-};
-
 const recoveryWindowMs = 30 * 24 * 60 * 60 * 1000;
 const emailVerificationTtlMs = 24 * 60 * 60 * 1000;
 const passwordResetTtlMs = 60 * 60 * 1000;
@@ -164,6 +157,7 @@ export class IdentityService {
   constructor(
     private readonly auditService: AuditService,
     private readonly databaseService: DatabaseService,
+    private readonly oauthService: OAuthService,
   ) {}
 
   async getAuthConfiguration(): Promise<AuthConfigurationSnapshot> {
@@ -469,8 +463,8 @@ export class IdentityService {
 
   async getConfiguredSocialProviders() {
     const state = await this.readState();
-    return state.config.supportedSocialProviders.map(
-      (provider) => socialProviderCatalog[provider],
+    return this.oauthService.getAvailableProviders(
+      state.config.supportedSocialProviders,
     );
   }
 
@@ -1002,15 +996,15 @@ export class IdentityService {
     };
   }
 
-  private toAuthConfiguration(
+  private async toAuthConfiguration(
     state: PersistedIdentityState,
-  ): AuthConfigurationSnapshot {
+  ): Promise<AuthConfigurationSnapshot> {
     return {
       minAdminTierForAccountDeactivation:
         state.config.minAdminTierForAccountDeactivation,
       requireEmailVerification: state.config.requireEmailVerification,
-      supportedSocialProviders: state.config.supportedSocialProviders.map(
-        (provider) => socialProviderCatalog[provider],
+      supportedSocialProviders: await this.oauthService.getAvailableProviders(
+        state.config.supportedSocialProviders,
       ),
     };
   }
@@ -1329,7 +1323,11 @@ export class IdentityService {
         minAdminTierForAccountDeactivation: 0,
         requireEmailVerification: false,
         supportedSocialProviders: this.normalizeProviderList(
-          process.env.AUTH_SOCIAL_PROVIDERS?.split(',') ?? ['google', 'github'],
+          process.env.AUTH_SOCIAL_PROVIDERS?.split(',') ?? [
+            'google',
+            'github',
+            'microsoft',
+          ],
         ),
       },
       tokens: [],
