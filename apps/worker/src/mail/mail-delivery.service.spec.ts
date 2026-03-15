@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import nodemailer from 'nodemailer';
 import {
@@ -17,6 +18,7 @@ beforeEach(() => {
   delete process.env.MAIL_PROCESSING_TIMEOUT_MS;
   delete process.env.MAIL_FROM_ADDRESS;
   vi.restoreAllMocks();
+  vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   vi.mocked(nodemailer.createTransport).mockReset();
 });
 
