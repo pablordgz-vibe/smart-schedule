@@ -9,39 +9,6 @@ describe('HolidayProviderService', () => {
   });
 
   it('discovers supported countries and subdivisions from Calendarific metadata', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(
-      (input: string | URL | Request) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url;
-
-        if (url === 'https://calendarific.test/supported-countries') {
-          return Promise.resolve(
-            new Response(
-              `
-                <table>
-                  <tr>
-                    <td>Spain</td>
-                    <td>es</td>
-                    <td>
-                      <a href="/api?location=es-md">Madrid</a>,
-                      <a href="/api?location=es-ct">Catalonia</a>
-                    </td>
-                  </tr>
-                </table>
-              `,
-              { status: 200 },
-            ),
-          );
-        }
-
-        throw new Error(`Unexpected fetch: ${url}`);
-      },
-    );
-
     const service = new HolidayProviderService({
       query: vi.fn().mockResolvedValue({
         rows: [{ credentials: { secret: 'calendarific-key' }, enabled: true }],
@@ -55,44 +22,38 @@ describe('HolidayProviderService', () => {
 
     expect(catalog.enabled).toBe(true);
     expect(catalog.configured).toBe(true);
-    expect(catalog.countries).toEqual([{ code: 'ES', name: 'Spain' }]);
-    expect(catalog.subdivisions).toEqual([
-      { code: 'ES-CT', countryCode: 'ES', name: 'Catalonia' },
-      { code: 'ES-MD', countryCode: 'ES', name: 'Madrid' },
-    ]);
+    expect(catalog.countries).toEqual(
+      expect.arrayContaining([{ code: 'ES', name: 'Spain' }]),
+    );
+    expect(catalog.subdivisions).toEqual(
+      expect.arrayContaining([
+        { code: 'ES-AN', countryCode: 'ES', name: 'Andalusia' },
+        { code: 'ES-MD', countryCode: 'ES', name: 'Madrid' },
+      ]),
+    );
+  });
+
+  it('discovers additional subdivisions from the local subdivision catalog', async () => {
+    const service = new HolidayProviderService({
+      query: vi.fn().mockResolvedValue({
+        rows: [{ credentials: { secret: 'calendarific-key' }, enabled: true }],
+      }),
+    } as never);
+
+    const catalog = await service.getLocationCatalog({
+      countryCode: 'ES',
+      providerCode: 'calendarific',
+    });
+
+    expect(catalog.subdivisions).toEqual(
+      expect.arrayContaining([
+        { code: 'ES-AN', countryCode: 'ES', name: 'Andalusia' },
+        { code: 'ES-PV', countryCode: 'ES', name: 'Basque Country' },
+      ]),
+    );
   });
 
   it('caches catalog discovery responses and tolerates unconfigured integrations', async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation((input: string | URL | Request) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url;
-
-        if (url === 'https://calendarific.test/supported-countries') {
-          return Promise.resolve(
-            new Response(
-              `
-                <table>
-                  <tr>
-                    <td>Spain</td>
-                    <td>es</td>
-                    <td>Madrid, Madrid</td>
-                  </tr>
-                </table>
-              `,
-              { status: 200 },
-            ),
-          );
-        }
-
-        throw new Error(`Unexpected fetch: ${url}`);
-      });
-
     const query = vi.fn().mockResolvedValue({ rows: [] });
     const service = new HolidayProviderService({ query } as never);
 
@@ -106,10 +67,11 @@ describe('HolidayProviderService', () => {
 
     expect(firstCatalog.configured).toBe(false);
     expect(firstCatalog.enabled).toBe(false);
-    expect(secondCatalog.subdivisions).toEqual([
-      { code: null, countryCode: 'ES', name: 'Madrid' },
-    ]);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(secondCatalog.subdivisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'ES-MD', name: 'Madrid' }),
+      ]),
+    );
   });
 
   it('loads and deduplicates imported holidays from Calendarific', async () => {
@@ -221,7 +183,7 @@ describe('HolidayProviderService', () => {
     ).rejects.toThrow('The Calendarific holiday integration is not enabled');
   });
 
-  it('surfaces provider discovery and import outages as service unavailability', async () => {
+  it('surfaces provider import outages as service unavailability', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('nope', { status: 503 }),
     );
@@ -231,14 +193,6 @@ describe('HolidayProviderService', () => {
         rows: [{ credentials: { secret: 'calendarific-key' }, enabled: true }],
       }),
     } as never);
-
-    await expect(
-      service.getLocationCatalog({
-        providerCode: 'calendarific',
-      }),
-    ).rejects.toThrow(
-      'Calendarific holiday location discovery failed with status 503.',
-    );
 
     await expect(
       service.loadOfficialHolidays({

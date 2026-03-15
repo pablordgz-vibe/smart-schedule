@@ -573,7 +573,7 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
       }
 
       .setup-steps li.active {
-        background: var(--color-neutral-100);
+        background: var(--bg-surface);
         color: var(--text-primary);
         font-weight: 700;
       }
@@ -623,7 +623,7 @@ const EMPTY_SMTP_CONFIG: Readonly<SmtpConfigState> = Object.freeze({
         padding: var(--spacing-4);
         border: 1px solid var(--border-default);
         border-radius: var(--radius-lg);
-        background: var(--color-neutral-50);
+        background: var(--bg-surface);
       }
 
       .provider-header {

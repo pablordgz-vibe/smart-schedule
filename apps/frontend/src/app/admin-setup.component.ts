@@ -84,7 +84,11 @@ import type { AdminIntegrationSummary } from './setup/setup.types';
         </article>
 
         <div class="flex flex-wrap gap-3">
-          <a class="btn btn-neutral" routerLink="/admin/users">Open user controls</a>
+          <a
+            class="btn border border-base-300 bg-base-100 text-base-content hover:bg-base-200"
+            routerLink="/admin/users"
+            >Open user controls</a
+          >
           <a class="btn btn-outline" routerLink="/admin/global-integrations"
             >Open global integrations</a
           >

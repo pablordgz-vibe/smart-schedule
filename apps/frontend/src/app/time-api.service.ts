@@ -166,6 +166,7 @@ export class TimeApiService {
   async importOfficialHolidays(payload: {
     locationCode: string;
     providerCode: string;
+    replaceExisting?: boolean;
     scopeLevel: TimePolicyScopeLevel;
     targetGroupId?: string;
     targetUserId?: string;

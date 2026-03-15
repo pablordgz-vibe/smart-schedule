@@ -319,6 +319,11 @@ class ImportOfficialHolidaysDto {
   @Max(2100)
   year!: number;
 
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  replaceExisting?: boolean;
+
   @IsIn(['organization', 'group', 'user'])
   scopeLevel!: TimePolicyScopeLevel;
 
@@ -607,6 +612,7 @@ export class TimeController {
         context: request.requestContext!,
         locationCode: body.locationCode,
         providerCode: body.providerCode,
+        replaceExisting: body.replaceExisting ?? true,
         scopeLevel: body.scopeLevel,
         targetGroupId: body.targetGroupId ?? null,
         targetUserId: body.targetUserId ?? null,

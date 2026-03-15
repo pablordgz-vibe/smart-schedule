@@ -379,6 +379,7 @@ export class AuthPageComponent {
         email: this.email,
         password: this.password,
       });
+      await this.authState.loadSession();
       await this.router.navigateByUrl(this.contextService.fallbackRoute());
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to sign in.';
@@ -478,6 +479,7 @@ export class AuthPageComponent {
     this.error.set('');
     try {
       await this.authState.recoverAccount(this.token);
+      await this.authState.loadSession();
       await this.router.navigateByUrl(this.contextService.fallbackRoute());
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Unable to recover account.');

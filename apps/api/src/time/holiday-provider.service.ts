@@ -3,11 +3,11 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { Country, State } from 'country-state-city';
 import type {
   HolidayProviderContract,
   OfficialHolidayLocationCatalog,
   OfficialHolidayRecord,
-  OfficialHolidaySubdivision,
 } from '@smart-schedule/domain-time';
 import { DatabaseService } from '../persistence/database.service';
 
@@ -16,14 +16,13 @@ type IntegrationRow = {
   enabled: boolean;
 };
 
-type CalendarificCountryRow = {
+type CountryCatalogRow = {
   code: string;
   name: string;
-  subdivisions: OfficialHolidaySubdivision[];
 };
 
 type CachedCatalog = {
-  countries: CalendarificCountryRow[];
+  countries: CountryCatalogRow[];
   expiresAt: number;
 };
 
@@ -31,28 +30,6 @@ const catalogCacheTtlMs = 24 * 60 * 60 * 1000;
 
 function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
-}
-
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
-}
-
-function stripHtml(value: string) {
-  return normalizeText(
-    decodeHtmlEntities(
-      value
-        .replace(/<br\s*\/?>/gi, ', ')
-        .replace(/<\/(div|li|p|td|th|tr|h\d)>/gi, '\n')
-        .replace(/<[^>]+>/g, ' '),
-    ),
-  );
 }
 
 function toLocationCode(countryCode: string, subdivisionCode?: string | null) {
@@ -83,8 +60,6 @@ function toCalendarificLocationCode(locationCode: string) {
 export class HolidayProviderService implements HolidayProviderContract {
   private readonly apiBaseUrl =
     process.env.CALENDARIFIC_API_BASE_URL || 'https://calendarific.com/api/v2';
-  private readonly portalBaseUrl =
-    process.env.CALENDARIFIC_PORTAL_BASE_URL || 'https://calendarific.com';
   private catalogCache: CachedCatalog | null = null;
 
   constructor(private readonly databaseService: DatabaseService) {}
@@ -96,11 +71,17 @@ export class HolidayProviderService implements HolidayProviderContract {
     this.assertProviderSupported(input.providerCode);
 
     const integration = await this.readIntegrationState(input.providerCode);
-    const countries = await this.loadCalendarificCatalog();
+    const countries = this.loadCountryCatalog();
     const selectedCountryCode = input.countryCode?.trim().toUpperCase();
-    const selectedCountry = selectedCountryCode
-      ? countries.find((country) => country.code === selectedCountryCode)
-      : null;
+    const subdivisions = selectedCountryCode
+      ? State.getStatesOfCountry(selectedCountryCode)
+          .map((subdivision) => ({
+            code: toLocationCode(selectedCountryCode, subdivision.isoCode),
+            countryCode: selectedCountryCode,
+            name: subdivision.name,
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name))
+      : [];
 
     return {
       configured: Boolean(this.readCalendarificApiKey(integration)),
@@ -111,7 +92,7 @@ export class HolidayProviderService implements HolidayProviderContract {
       enabled: integration?.enabled ?? false,
       providerCode: input.providerCode,
       providerDisplayName: 'Calendarific',
-      subdivisions: selectedCountry?.subdivisions ?? [],
+      subdivisions,
     };
   }
 
@@ -180,7 +161,7 @@ export class HolidayProviderService implements HolidayProviderContract {
     }
   }
 
-  private async loadCalendarificCatalog() {
+  private loadCountryCatalog() {
     if (
       this.catalogCache &&
       this.catalogCache.expiresAt > Date.now() &&
@@ -189,9 +170,12 @@ export class HolidayProviderService implements HolidayProviderContract {
       return this.catalogCache.countries;
     }
 
-    const url = `${this.portalBaseUrl}/supported-countries`;
-    const response = await this.fetchText(url, 'holiday location discovery');
-    const countries = this.parseSupportedCountries(response);
+    const countries = Country.getAllCountries()
+      .map((country) => ({
+        code: country.isoCode,
+        name: country.name,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
 
     this.catalogCache = {
       countries,
@@ -199,83 +183,6 @@ export class HolidayProviderService implements HolidayProviderContract {
     };
 
     return countries;
-  }
-
-  private parseSupportedCountries(html: string) {
-    const rowPattern = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
-    const countries: CalendarificCountryRow[] = [];
-
-    for (const match of html.matchAll(rowPattern)) {
-      const rowHtml = match[1];
-      const rowText = stripHtml(rowHtml);
-      const rowMatch = rowText.match(/^(.+?)\s+([a-z]{2})\s*(.*)$/i);
-      if (!rowMatch) {
-        continue;
-      }
-
-      const [, rawName, rawCountryCode, rawSubdivisionText] = rowMatch;
-      const countryCode = rawCountryCode.toUpperCase();
-      const countryName = normalizeText(rawName);
-      if (countryName.length < 2) {
-        continue;
-      }
-
-      const inlineCodes = Array.from(
-        new Set(
-          Array.from(
-            rowHtml.matchAll(
-              new RegExp(
-                `${rawCountryCode.toLowerCase()}-([a-z0-9-]{1,8})`,
-                'gi',
-              ),
-            ),
-            (codeMatch) => codeMatch[1].toUpperCase(),
-          ),
-        ),
-      );
-
-      const subdivisions = rawSubdivisionText
-        .split(',')
-        .map((token) => normalizeText(token))
-        .filter((token) => token.length > 1)
-        .map((name, index) => ({
-          code:
-            inlineCodes.length ===
-            rawSubdivisionText
-              .split(',')
-              .map((token) => normalizeText(token))
-              .filter((token) => token.length > 1).length
-              ? toLocationCode(countryCode, inlineCodes[index])
-              : null,
-          countryCode,
-          name,
-        }))
-        .filter(
-          (entry, index, entries) =>
-            entries.findIndex(
-              (candidate) =>
-                candidate.name.toLowerCase() === entry.name.toLowerCase(),
-            ) === index,
-        )
-        .sort((left, right) => left.name.localeCompare(right.name));
-
-      countries.push({
-        code: countryCode,
-        name: countryName,
-        subdivisions,
-      });
-    }
-
-    return countries
-      .filter(
-        (entry, index, entries) =>
-          entries.findIndex(
-            (candidate) =>
-              candidate.code === entry.code ||
-              candidate.name.toLowerCase() === entry.name.toLowerCase(),
-          ) === index,
-      )
-      .sort((left, right) => left.name.localeCompare(right.name));
   }
 
   private async readIntegrationState(providerCode: string) {
@@ -306,20 +213,5 @@ export class HolidayProviderService implements HolidayProviderContract {
     }
 
     return (await response.json()) as T;
-  }
-
-  private async fetchText(url: string, purpose: string) {
-    const response = await fetch(url, {
-      headers: {
-        'user-agent': 'SmartSchedule/1.0',
-      },
-    });
-    if (!response.ok) {
-      throw new ServiceUnavailableException(
-        `Calendarific ${purpose} failed with status ${response.status}.`,
-      );
-    }
-
-    return response.text();
   }
 }

@@ -58,8 +58,8 @@ type TimeTab = {
         <p *ngIf="successMessage()" class="alert alert-info">{{ successMessage() }}</p>
         <p *ngIf="isLoading()" class="alert alert-info">Loading organization time policies…</p>
 
-        <div class="grid gap-4 xl:grid-cols-2" *ngIf="organizationId(); else noContext">
-          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
+        <div class="grid items-start gap-4 xl:grid-cols-2" *ngIf="organizationId(); else noContext">
+          <section class="rounded-box border border-base-300 bg-base-100 p-3 rule-editor-card">
             <h2>Rule editor</h2>
             <label class="form-control gap-2">
               <span>Scope</span>
@@ -290,7 +290,7 @@ type TimeTab = {
               </ng-container>
             </ng-container>
 
-            <button class="btn btn-neutral" type="button" (click)="createPolicy()">
+            <button class="btn btn-neutral mt-2 self-start" type="button" (click)="createPolicy()">
               Save policy
             </button>
           </section>
@@ -299,8 +299,8 @@ type TimeTab = {
             <div class="space-y-2">
               <h2>Holiday Import Integration</h2>
               <p class="text-sm leading-6 text-base-content/65">
-                Import official holidays from the configured provider. Country and region selectors
-                are tied directly to this holiday import integration.
+                Import official holidays from the configured provider with country and region
+                selectors only.
               </p>
             </div>
 
@@ -332,15 +332,6 @@ type TimeTab = {
                 </select>
               </label>
               <label class="form-control gap-2">
-                <span>Country search</span>
-                <input
-                  class="input input-bordered w-full"
-                  [(ngModel)]="holidayImport.countrySearch"
-                  [ngModelOptions]="{ standalone: true }"
-                  placeholder="Search countries"
-                />
-              </label>
-              <label class="form-control gap-2">
                 <span>Country</span>
                 <select
                   class="select select-bordered w-full"
@@ -349,20 +340,10 @@ type TimeTab = {
                   (ngModelChange)="selectHolidayCountry($event)"
                 >
                   <option value="">Select a country</option>
-                  <option *ngFor="let country of filteredHolidayCountries()" [value]="country.code">
+                  <option *ngFor="let country of holidayCountries()" [value]="country.code">
                     {{ country.name }}
                   </option>
                 </select>
-              </label>
-              <label class="form-control gap-2">
-                <span>Region search</span>
-                <input
-                  class="input input-bordered w-full"
-                  [(ngModel)]="holidayImport.subdivisionSearch"
-                  [ngModelOptions]="{ standalone: true }"
-                  [disabled]="!holidayImport.countryCode"
-                  placeholder="Search regions or leave blank for country-wide holidays"
-                />
               </label>
               <label class="form-control gap-2">
                 <span>Region / state</span>
@@ -374,8 +355,8 @@ type TimeTab = {
                 >
                   <option value="">Country-wide holidays only</option>
                   <option
-                    *ngFor="let subdivision of filteredHolidaySubdivisions()"
-                    [value]="subdivision.code ?? ''"
+                    *ngFor="let subdivision of holidaySubdivisions()"
+                    [value]="subdivision.code"
                   >
                     {{ subdivision.name }}
                   </option>
@@ -391,6 +372,17 @@ type TimeTab = {
                 />
               </label>
             </div>
+            <label
+              class="label cursor-pointer justify-start gap-3 rounded-box border border-base-300 px-3 py-2"
+            >
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                [(ngModel)]="holidayImport.replaceExisting"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <span class="label-text">Replace previously imported holidays for this scope</span>
+            </label>
             <div class="grid gap-4 md:grid-cols-3">
               <label class="form-control gap-2">
                 <span>Import scope</span>
@@ -439,18 +431,6 @@ type TimeTab = {
                 {{ catalog.countries.length }} supported countries loaded
               </span>
             </div>
-            <p
-              class="text-sm text-base-content/60"
-              *ngIf="holidayImport.countrySearch.trim().length > 0"
-            >
-              Country matches: {{ filteredHolidayCountries().length }}
-            </p>
-            <p
-              class="text-sm text-base-content/60"
-              *ngIf="holidayImport.subdivisionSearch.trim().length > 0"
-            >
-              Region matches: {{ filteredHolidaySubdivisions().length }}
-            </p>
             <p class="text-sm text-base-content/60" *ngIf="selectedHolidayLocationCode()">
               Import target: {{ selectedHolidayLocationLabel() }} · {{ importScopeSummary() }}
             </p>
@@ -495,10 +475,51 @@ type TimeTab = {
           class="rounded-box border border-base-300 bg-base-100 p-4"
           *ngIf="organizationId()"
         >
-          <h2>Current {{ activeTabLabel() }} rules</h2>
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2>Current {{ activeTabLabel() }} rules</h2>
+              <p class="text-sm text-base-content/60">
+                Click rows to select. Ctrl-click and shift-click are supported.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                class="btn btn-outline btn-sm"
+                type="button"
+                [disabled]="selectedPolicyIds().length === 0"
+                (click)="deleteSelectedPolicies()"
+              >
+                Delete selected
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                type="button"
+                [disabled]="filteredPolicies().length === 0"
+                (click)="deleteAllPoliciesInTab()"
+              >
+                Delete all
+              </button>
+            </div>
+          </div>
           <ul class="simple-list">
-            <li *ngFor="let policy of filteredPolicies()" data-testid="time-policy-row">
-              <div>
+            <li
+              *ngFor="let policy of filteredPolicies(); let index = index"
+              class="policy-row"
+              [class.policy-row-selected]="isPolicySelected(policy.id)"
+              data-testid="time-policy-row"
+              (click)="togglePolicySelection(policy.id, index, $event)"
+            >
+              <label class="label cursor-pointer justify-start gap-3 self-start p-0">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-sm"
+                  [checked]="isPolicySelected(policy.id)"
+                  (click)="$event.stopPropagation()"
+                  (change)="togglePolicySelection(policy.id, index, $event)"
+                />
+                <span class="sr-only">Select {{ policy.title }}</span>
+              </label>
+              <div class="min-w-0">
                 <strong>{{ policy.title }}</strong>
                 <p class="text-sm leading-6 text-base-content/65">{{ describePolicy(policy) }}</p>
                 <p class="text-sm leading-6 text-base-content/55">
@@ -507,7 +528,11 @@ type TimeTab = {
                   {{ formatDateTime(policy.updatedAt) }}
                 </p>
               </div>
-              <button class="btn btn-outline" type="button" (click)="removePolicy(policy.id)">
+              <button
+                class="btn btn-outline"
+                type="button"
+                (click)="$event.stopPropagation(); removePolicy(policy.id)"
+              >
                 Delete
               </button>
             </li>
@@ -540,6 +565,24 @@ type TimeTab = {
         gap: var(--spacing-3);
       }
 
+      .rule-editor-card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-2);
+      }
+
+      .rule-editor-card .form-control {
+        gap: 0.45rem;
+      }
+
+      .rule-editor-card .inline-fields > .form-control > span,
+      .rule-editor-card > .form-control > span {
+        min-height: 2.5rem;
+        display: flex;
+        align-items: flex-end;
+        line-height: 1.2;
+      }
+
       .tabs {
         display: flex;
         gap: var(--spacing-2);
@@ -556,8 +599,29 @@ type TimeTab = {
         border-left: 4px solid rgb(14 116 144 / 0.7);
       }
 
+      .policy-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: var(--spacing-3);
+        align-items: start;
+        padding: 0.85rem 1rem;
+        border: 1px solid rgb(148 163 184 / 0.2);
+        border-radius: var(--radius-xl);
+        cursor: pointer;
+      }
+
+      .policy-row-selected {
+        border-color: rgb(2 132 199 / 0.35);
+        box-shadow: inset 0 0 0 1px rgb(2 132 199 / 0.25);
+        background: color-mix(in srgb, var(--color-base-200) 42%, white 58%);
+      }
+
       @media (max-width: 1100px) {
         .inline-fields {
+          grid-template-columns: 1fr;
+        }
+
+        .policy-row {
           grid-template-columns: 1fr;
         }
       }
@@ -587,6 +651,7 @@ export class OrgTimePoliciesComponent {
   readonly previewErrorMessage = signal<string | null>(null);
   readonly holidayCatalogErrorMessage = signal<string | null>(null);
   readonly holidayCatalog = signal<HolidayLocationCatalog | null>(null);
+  readonly selectedPolicyIds = signal<string[]>([]);
 
   private readonly policiesState = signal<TimePolicySummary[]>([]);
   readonly policies = this.policiesState.asReadonly();
@@ -644,11 +709,10 @@ export class OrgTimePoliciesComponent {
 
   holidayImport = {
     countryCode: '',
-    countrySearch: '',
     providerCode: 'calendarific',
+    replaceExisting: true,
     scopeLevel: 'organization' as TimePolicyScopeLevel,
     subdivisionCode: '',
-    subdivisionSearch: '',
     targetGroupId: '',
     targetUserId: '',
     year: new Date().getUTCFullYear(),
@@ -671,33 +735,14 @@ export class OrgTimePoliciesComponent {
     () => this.tabs.find((tab) => tab.id === this.activeTab())?.label ?? this.activeTab(),
   );
   readonly activeTabDescription = computed(() => this.describeActiveTab(this.activeTab()));
-  readonly filteredHolidayCountries = computed(() => {
-    const catalog = this.holidayCatalog();
-    const search = this.holidayImport.countrySearch.trim().toLowerCase();
-    const countries = catalog?.countries ?? [];
-    if (!search) {
-      return countries;
-    }
-
-    return countries.filter(
-      (country) =>
-        country.name.toLowerCase().includes(search) || country.code.toLowerCase().includes(search),
-    );
-  });
-  readonly filteredHolidaySubdivisions = computed(() => {
-    const catalog = this.holidayCatalog();
-    const search = this.holidayImport.subdivisionSearch.trim().toLowerCase();
-    const subdivisions = catalog?.subdivisions ?? [];
-    if (!search) {
-      return subdivisions;
-    }
-
-    return subdivisions.filter(
-      (subdivision) =>
-        subdivision.name.toLowerCase().includes(search) ||
-        (subdivision.code ?? '').toLowerCase().includes(search),
-    );
-  });
+  readonly holidayCountries = computed(() => this.holidayCatalog()?.countries ?? []);
+  readonly holidaySubdivisions = computed(() =>
+    (this.holidayCatalog()?.subdivisions ?? []).filter(
+      (subdivision): subdivision is { code: string; countryCode: string; name: string } =>
+        typeof subdivision.code === 'string' && subdivision.code.length > 0,
+    ),
+  );
+  private lastSelectedPolicyIndex: number | null = null;
 
   formatPolicyCategory(category: string): string {
     return this.tabs.find((tab) => tab.id === category)?.label ?? this.humanizeToken(category);
@@ -732,6 +777,8 @@ export class OrgTimePoliciesComponent {
 
   setActiveTab(tab: TimePolicyCategory) {
     this.activeTab.set(tab);
+    this.selectedPolicyIds.set([]);
+    this.lastSelectedPolicyIndex = null;
   }
 
   async createPolicy() {
@@ -771,10 +818,92 @@ export class OrgTimePoliciesComponent {
       this.errorMessage.set(null);
       this.successMessage.set(null);
       await this.timeApi.deletePolicy(policyId);
+      this.selectedPolicyIds.update((current) => current.filter((id) => id !== policyId));
+      this.lastSelectedPolicyIndex = null;
       this.successMessage.set('Policy deleted.');
       await this.reloadPolicies();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to delete policy.');
+    }
+  }
+
+  isPolicySelected(policyId: string) {
+    return this.selectedPolicyIds().includes(policyId);
+  }
+
+  togglePolicySelection(policyId: string, index: number, event: Event) {
+    event.stopPropagation();
+    const mouseEvent = event as MouseEvent;
+    const policies = this.filteredPolicies();
+
+    if (mouseEvent.shiftKey && this.lastSelectedPolicyIndex != null) {
+      const [start, end] = [this.lastSelectedPolicyIndex, index].sort(
+        (left, right) => left - right,
+      );
+      const rangeIds = policies.slice(start, end + 1).map((policy) => policy.id);
+      this.selectedPolicyIds.update((current) => Array.from(new Set([...current, ...rangeIds])));
+      return;
+    }
+
+    if (mouseEvent.ctrlKey || mouseEvent.metaKey || event.type === 'change') {
+      this.selectedPolicyIds.update((current) =>
+        current.includes(policyId)
+          ? current.filter((id) => id !== policyId)
+          : [...current, policyId],
+      );
+      this.lastSelectedPolicyIndex = index;
+      return;
+    }
+
+    this.selectedPolicyIds.set([policyId]);
+    this.lastSelectedPolicyIndex = index;
+  }
+
+  async deleteSelectedPolicies() {
+    const policyIds = this.selectedPolicyIds();
+    if (
+      policyIds.length === 0 ||
+      !window.confirm(
+        `Delete ${policyIds.length} selected ${this.activeTabLabel().toLowerCase()} rule(s)?`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      this.errorMessage.set(null);
+      this.successMessage.set(null);
+      await Promise.all(policyIds.map((policyId) => this.timeApi.deletePolicy(policyId)));
+      this.selectedPolicyIds.set([]);
+      this.lastSelectedPolicyIndex = null;
+      this.successMessage.set(`Deleted ${policyIds.length} rule(s).`);
+      await this.reloadPolicies();
+    } catch (error) {
+      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to delete rules.');
+    }
+  }
+
+  async deleteAllPoliciesInTab() {
+    const policyIds = this.filteredPolicies().map((policy) => policy.id);
+    if (
+      policyIds.length === 0 ||
+      !window.confirm(
+        `Delete all ${policyIds.length} ${this.activeTabLabel().toLowerCase()} rule(s)?`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      this.errorMessage.set(null);
+      this.successMessage.set(null);
+      await Promise.all(policyIds.map((policyId) => this.timeApi.deletePolicy(policyId)));
+      this.selectedPolicyIds.set([]);
+      this.lastSelectedPolicyIndex = null;
+      this.successMessage.set(`Deleted all ${this.activeTabLabel().toLowerCase()} rules.`);
+      await this.reloadPolicies();
+    } catch (error) {
+      this.errorMessage.set(error instanceof Error ? error.message : 'Failed to delete rules.');
     }
   }
 
@@ -811,6 +940,7 @@ export class OrgTimePoliciesComponent {
       const result = await this.timeApi.importOfficialHolidays({
         locationCode,
         providerCode: this.holidayImport.providerCode,
+        replaceExisting: this.holidayImport.replaceExisting,
         scopeLevel: this.holidayImport.scopeLevel,
         targetGroupId:
           this.holidayImport.scopeLevel === 'group'
@@ -826,12 +956,27 @@ export class OrgTimePoliciesComponent {
       this.activeTab.set('holiday');
       if (this.holidayImport.scopeLevel === 'user' && this.holidayImport.targetUserId) {
         this.previewUserId = this.holidayImport.targetUserId;
+      } else {
+        this.previewUserId = '';
       }
       this.lastImportMessage.set(
-        `${result.imported} official holidays imported for ${this.selectedHolidayLocationLabel()} (${this.importScopeSummary()}). Replaced ${result.replaced} previous imported holidays for this scope.`,
+        [
+          `${result.imported} official holidays imported for ${this.selectedHolidayLocationLabel()} (${this.importScopeSummary()}).`,
+          this.holidayImport.replaceExisting
+            ? `Replaced ${result.replaced} previous imported holidays for this scope.`
+            : 'Existing imported holidays were preserved.',
+        ].join(' '),
       );
-      await this.reloadPolicies();
-      await this.loadPreview();
+      const [policiesReload, previewReload] = await Promise.allSettled([
+        this.reloadPolicies(),
+        this.loadPreview(),
+      ]);
+      this.errorMessage.set(null);
+      if (policiesReload.status === 'rejected' || previewReload.status === 'rejected') {
+        this.successMessage.set(
+          'Holidays imported, but the policy view could not be fully refreshed.',
+        );
+      }
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to import holidays.');
     }
@@ -856,14 +1001,13 @@ export class OrgTimePoliciesComponent {
   async selectHolidayCountry(countryCode: string) {
     this.holidayImport.countryCode = countryCode;
     this.holidayImport.subdivisionCode = '';
-    this.holidayImport.subdivisionSearch = '';
     await this.loadHolidayCatalog();
   }
 
   async loadPreview() {
     try {
       this.previewErrorMessage.set(null);
-      const preview = await this.timeApi.previewEffectivePolicies(this.previewUserId || undefined);
+      const preview = await this.timeApi.previewEffectivePolicies(this.validPreviewUserId());
       this.previewState.set(preview.categories);
     } catch (error) {
       this.previewState.set({});
@@ -892,6 +1036,9 @@ export class OrgTimePoliciesComponent {
       ]);
       this.membershipsState.set(memberships);
       this.groupsState.set(groups.map((group) => ({ id: group.id, name: group.name })));
+      if (this.previewUserId && !memberships.some((user) => user.userId === this.previewUserId)) {
+        this.previewUserId = '';
+      }
 
       await this.reloadPolicies();
       await this.loadPreview();
@@ -906,6 +1053,11 @@ export class OrgTimePoliciesComponent {
 
   private async reloadPolicies() {
     this.policiesState.set(await this.timeApi.listPolicies({ includeInactive: true }));
+    const validPolicyIds = new Set(this.filteredPolicies().map((policy) => policy.id));
+    this.selectedPolicyIds.update((current) => current.filter((id) => validPolicyIds.has(id)));
+    if (this.selectedPolicyIds().length === 0) {
+      this.lastSelectedPolicyIndex = null;
+    }
   }
 
   selectedHolidayLocationCode() {
@@ -913,7 +1065,14 @@ export class OrgTimePoliciesComponent {
       return '';
     }
 
-    return this.holidayImport.subdivisionCode || this.holidayImport.countryCode;
+    if (
+      this.holidayImport.subdivisionCode &&
+      this.holidaySubdivisions().some((entry) => entry.code === this.holidayImport.subdivisionCode)
+    ) {
+      return this.holidayImport.subdivisionCode;
+    }
+
+    return this.holidayImport.countryCode;
   }
 
   selectedHolidayLocationLabel() {
@@ -921,10 +1080,11 @@ export class OrgTimePoliciesComponent {
       this.holidayCatalog()?.countries.find(
         (entry) => entry.code === this.holidayImport.countryCode,
       )?.name ?? this.holidayImport.countryCode;
-    const subdivision =
-      this.holidayCatalog()?.subdivisions.find(
-        (entry) => (entry.code ?? '') === this.holidayImport.subdivisionCode,
-      )?.name ?? '';
+    const subdivision = this.holidayImport.subdivisionCode
+      ? (this.holidaySubdivisions().find(
+          (entry) => entry.code === this.holidayImport.subdivisionCode,
+        )?.name ?? '')
+      : '';
 
     return subdivision ? `${country} / ${subdivision}` : country || 'the selected location';
   }
@@ -945,6 +1105,16 @@ export class OrgTimePoliciesComponent {
       this.membershipsState().find((user) => user.userId === this.holidayImport.targetUserId)
         ?.name ?? 'selected user';
     return `user scope: ${userName}`;
+  }
+
+  private validPreviewUserId() {
+    if (!this.previewUserId) {
+      return undefined;
+    }
+
+    return this.membershipsState().some((user) => user.userId === this.previewUserId)
+      ? this.previewUserId
+      : undefined;
   }
 
   private buildPolicyPayload() {
