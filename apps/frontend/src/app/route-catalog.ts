@@ -62,6 +62,14 @@ export const endUserNavItems: NavItem[] = [
     mobile: true,
   },
   {
+    label: 'Schedules',
+    path: '/schedules',
+    icon: 'Schedules',
+    area: 'end-user',
+    testId: 'nav-schedules',
+    mobile: true,
+  },
+  {
     label: 'Settings',
     path: '/settings',
     icon: 'Settings',
@@ -153,6 +161,13 @@ export const searchableRoutes: SearchRouteEntry[] = [
     keywords: ['organization', 'invite', 'membership', 'join'],
     label: 'Organizations',
     path: '/organizations',
+  },
+  {
+    area: 'end-user',
+    description: 'Schedule library and recurrence-first scheduling workspace.',
+    keywords: ['schedules', 'recurrence', 'template', 'builder'],
+    label: 'Schedules',
+    path: '/schedules',
   },
   {
     area: 'end-user',

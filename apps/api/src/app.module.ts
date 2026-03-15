@@ -7,6 +7,7 @@ import { SetupModule } from './setup/setup.module';
 import { OrgModule } from './org/org.module';
 import { CalModule } from './cal/cal.module';
 import { TimeModule } from './time/time.module';
+import { SchedModule } from './sched/sched.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { TimeModule } from './time/time.module';
     IdentityModule,
     OrgModule,
     CalModule,
+    SchedModule,
     TimeModule,
     SetupModule,
     SecurityModule,

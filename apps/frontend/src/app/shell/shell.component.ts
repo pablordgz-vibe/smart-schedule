@@ -164,6 +164,13 @@ import {
                       >
                         New task in {{ activeContextLabel() }}
                       </button>
+                      <button
+                        class="btn btn-ghost justify-start"
+                        type="button"
+                        (click)="openScheduleBuilder()"
+                      >
+                        New schedule in {{ activeContextLabel() }}
+                      </button>
                     </div>
                   </section>
                 </div>
@@ -193,6 +200,7 @@ import {
                       </p>
                       <p class="text-base-content/70">
                         Quick create opens event and task entry directly in the active context.
+                        Schedule creation routes into the dedicated builder.
                       </p>
                     </div>
                   </section>
@@ -594,6 +602,12 @@ export class ShellComponent {
     this.closeHeaderPanels();
     this.searchQuery.set('');
     void this.router.navigateByUrl(`/calendar?compose=${kind}`);
+  }
+
+  openScheduleBuilder(): void {
+    this.closeHeaderPanels();
+    this.searchQuery.set('');
+    void this.router.navigateByUrl('/schedules/builder');
   }
 
   updateSearch(value: string): void {

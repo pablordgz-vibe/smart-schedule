@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     coverage: {
       all: false,
-      clean: true,
+      clean: false,
       provider: 'v8',
       reporter: ['json-summary', 'text'],
       reportsDirectory: './coverage',

@@ -113,7 +113,7 @@ export const routes: Routes = [
       },
       {
         path: 'schedules',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () => import('./schedules').then((module) => module.SchedulesComponent),
         data: {
           title: 'Schedules',
           description: 'Schedule library shell with explicit context labeling.',
@@ -125,7 +125,8 @@ export const routes: Routes = [
       },
       {
         path: 'schedules/builder',
-        loadComponent: loadPlaceholderPage,
+        loadComponent: () =>
+          import('./schedule-builder.component').then((module) => module.ScheduleBuilderComponent),
         canDeactivate: [unsavedChangesGuard],
         data: {
           title: 'Schedule Builder',

@@ -7,6 +7,7 @@ import { DirtyStateService } from '../dirty-state.service';
 import { routes } from '../app.routes';
 import { AuthStateService } from '../auth-state.service';
 import { SetupStateService } from '../setup/setup-state.service';
+import { ThemeService } from '../theme.service';
 import type { SetupStateSnapshot } from '../setup/setup.types';
 import { ShellComponent } from './shell.component';
 import { AuthSessionSnapshot } from '../auth.types';
@@ -350,5 +351,84 @@ describe('ShellComponent', () => {
     fixture.componentInstance.openFirstSearchResult(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(fixture.componentInstance.searchQuery()).toBe('');
     expect(fixture.componentInstance.helpPanelOpen()).toBe(false);
+  });
+
+  it('restores the context switcher on invalid targets and exposes the remaining header helpers', async () => {
+    TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [provideRouter(routes)],
+    });
+
+    const authStateService: AuthStateService = TestBed.inject(AuthStateService);
+    const contextService: ContextService = TestBed.inject(ContextService);
+    const themeService: ThemeService = TestBed.inject(ThemeService);
+    const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
+    setSetupState(setupStateService, {
+      admin: null,
+      completedAt: '2026-03-11T00:00:00.000Z',
+      configuredIntegrations: [],
+      edition: 'community',
+      isComplete: true,
+      step: 'complete',
+    });
+    authStateService.setSnapshot(
+      buildSession({
+        active: 'personal',
+        includeOrganization: true,
+      }),
+    );
+    contextService.applySessionSnapshot(authStateService.snapshot());
+    const themeSpy = vi.spyOn(themeService, 'toggleTheme');
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.openFirstSearchResult(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.componentInstance.switchContext('missing-context');
+    await Promise.resolve();
+    fixture.componentInstance.toggleHelpPanel();
+    fixture.componentInstance.toggleTheme();
+
+    expect(fixture.componentInstance.contextSwitcherValue()).toBe('personal');
+    expect(themeSpy).toHaveBeenCalled();
+    expect(fixture.componentInstance.helpPanelOpen()).toBe(false);
+    expect(fixture.componentInstance.areaLabel('end-user')).toBe('End-user');
+    expect(fixture.componentInstance.areaLabel('org-admin')).toBe('Organization admin');
+    expect(fixture.componentInstance.areaLabel('system-admin')).toBe('System admin');
+  });
+
+  it('opens the schedule builder from the header quick actions', async () => {
+    TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [provideRouter(routes)],
+    });
+
+    const router: Router = TestBed.inject(Router);
+    const authStateService: AuthStateService = TestBed.inject(AuthStateService);
+    const contextService: ContextService = TestBed.inject(ContextService);
+    const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
+    setSetupState(setupStateService, {
+      admin: null,
+      completedAt: '2026-03-11T00:00:00.000Z',
+      configuredIntegrations: [],
+      edition: 'community',
+      isComplete: true,
+      step: 'complete',
+    });
+    authStateService.setSnapshot(buildSession({ active: 'personal' }));
+    contextService.applySessionSnapshot(authStateService.snapshot());
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.toggleQuickCreateMenu();
+    fixture.componentInstance.openScheduleBuilder();
+
+    expect(fixture.componentInstance.quickCreateMenuOpen()).toBe(false);
+    expect(fixture.componentInstance.searchQuery()).toBe('');
+    expect(navigateSpy).toHaveBeenCalledWith('/schedules/builder');
   });
 });

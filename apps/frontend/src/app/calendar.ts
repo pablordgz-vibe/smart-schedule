@@ -12,13 +12,17 @@ import { ContextService } from './context.service';
 import { TimeApiService, type AdvisoryResult } from './time-api.service';
 
 type CalendarEntry = {
-  calendarEntryType: 'event' | 'linked_work_event' | 'task_due';
+  calendarEntryType: 'event' | 'linked_work_event' | 'schedule_occurrence' | 'task_due';
   calendarIds: string[];
+  detached?: boolean;
   dueAt?: string | null;
   endAt?: string | null;
   id: string;
-  itemType: 'event' | 'task';
+  itemType: 'event' | 'schedule' | 'task';
   linkedTaskId?: string | null;
+  localDate?: string;
+  occurrenceDate?: string;
+  scheduleId?: string;
   startAt?: string | null;
   timezone?: string;
   title: string;
@@ -95,6 +99,17 @@ type CalendarTaskDetail = {
   workRelated: boolean;
 };
 
+type CalendarScheduleOccurrenceDetail = {
+  detached: boolean;
+  dueAt: string | null;
+  endAt: string | null;
+  localDate: string;
+  occurrenceDate: string;
+  scheduleId: string;
+  startAt: string | null;
+  title: string;
+};
+
 type EventDraft = {
   allDay: boolean;
   allDayEndDate: string;
@@ -129,7 +144,7 @@ type AttachmentDraft = {
   storageKey: string;
 };
 
-type ContextPanelMode = 'day' | 'create-event' | 'create-task' | 'event' | 'task';
+type ContextPanelMode = 'create-event' | 'create-task' | 'day' | 'event' | 'schedule' | 'task';
 
 function createAttachmentDraft(): AttachmentDraft {
   return {
@@ -861,6 +876,52 @@ function createAttachmentDraft(): AttachmentDraft {
                           </section>
                         </ng-container>
 
+                        <ng-container *ngIf="panelMode() === 'schedule'">
+                          <section
+                            class="stack-tight compact-stack"
+                            *ngIf="selectedScheduleOccurrence() as occurrence"
+                          >
+                            <div class="context-panel-header">
+                              <div>
+                                <p class="ui-kicker">Schedule occurrence</p>
+                                <h4>{{ occurrence.title }}</h4>
+                                <p class="ui-copy">
+                                  {{
+                                    formatDateTime(
+                                      occurrence.startAt || occurrence.dueAt,
+                                      occurrence.localDate
+                                    )
+                                  }}
+                                </p>
+                              </div>
+                              <div class="context-actions">
+                                <a class="btn btn-outline btn-sm" routerLink="/schedules">
+                                  Open schedule library
+                                </a>
+                              </div>
+                            </div>
+                            <div class="rounded-box border border-base-300 p-4 stack-tight">
+                              <p><strong>Schedule:</strong> {{ occurrence.scheduleId }}</p>
+                              <p>
+                                <strong>Occurrence date:</strong> {{ occurrence.occurrenceDate }}
+                              </p>
+                              <p><strong>Local date:</strong> {{ occurrence.localDate }}</p>
+                              <p>
+                                <strong>Detached:</strong> {{ occurrence.detached ? 'Yes' : 'No' }}
+                              </p>
+                            </div>
+                            <div class="context-actions">
+                              <button
+                                class="btn btn-ghost"
+                                type="button"
+                                (click)="selectDay(bucket.key)"
+                              >
+                                Back to day
+                              </button>
+                            </div>
+                          </section>
+                        </ng-container>
+
                         <section
                           class="rounded-box border border-base-300 p-4 stack-tight compact-stack"
                           *ngIf="advisory()"
@@ -1218,6 +1279,11 @@ function createAttachmentDraft(): AttachmentDraft {
         border-left-color: rgb(219 39 119 / 0.7);
       }
 
+      .day-entry[data-kind='schedule_occurrence'],
+      .entry-item[data-kind='schedule_occurrence'] {
+        border-left-color: rgb(22 163 74 / 0.75);
+      }
+
       .context-panel {
         min-width: 0;
         position: sticky;
@@ -1384,6 +1450,7 @@ export class CalendarComponent {
   readonly aiMessage = signal<string | null>(null);
   readonly selectedEntryId = signal<string | null>(null);
   readonly selectedEvent = signal<EventDetail | null>(null);
+  readonly selectedScheduleOccurrence = signal<CalendarScheduleOccurrenceDetail | null>(null);
   readonly selectedTaskEntry = signal<CalendarTaskDetail | null>(null);
   readonly selectedDayKey = signal<string | null>(null);
   readonly panelMode = signal<ContextPanelMode>('day');
@@ -1639,6 +1706,7 @@ export class CalendarComponent {
     this.panelMode.set('day');
     this.selectedEntryId.set(null);
     this.selectedEvent.set(null);
+    this.selectedScheduleOccurrence.set(null);
     this.selectedTaskEntry.set(null);
     this.clearAdvisoryState();
     this.linkedTaskAllocationWarning.set(null);
@@ -1649,6 +1717,7 @@ export class CalendarComponent {
     this.selectedDayKey.set(null);
     this.selectedEntryId.set(null);
     this.selectedEvent.set(null);
+    this.selectedScheduleOccurrence.set(null);
     this.selectedTaskEntry.set(null);
     this.panelMode.set('day');
     this.clearAdvisoryState();
@@ -1661,6 +1730,7 @@ export class CalendarComponent {
     this.panelMode.set('create-event');
     this.selectedEntryId.set(null);
     this.selectedEvent.set(null);
+    this.selectedScheduleOccurrence.set(null);
     this.selectedTaskEntry.set(null);
     this.clearAdvisoryState();
     this.eventDraft = this.createDefaultEventDraft(dayKey);
@@ -1673,6 +1743,7 @@ export class CalendarComponent {
     this.panelMode.set('create-task');
     this.selectedEntryId.set(null);
     this.selectedEvent.set(null);
+    this.selectedScheduleOccurrence.set(null);
     this.selectedTaskEntry.set(null);
     this.clearAdvisoryState();
     this.deadlineTaskDraft = this.createDefaultDeadlineTaskDraft(dayKey);
@@ -1690,6 +1761,7 @@ export class CalendarComponent {
       try {
         const event = (await this.calApi.getEvent(entry.id)) as EventDetail;
         this.selectedEvent.set(event);
+        this.selectedScheduleOccurrence.set(null);
         this.selectedTaskEntry.set(null);
         this.panelMode.set('event');
         this.eventEditDraft = {
@@ -1717,10 +1789,29 @@ export class CalendarComponent {
       return;
     }
 
+    if (entry.itemType === 'schedule') {
+      this.selectedScheduleOccurrence.set({
+        detached: entry.detached ?? false,
+        dueAt: entry.dueAt ?? null,
+        endAt: entry.endAt ?? null,
+        localDate: entry.localDate ?? this.calendarBucketKey(entry),
+        occurrenceDate: entry.occurrenceDate ?? this.calendarBucketKey(entry),
+        scheduleId: entry.scheduleId ?? entry.id,
+        startAt: entry.startAt ?? null,
+        title: entry.title,
+      });
+      this.selectedEvent.set(null);
+      this.selectedTaskEntry.set(null);
+      this.panelMode.set('schedule');
+      this.scrollExpandedPanelIntoView();
+      return;
+    }
+
     try {
       const task = (await this.calApi.getTask(entry.id)) as CalendarTaskDetail;
       this.selectedTaskEntry.set(task);
       this.selectedEvent.set(null);
+      this.selectedScheduleOccurrence.set(null);
       this.panelMode.set('task');
       this.scrollExpandedPanelIntoView();
     } catch (error) {
@@ -2330,6 +2421,13 @@ export class CalendarComponent {
         `Copy this ${entry.itemType} from ${this.contextService.getContextLabel()} to your default personal calendar?`,
       )
     ) {
+      return;
+    }
+
+    if (entry.itemType === 'schedule') {
+      this.message.set(
+        'Schedule occurrences stay linked to their schedule definition. Use the schedule library to duplicate or edit them.',
+      );
       return;
     }
 

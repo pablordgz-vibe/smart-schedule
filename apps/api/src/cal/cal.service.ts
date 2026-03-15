@@ -9,6 +9,7 @@ import type { PoolClient } from 'pg';
 import { DatabaseService } from '../persistence/database.service';
 import { AuditService } from '../security/audit.service';
 import { OrgService } from '../org/org.service';
+import { SchedService } from '../sched/sched.service';
 
 type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'completed';
@@ -189,6 +190,7 @@ export class CalService {
     private readonly auditService: AuditService,
     private readonly databaseService: DatabaseService,
     private readonly orgService: OrgService,
+    private readonly schedService: SchedService,
   ) {}
 
   getScope(input: {
@@ -1541,6 +1543,13 @@ export class CalService {
       ],
     );
 
+    const scheduleEntries = await this.schedService.listCalendarEntries({
+      actorId: input.actorId,
+      from: input.from,
+      scope: input.scope,
+      to: input.to,
+    });
+
     const entries = [
       ...eventRows.rows.map((event) => ({
         allDay: event.all_day,
@@ -1565,6 +1574,7 @@ export class CalService {
         timezone: task.timezone,
         title: task.title,
       })),
+      ...scheduleEntries,
     ].sort((left, right) => {
       const leftTime = new Date(
         'startAt' in left
