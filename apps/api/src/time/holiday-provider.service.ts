@@ -214,5 +214,4 @@ export class HolidayProviderService implements HolidayProviderContract {
 
     return (await response.json()) as T;
   }
-
 }

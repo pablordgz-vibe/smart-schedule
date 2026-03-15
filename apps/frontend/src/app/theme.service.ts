@@ -22,9 +22,7 @@ export class ThemeService {
       }
 
       const themeColor = theme === 'night' ? '#161616' : '#f7f7f5';
-      this.document
-        .querySelector('meta[name="theme-color"]')
-        ?.setAttribute('content', themeColor);
+      this.document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
     });
   }
 
@@ -41,8 +39,6 @@ export class ThemeService {
       return 'lofi';
     }
 
-    return window.localStorage.getItem(themeStorageKey) === 'night'
-      ? 'night'
-      : 'lofi';
+    return window.localStorage.getItem(themeStorageKey) === 'night' ? 'night' : 'lofi';
   }
 }

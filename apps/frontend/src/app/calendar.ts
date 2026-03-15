@@ -167,14 +167,20 @@ function createAttachmentDraft(): AttachmentDraft {
         <div class="calendar-grid-header">
           <div>
             <h2>{{ currentMonthLabel() }}</h2>
+            <p class="ui-copy">Calendar grid.</p>
             <p class="ui-copy">
               Showing {{ selectedCalendarIds().length }} active calendar{{
                 selectedCalendarIds().length === 1 ? '' : 's'
-              }} in {{ contextLabel() }}.
+              }}
+              in {{ contextLabel() }}.
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button class="btn btn-outline btn-sm normal-case" type="button" routerLink="/schedules/builder">
+            <button
+              class="btn btn-outline btn-sm normal-case"
+              type="button"
+              routerLink="/schedules/builder"
+            >
               Schedule builder
             </button>
             <button class="btn btn-outline btn-sm" type="button" (click)="openCalendarManager()">
@@ -233,7 +239,10 @@ function createAttachmentDraft(): AttachmentDraft {
               <div class="calendar-weekdays">
                 <span *ngFor="let weekday of weekdayLabels()">{{ weekday }}</span>
               </div>
-              <div class="calendar-workspace" *ngIf="calendarBuckets().length > 0; else invalidRange">
+              <div
+                class="calendar-workspace"
+                *ngIf="calendarBuckets().length > 0; else invalidRange"
+              >
                 <ng-container *ngIf="selectedDayBucket() as bucket; else fullCalendar">
                   <div class="focused-day-layout">
                     <article
@@ -246,7 +255,9 @@ function createAttachmentDraft(): AttachmentDraft {
                             <h3>{{ bucket.label }}</h3>
                             <p class="ui-copy">{{ bucket.fullLabel }}</p>
                           </div>
-                          <div class="badge badge-outline whitespace-nowrap">{{ bucket.entries.length }} items</div>
+                          <div class="badge badge-outline whitespace-nowrap">
+                            {{ bucket.entries.length }} items
+                          </div>
                         </div>
 
                         <ul class="day-entry-list">
@@ -260,7 +271,10 @@ function createAttachmentDraft(): AttachmentDraft {
                             <strong>{{ entry.title }}</strong>
                             <span>{{ formatEntryMoment(entry) }}</span>
                           </li>
-                          <li *ngIf="bucket.entries.length === 0" class="text-sm text-base-content/60">
+                          <li
+                            *ngIf="bucket.entries.length === 0"
+                            class="text-sm text-base-content/60"
+                          >
                             No items scheduled.
                           </li>
                         </ul>
@@ -273,7 +287,11 @@ function createAttachmentDraft(): AttachmentDraft {
                     >
                       <div class="card-body gap-4 p-4">
                         <div class="context-panel-toolbar">
-                          <button class="btn btn-ghost btn-sm" type="button" (click)="closeFocusedDay()">
+                          <button
+                            class="btn btn-ghost btn-sm"
+                            type="button"
+                            (click)="closeFocusedDay()"
+                          >
                             Back to calendar
                           </button>
                           <div class="context-actions" *ngIf="panelMode() === 'day'">
@@ -295,7 +313,10 @@ function createAttachmentDraft(): AttachmentDraft {
                         </div>
 
                         <ul class="entry-list compact-list" *ngIf="panelMode() === 'day'">
-                          <li *ngIf="bucket.entries.length === 0" class="text-sm text-base-content/60">
+                          <li
+                            *ngIf="bucket.entries.length === 0"
+                            class="text-sm text-base-content/60"
+                          >
                             Create an event or a task for this day.
                           </li>
                           <li
@@ -318,7 +339,9 @@ function createAttachmentDraft(): AttachmentDraft {
                           (ngSubmit)="createEvent()"
                         >
                           <div class="join join-horizontal self-start">
-                            <button class="btn btn-sm join-item btn-neutral" type="button">Event</button>
+                            <button class="btn btn-sm join-item btn-neutral" type="button">
+                              Event
+                            </button>
                             <button
                               class="btn btn-sm join-item btn-outline"
                               type="button"
@@ -482,7 +505,9 @@ function createAttachmentDraft(): AttachmentDraft {
                             >
                               Event
                             </button>
-                            <button class="btn btn-sm join-item btn-neutral" type="button">Task</button>
+                            <button class="btn btn-sm join-item btn-neutral" type="button">
+                              Task
+                            </button>
                           </div>
                           <div class="panel-section-title">
                             <h4>Create deadline task</h4>
@@ -558,7 +583,10 @@ function createAttachmentDraft(): AttachmentDraft {
                         </form>
 
                         <ng-container *ngIf="panelMode() === 'event'">
-                          <section class="stack-tight compact-stack" *ngIf="selectedEvent() as event">
+                          <section
+                            class="stack-tight compact-stack"
+                            *ngIf="selectedEvent() as event"
+                          >
                             <div class="context-panel-header">
                               <div>
                                 <p class="ui-kicker">Event</p>
@@ -695,7 +723,10 @@ function createAttachmentDraft(): AttachmentDraft {
                                   [(ngModel)]="eventEditDraft.calendarIds"
                                   name="edit-event-calendars"
                                 >
-                                  <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                                  <option
+                                    *ngFor="let calendar of calendars()"
+                                    [value]="calendar.id"
+                                  >
                                     {{ calendar.name }}
                                   </option>
                                 </select>
@@ -717,11 +748,21 @@ function createAttachmentDraft(): AttachmentDraft {
                                 {{ eventEditAllocationWarning() }}
                               </p>
                               <div class="context-actions">
-                                <button class="btn btn-neutral" type="submit">Save event updates</button>
-                                <button class="btn btn-outline" type="button" (click)="deleteEvent()">
+                                <button class="btn btn-neutral" type="submit">
+                                  Save event updates
+                                </button>
+                                <button
+                                  class="btn btn-outline"
+                                  type="button"
+                                  (click)="deleteEvent()"
+                                >
                                   Delete event
                                 </button>
-                                <button class="btn btn-ghost" type="button" (click)="selectDay(bucket.key)">
+                                <button
+                                  class="btn btn-ghost"
+                                  type="button"
+                                  (click)="selectDay(bucket.key)"
+                                >
                                   Back to day
                                 </button>
                               </div>
@@ -758,7 +799,11 @@ function createAttachmentDraft(): AttachmentDraft {
                                   [ngModelOptions]="{ standalone: true }"
                                 />
                               </div>
-                              <button class="btn btn-outline self-start" type="button" (click)="addEventAttachment()">
+                              <button
+                                class="btn btn-outline self-start"
+                                type="button"
+                                (click)="addEventAttachment()"
+                              >
                                 Add attachment metadata
                               </button>
                             </article>
@@ -766,12 +811,17 @@ function createAttachmentDraft(): AttachmentDraft {
                         </ng-container>
 
                         <ng-container *ngIf="panelMode() === 'task'">
-                          <section class="stack-tight compact-stack" *ngIf="selectedTaskEntry() as task">
+                          <section
+                            class="stack-tight compact-stack"
+                            *ngIf="selectedTaskEntry() as task"
+                          >
                             <div class="context-panel-header">
                               <div>
                                 <p class="ui-kicker">Task</p>
                                 <h4>{{ task.title }}</h4>
-                                <p class="ui-copy">{{ formatDateTime(task.dueAt, 'No deadline') }}</p>
+                                <p class="ui-copy">
+                                  {{ formatDateTime(task.dueAt, 'No deadline') }}
+                                </p>
                               </div>
                               <div class="context-actions" *ngIf="isOrganizationContext()">
                                 <button
@@ -791,13 +841,20 @@ function createAttachmentDraft(): AttachmentDraft {
                             <div class="rounded-box border border-base-300 p-4 stack-tight">
                               <p><strong>Notes:</strong> {{ task.notes || 'None' }}</p>
                               <p><strong>Location:</strong> {{ task.location || 'None' }}</p>
-                              <p><strong>Contacts:</strong> {{ joinLabels(task.contacts, 'displayName') }}</p>
+                              <p>
+                                <strong>Contacts:</strong>
+                                {{ joinLabels(task.contacts, 'displayName') }}
+                              </p>
                             </div>
                             <div class="context-actions">
                               <button class="btn btn-outline" type="button" (click)="deleteTask()">
                                 Delete task
                               </button>
-                              <button class="btn btn-ghost" type="button" (click)="selectDay(bucket.key)">
+                              <button
+                                class="btn btn-ghost"
+                                type="button"
+                                (click)="selectDay(bucket.key)"
+                              >
                                 Back to day
                               </button>
                             </div>
@@ -810,8 +867,8 @@ function createAttachmentDraft(): AttachmentDraft {
                         >
                           <h4>Conflict and advisory panel</h4>
                           <p class="ui-copy">
-                            Advisory concerns are warnings only. They do not hard-block scheduling by
-                            themselves.
+                            Advisory concerns are warnings only. They do not hard-block scheduling
+                            by themselves.
                           </p>
                           <ul class="entry-list compact-list">
                             <li *ngFor="let concern of advisory()!.concerns" class="entry-item">
@@ -820,10 +877,18 @@ function createAttachmentDraft(): AttachmentDraft {
                             </li>
                           </ul>
                           <div class="context-actions">
-                            <button class="btn btn-neutral" type="button" (click)="proceedWithPending()">
+                            <button
+                              class="btn btn-neutral"
+                              type="button"
+                              (click)="proceedWithPending()"
+                            >
                               Proceed anyway
                             </button>
-                            <button class="btn btn-outline" type="button" (click)="toggleAlternatives()">
+                            <button
+                              class="btn btn-outline"
+                              type="button"
+                              (click)="toggleAlternatives()"
+                            >
                               View alternative slot suggestions
                             </button>
                             <button class="btn btn-outline" type="button" (click)="askAi()">
@@ -835,9 +900,13 @@ function createAttachmentDraft(): AttachmentDraft {
                           </div>
                           <p class="ui-copy" *ngIf="aiMessage()">{{ aiMessage() }}</p>
                           <ul class="entry-list compact-list" *ngIf="showAlternatives()">
-                            <li *ngFor="let slot of advisory()!.alternativeSlots" class="entry-item">
+                            <li
+                              *ngFor="let slot of advisory()!.alternativeSlots"
+                              class="entry-item"
+                            >
                               <p class="ui-copy">
-                                {{ formatDateTime(slot.startAt) }} to {{ formatDateTime(slot.endAt) }} ·
+                                {{ formatDateTime(slot.startAt) }} to
+                                {{ formatDateTime(slot.endAt) }} ·
                                 {{ slot.reason }}
                               </p>
                               <button
@@ -906,10 +975,18 @@ function createAttachmentDraft(): AttachmentDraft {
                     </p>
                   </div>
                   <div class="flex gap-2">
-                    <button class="btn btn-ghost btn-sm" type="button" (click)="cancelCalendarManager()">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      type="button"
+                      (click)="cancelCalendarManager()"
+                    >
                       Cancel
                     </button>
-                    <button class="btn btn-neutral btn-sm" type="button" (click)="applyCalendarManager()">
+                    <button
+                      class="btn btn-neutral btn-sm"
+                      type="button"
+                      (click)="applyCalendarManager()"
+                    >
                       Apply
                     </button>
                   </div>
@@ -943,7 +1020,11 @@ function createAttachmentDraft(): AttachmentDraft {
                         [ngModelOptions]="{ standalone: true }"
                       />
                     </label>
-                    <button class="btn btn-outline" type="button" (click)="createPersonalCalendar()">
+                    <button
+                      class="btn btn-outline"
+                      type="button"
+                      (click)="createPersonalCalendar()"
+                    >
                       Create calendar
                     </button>
                   </div>
@@ -2290,26 +2371,18 @@ export class CalendarComponent {
 
   private visibleRange() {
     const monthStart = new Date(this.displayedYear(), this.displayedMonth(), 1, 0, 0, 0, 0);
-    const monthEnd = new Date(
-      this.displayedYear(),
-      this.displayedMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    );
+    const monthEnd = new Date(this.displayedYear(), this.displayedMonth() + 1, 0, 23, 59, 59, 999);
     const start = new Date(monthStart);
     const offset =
-      this.weekStartsOn() === 'monday'
-        ? (monthStart.getDay() + 6) % 7
-        : monthStart.getDay();
+      this.weekStartsOn() === 'monday' ? (monthStart.getDay() + 6) % 7 : monthStart.getDay();
     start.setDate(monthStart.getDate() - offset);
     start.setHours(0, 0, 0, 0);
 
     const end = new Date(monthEnd);
     const endOffset =
-      this.weekStartsOn() === 'monday' ? (7 - ((monthEnd.getDay() + 6) % 7) - 1) : 6 - monthEnd.getDay();
+      this.weekStartsOn() === 'monday'
+        ? 7 - ((monthEnd.getDay() + 6) % 7) - 1
+        : 6 - monthEnd.getDay();
     end.setDate(monthEnd.getDate() + endOffset);
     end.setHours(23, 59, 59, 999);
 

@@ -356,7 +356,9 @@ function createFormState(): PolicyFormState {
                 />
               </label>
             </div>
-            <label class="label cursor-pointer justify-start gap-3 rounded-box border border-base-300 px-3 py-2">
+            <label
+              class="label cursor-pointer justify-start gap-3 rounded-box border border-base-300 px-3 py-2"
+            >
               <input
                 type="checkbox"
                 class="checkbox checkbox-sm"
@@ -399,7 +401,9 @@ function createFormState(): PolicyFormState {
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3>Current {{ activeTabLabel() }} rules</h3>
-              <p class="text-sm text-base-content/60">Click rows to select. Ctrl-click and shift-click are supported.</p>
+              <p class="text-sm text-base-content/60">
+                Click rows to select. Ctrl-click and shift-click are supported.
+              </p>
             </div>
             <div class="flex flex-wrap gap-2">
               <button
@@ -446,7 +450,11 @@ function createFormState(): PolicyFormState {
                   {{ formatDateTime(policy.updatedAt) }}
                 </p>
               </div>
-              <button class="btn btn-outline" type="button" (click)="$event.stopPropagation(); removePolicy(policy.id)">
+              <button
+                class="btn btn-outline"
+                type="button"
+                (click)="$event.stopPropagation(); removePolicy(policy.id)"
+              >
                 Delete
               </button>
             </li>
@@ -713,7 +721,9 @@ export class PersonalTimePoliciesComponent {
     const policies = this.filteredPolicies();
 
     if (mouseEvent.shiftKey && this.lastSelectedPolicyIndex != null) {
-      const [start, end] = [this.lastSelectedPolicyIndex, index].sort((left, right) => left - right);
+      const [start, end] = [this.lastSelectedPolicyIndex, index].sort(
+        (left, right) => left - right,
+      );
       const rangeIds = policies.slice(start, end + 1).map((policy) => policy.id);
       this.selectedPolicyIds.update((current) => Array.from(new Set([...current, ...rangeIds])));
       return;
@@ -737,7 +747,9 @@ export class PersonalTimePoliciesComponent {
     const policyIds = this.selectedPolicyIds();
     if (
       policyIds.length === 0 ||
-      !window.confirm(`Delete ${policyIds.length} selected ${this.activeTabLabel().toLowerCase()} rule(s)?`)
+      !window.confirm(
+        `Delete ${policyIds.length} selected ${this.activeTabLabel().toLowerCase()} rule(s)?`,
+      )
     ) {
       return;
     }
@@ -759,7 +771,9 @@ export class PersonalTimePoliciesComponent {
     const policyIds = this.filteredPolicies().map((policy) => policy.id);
     if (
       policyIds.length === 0 ||
-      !window.confirm(`Delete all ${policyIds.length} ${this.activeTabLabel().toLowerCase()} rule(s)?`)
+      !window.confirm(
+        `Delete all ${policyIds.length} ${this.activeTabLabel().toLowerCase()} rule(s)?`,
+      )
     ) {
       return;
     }
@@ -796,12 +810,14 @@ export class PersonalTimePoliciesComponent {
         year: this.holidayYear,
       });
       this.activeTab.set('holiday');
-      this.message.set([
-        `Imported ${result.imported} official holidays for ${this.selectedHolidayLocationLabel()}.`,
-        this.holidayImport.replaceExisting
-          ? `Replaced ${result.replaced} previous imported holidays.`
-          : 'Existing imported holidays were preserved.',
-      ].join(' '));
+      this.message.set(
+        [
+          `Imported ${result.imported} official holidays for ${this.selectedHolidayLocationLabel()}.`,
+          this.holidayImport.replaceExisting
+            ? `Replaced ${result.replaced} previous imported holidays.`
+            : 'Existing imported holidays were preserved.',
+        ].join(' '),
+      );
       this.errorMessage.set(null);
       try {
         await this.reload();
@@ -880,9 +896,7 @@ export class PersonalTimePoliciesComponent {
 
     if (
       this.holidayImport.subdivisionCode &&
-      this.holidaySubdivisions().some(
-        (entry) => entry.code === this.holidayImport.subdivisionCode,
-      )
+      this.holidaySubdivisions().some((entry) => entry.code === this.holidayImport.subdivisionCode)
     ) {
       return this.holidayImport.subdivisionCode;
     }
@@ -896,9 +910,9 @@ export class PersonalTimePoliciesComponent {
         (entry) => entry.code === this.holidayImport.countryCode,
       )?.name ?? this.holidayImport.countryCode;
     const subdivision = this.holidayImport.subdivisionCode
-      ? this.holidaySubdivisions().find(
+      ? (this.holidaySubdivisions().find(
           (entry) => entry.code === this.holidayImport.subdivisionCode,
-        )?.name ?? ''
+        )?.name ?? '')
       : '';
 
     return subdivision ? `${country} / ${subdivision}` : country || 'the selected location';

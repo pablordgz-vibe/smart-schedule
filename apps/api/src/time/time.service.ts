@@ -137,11 +137,15 @@ function safeUpdatedAt(value: unknown) {
     return value;
   }
 
-  if (value == null) {
-    return '';
+  if (
+    typeof value === 'number' ||
+    typeof value === 'bigint' ||
+    typeof value === 'boolean'
+  ) {
+    return `${value}`;
   }
 
-  return String(value);
+  return '';
 }
 
 class InMemoryRouteAdvisoryProvider implements RouteAdvisoryContract {
