@@ -11,7 +11,10 @@ const expectations = [
       "smoke-gate",
       "pnpm run format:check",
       "pnpm run typecheck",
+      "pnpm run build",
       "pnpm run design-system:check",
+      "pnpm run coverage:repo",
+      "pnpm run coverage:critical",
     ],
   },
   {

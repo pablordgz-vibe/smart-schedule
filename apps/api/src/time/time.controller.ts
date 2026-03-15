@@ -10,6 +10,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -57,6 +58,11 @@ class ListPoliciesQuery {
   @IsOptional()
   @IsString()
   targetUserId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  includeInactive?: boolean;
 }
 
 class TimePolicyDto {
@@ -325,6 +331,38 @@ class ImportOfficialHolidaysDto {
   targetUserId?: string;
 }
 
+class HolidayImportOptionsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(32)
+  providerCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  countryCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  search?: string;
+}
+
+class HolidayLocationCatalogQuery {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(32)
+  providerCode!: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(32)
+  countryCode?: string;
+}
+
 @Controller('time')
 export class TimeController {
   constructor(private readonly timeService: TimeService) {}
@@ -347,6 +385,7 @@ export class TimeController {
         scopeLevel: query.scopeLevel,
         targetGroupId: query.targetGroupId,
         targetUserId: query.targetUserId,
+        includeInactive: query.includeInactive ?? false,
       }),
     };
   }
@@ -542,6 +581,21 @@ export class TimeController {
     allowedContextTypes: ['organization', 'personal'],
     requireContextId: true,
   })
+  @Get('holidays/locations')
+  async getHolidayLocationCatalog(@Query() query: HolidayLocationCatalogQuery) {
+    return {
+      catalog: await this.timeService.getHolidayLocationCatalog({
+        countryCode: query.countryCode,
+        providerCode: query.providerCode,
+      }),
+    };
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    allowedContextTypes: ['organization', 'personal'],
+    requireContextId: true,
+  })
   @Post('holidays/import')
   async importOfficialHolidays(
     @Req() request: ApiRequest,
@@ -557,6 +611,24 @@ export class TimeController {
         targetGroupId: body.targetGroupId ?? null,
         targetUserId: body.targetUserId ?? null,
         year: body.year,
+      }),
+    };
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    allowedContextTypes: ['organization', 'personal'],
+    requireContextId: true,
+  })
+  @Get('holidays/import-options')
+  async getHolidayImportOptions(
+    @Req() request: ApiRequest,
+    @Query() query: HolidayImportOptionsQueryDto,
+  ) {
+    return {
+      options: await this.timeService.getHolidayLocationCatalog({
+        countryCode: query.countryCode ?? undefined,
+        providerCode: query.providerCode ?? 'calendarific',
       }),
     };
   }

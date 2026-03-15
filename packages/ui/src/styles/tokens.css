@@ -1,71 +1,68 @@
 :root {
-  /* Colors */
-  --color-primary-50: #f0f9ff;
-  --color-primary-100: #e0f2fe;
-  --color-primary-200: #bae6fd;
-  --color-primary-300: #7dd3fc;
-  --color-primary-400: #38bdf8;
-  --color-primary-500: #0ea5e9;
-  --color-primary-600: #0284c7;
-  --color-primary-700: #0369a1;
-  --color-primary-800: #075985;
-  --color-primary-900: #0c4a6e;
+  --color-primary-50: #f7f7f5;
+  --color-primary-100: #efefea;
+  --color-primary-200: #ddddd6;
+  --color-primary-300: #c6c6bc;
+  --color-primary-400: #a6a69a;
+  --color-primary-500: #7f7f73;
+  --color-primary-600: #5f5f56;
+  --color-primary-700: #40403a;
+  --color-primary-800: #2b2b27;
+  --color-primary-900: #1b1b18;
 
-  --color-accent-50: #fdf2f8;
-  --color-accent-100: #fce7f3;
-  --color-accent-200: #fbcfe8;
-  --color-accent-300: #f9a8d4;
-  --color-accent-400: #f472b6;
-  --color-accent-500: #ec4899;
-  --color-accent-600: #db2777;
-  --color-accent-700: #be185d;
-  --color-accent-800: #9d174d;
-  --color-accent-900: #831843;
+  --color-accent-50: #fafaf9;
+  --color-accent-100: #f5f5f4;
+  --color-accent-200: #e7e5e4;
+  --color-accent-300: #d6d3d1;
+  --color-accent-400: #a8a29e;
+  --color-accent-500: #78716c;
+  --color-accent-600: #57534e;
+  --color-accent-700: #44403c;
+  --color-accent-800: #292524;
+  --color-accent-900: #1c1917;
 
-  --color-neutral-50: #f9fafb;
-  --color-neutral-100: #f3f4f6;
-  --color-neutral-200: #e5e7eb;
-  --color-neutral-300: #d1d5db;
-  --color-neutral-400: #9ca3af;
-  --color-neutral-500: #6b7280;
-  --color-neutral-600: #4b5563;
-  --color-neutral-700: #374151;
-  --color-neutral-800: #1f2937;
-  --color-neutral-900: #111827;
-  --color-warning-50: #fffbeb;
-  --color-warning-500: #d97706;
-  --color-warning-700: #92400e;
+  --color-neutral-50: #fbfbfa;
+  --color-neutral-100: #f4f4f2;
+  --color-neutral-200: #e7e5e1;
+  --color-neutral-300: #d6d3d1;
+  --color-neutral-400: #a8a29e;
+  --color-neutral-500: #78716c;
+  --color-neutral-600: #57534e;
+  --color-neutral-700: #44403c;
+  --color-neutral-800: #292524;
+  --color-neutral-900: #1c1917;
+  --color-warning-50: #fff8eb;
+  --color-warning-500: #b7791f;
+  --color-warning-700: #8c5d14;
   --color-danger-50: #fef2f2;
-  --color-danger-500: #dc2626;
-  --color-danger-700: #991b1b;
-  --color-success-50: #ecfdf5;
-  --color-success-500: #059669;
-  --color-success-700: #047857;
+  --color-danger-500: #c2410c;
+  --color-danger-700: #9a3412;
+  --color-success-50: #eefbf3;
+  --color-success-500: #3f6f4f;
+  --color-success-700: #2f523b;
 
-  /* Semantic Colors */
-  --bg-app: var(--color-neutral-50);
+  --bg-app: #f7f7f5;
   --bg-surface: #ffffff;
-  --text-primary: var(--color-neutral-900);
-  --text-secondary: var(--color-neutral-600);
-  --text-muted: var(--color-neutral-400);
-  --border-default: var(--color-neutral-200);
-  --state-info-bg: rgb(14 165 233 / 0.08);
-  --state-info-border: rgb(2 132 199 / 0.2);
-  --state-info-text: #075985;
-  --state-warning-bg: rgb(245 158 11 / 0.12);
-  --state-warning-border: rgb(217 119 6 / 0.2);
+  --text-primary: #1f1f1d;
+  --text-secondary: #5b5b57;
+  --text-muted: #8a8a83;
+  --border-default: #e4e2dd;
+  --state-info-bg: #f7f7f5;
+  --state-info-border: #dedbd4;
+  --state-info-text: #383834;
+  --state-warning-bg: #fff8eb;
+  --state-warning-border: #ead7ad;
   --state-warning-text: var(--color-warning-700);
-  --state-approval-bg: rgb(236 72 153 / 0.12);
-  --state-approval-border: rgb(219 39 119 / 0.2);
-  --state-approval-text: var(--color-accent-700);
-  --state-denied-bg: rgb(220 38 38 / 0.1);
-  --state-denied-border: rgb(220 38 38 / 0.18);
+  --state-approval-bg: #f6f3ee;
+  --state-approval-border: #e2d8ca;
+  --state-approval-text: #5f5345;
+  --state-denied-bg: #fef4ee;
+  --state-denied-border: #f3d0be;
   --state-denied-text: var(--color-danger-700);
-  --state-entitlement-bg: rgb(5 150 105 / 0.1);
-  --state-entitlement-border: rgb(5 150 105 / 0.18);
+  --state-entitlement-bg: #f2f6f1;
+  --state-entitlement-border: #d7e3d4;
   --state-entitlement-text: var(--color-success-700);
 
-  /* Spacing */
   --spacing-1: 0.25rem;
   --spacing-2: 0.5rem;
   --spacing-3: 0.75rem;
@@ -76,10 +73,8 @@
   --spacing-10: 2.5rem;
   --spacing-12: 3rem;
 
-  /* Typography */
   --font-family:
-    "IBM Plex Sans", "Avenir Next", "Segoe UI", "Helvetica Neue", Arial,
-    sans-serif;
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -87,15 +82,12 @@
   --font-size-xl: 1.25rem;
   --font-size-2xl: 1.5rem;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-default:
-    0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 18px 45px rgb(15 23 42 / 0.14);
+  --shadow-sm: 0 1px 2px rgb(28 25 23 / 0.04);
+  --shadow-default: 0 1px 3px rgb(28 25 23 / 0.06);
+  --shadow-md: 0 10px 30px rgb(28 25 23 / 0.04);
+  --shadow-lg: 0 24px 60px rgb(28 25 23 / 0.06);
 
-  /* Radius */
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
-  --radius-2xl: 2rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
 }

@@ -111,9 +111,15 @@ export class OrgController {
     requireTenant: true,
   })
   @Get('organizations/:organizationId/memberships')
-  async listMemberships(@Param('organizationId') organizationId: string) {
+  async listMemberships(
+    @Req() request: ApiRequest,
+    @Param('organizationId') organizationId: string,
+  ) {
     return {
-      memberships: await this.orgService.listMemberships(organizationId),
+      memberships: await this.orgService.listMemberships({
+        actorId: request.requestContext!.actor.id!,
+        organizationId,
+      }),
     };
   }
 

@@ -1,11 +1,41 @@
 export type SetupIntegrationCredentialMode = 'api-key' | 'provider-login';
 
 export type SetupIntegrationProvider = {
-  category: 'ai' | 'calendar' | 'holiday-data';
+  category: 'ai' | 'calendar' | 'email' | 'holiday-data' | 'identity';
   code: string;
   credentialModes: SetupIntegrationCredentialMode[];
   description: string;
   displayName: string;
+};
+
+export type AdminIntegrationSummary = {
+  code: string;
+  enabled: boolean;
+  hasCredentials: boolean;
+  mode: SetupIntegrationCredentialMode;
+  updatedAt: string;
+};
+
+export type AdminIntegrationSnapshot = {
+  configuredIntegrations: AdminIntegrationSummary[];
+  edition: 'commercial' | 'community';
+  providers: SetupIntegrationProvider[];
+};
+
+export type MailOutboxSummary = {
+  attempts: number;
+  createdAt: string;
+  deliveredAt: string | null;
+  expiresAt: string;
+  failedAt: string | null;
+  failureReason: string | null;
+  id: string;
+  kind: string;
+  lastAttemptAt: string | null;
+  recipientEmail: string;
+  status: 'delivered' | 'failed' | 'queued' | 'retrying';
+  subject: string;
+  transport: string;
 };
 
 export type SetupBootstrapPayload = {

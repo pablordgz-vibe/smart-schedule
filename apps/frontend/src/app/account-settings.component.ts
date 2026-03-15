@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Router } from '@angular/router';
 import { AuthStateService } from './auth-state.service';
-import type { SocialProviderCode } from './auth.types';
+import { ContextService } from './context.service';
+import type { SocialProviderCode, UserSettingsSnapshot } from './auth.types';
 import { PersonalTimePoliciesComponent } from './personal-time-policies.component';
 
 @Component({
@@ -11,145 +13,264 @@ import { PersonalTimePoliciesComponent } from './personal-time-policies.componen
   standalone: true,
   imports: [CommonModule, FormsModule, PersonalTimePoliciesComponent],
   template: `
-    <section class="ui-page" data-testid="page-settings">
-      <div class="ui-card settings-grid" *ngIf="user() as currentUser">
-        <div>
-          <p class="ui-kicker">Identity</p>
-          <h1>{{ currentUser.name }}</h1>
-          <p class="settings-copy">
-            {{ currentUser.email }} · {{ currentUser.state }} ·
-            {{ currentUser.emailVerified ? 'Email verified' : 'Email pending verification' }}
-          </p>
-          <p class="settings-copy" *ngIf="currentUser.recoverUntil">
-            Recoverable until {{ currentUser.recoverUntil }}
-          </p>
-        </div>
-
-        <p class="auth-message" *ngIf="message()">{{ message() }}</p>
-        <p class="auth-error" *ngIf="error()">{{ error() }}</p>
-
-        <div class="ui-meta-grid">
-          <div class="ui-panel">
-            <h2>Login Methods</h2>
-            <p *ngFor="let method of currentUser.authMethods">
-              {{ method.kind === 'password' ? 'Password' : method.provider }}
+    <section class="grid gap-6" data-testid="page-settings">
+      <div
+        class="card border border-base-300 bg-base-100 p-6 shadow-sm"
+        *ngIf="user() as currentUser"
+      >
+        <div class="grid gap-6">
+          <div class="space-y-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-base-content/45">
+              Identity
             </p>
+            <div class="space-y-2">
+              <h1 class="text-3xl font-semibold tracking-tight">{{ currentUser.name }}</h1>
+              <p class="text-sm leading-6 text-base-content/65">
+                {{ currentUser.email }} · {{ currentUser.state }} ·
+                {{ currentUser.emailVerified ? 'Email verified' : 'Email pending verification' }}
+              </p>
+              <p class="text-sm leading-6 text-base-content/65" *ngIf="currentUser.recoverUntil">
+                Recoverable until {{ formatDateTime(currentUser.recoverUntil) }}
+              </p>
+            </div>
           </div>
 
-          <div class="ui-panel">
-            <h2>Verification</h2>
-            <p>
-              Mandatory verification:
-              {{ requireEmailVerification() ? 'enabled' : 'disabled' }}
-            </p>
+          <div class="alert alert-info" *ngIf="message()">{{ message() }}</div>
+          <div class="alert alert-error" *ngIf="error()">{{ error() }}</div>
+
+          <div class="grid gap-4 xl:grid-cols-2">
+            <div class="rounded-box border border-base-300 bg-base-100 p-4">
+              <h2 class="text-lg font-semibold">Login methods</h2>
+              <ul class="mt-3 grid gap-2 text-sm text-base-content/70">
+                <li *ngFor="let method of currentUser.authMethods">
+                  {{ method.kind === 'password' ? 'Password' : method.provider }}
+                </li>
+              </ul>
+            </div>
+
+            <div class="rounded-box border border-base-300 bg-base-100 p-4">
+              <h2 class="text-lg font-semibold">Verification</h2>
+              <p class="mt-3 text-sm leading-6 text-base-content/65">
+                Mandatory verification: {{ requireEmailVerification() ? 'enabled' : 'disabled' }}
+              </p>
+              <button
+                class="btn btn-outline mt-4"
+                type="button"
+                (click)="requestVerification()"
+                *ngIf="!currentUser.emailVerified"
+              >
+                Send verification email
+              </button>
+            </div>
+          </div>
+
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <div class="space-y-1">
+              <h2 class="text-lg font-semibold">Social sign-in providers</h2>
+              <p class="text-sm leading-6 text-base-content/65">
+                Link and unlink the same OAuth providers used on the sign-in page.
+              </p>
+            </div>
+
+            <ul class="mt-4 grid gap-3">
+              <li
+                *ngFor="let provider of providers()"
+                class="flex flex-col gap-3 rounded-box border border-base-300 bg-base-100 p-4 lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <strong>{{ provider.displayName }}</strong>
+                    <span class="badge badge-outline" *ngIf="isLinked(provider.code)">Linked</span>
+                    <span class="badge badge-ghost" *ngIf="!isLinked(provider.code)"
+                      >Not linked</span
+                    >
+                  </div>
+                  <p class="text-sm leading-6 text-base-content/60">
+                    {{
+                      isLinked(provider.code)
+                        ? 'Available for account sign-in.'
+                        : 'Not yet linked to this account.'
+                    }}
+                  </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="linkProvider(provider.code)"
+                    *ngIf="!isLinked(provider.code)"
+                  >
+                    Link {{ provider.displayName }}
+                  </button>
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="unlinkProvider(provider.code)"
+                    *ngIf="isLinked(provider.code)"
+                  >
+                    Unlink {{ provider.displayName }}
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <div class="space-y-1">
+              <h2 class="text-lg font-semibold">Preferences</h2>
+              <p class="text-sm leading-6 text-base-content/65">
+                These defaults control how dates, times, and week boundaries are presented across
+                the app.
+              </p>
+            </div>
+
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <label class="form-control gap-2">
+                <span>Timezone</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="settingsDraft.timezone"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </label>
+
+              <label class="form-control gap-2">
+                <span>Locale</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="settingsDraft.locale"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </label>
+
+              <label class="form-control gap-2">
+                <span>Time format</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="settingsDraft.timeFormat"
+                  [ngModelOptions]="{ standalone: true }"
+                >
+                  <option value="24h">24-hour</option>
+                  <option value="12h">12-hour</option>
+                </select>
+              </label>
+
+              <label class="form-control gap-2">
+                <span>Week starts on</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="settingsDraft.weekStartsOn"
+                  [ngModelOptions]="{ standalone: true }"
+                >
+                  <option value="monday">Monday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-3">
+              <button class="btn btn-outline" type="button" (click)="saveSettings()">
+                Save preferences
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <button class="btn btn-outline" type="button" (click)="logout()">Sign out</button>
             <button
-              class="ui-button ui-button-secondary"
+              class="btn btn-outline btn-error"
               type="button"
-              (click)="requestVerification()"
-              *ngIf="!currentUser.emailVerified"
+              (click)="showDeleteConfirmation()"
             >
-              Send verification email
+              Delete account
             </button>
           </div>
+
+          <section class="rounded-box border border-error/30 bg-error/5 p-4">
+            <div class="space-y-2">
+              <h2 class="text-lg font-semibold">Confirm account deletion</h2>
+              <p class="text-sm leading-6 text-base-content/70">
+                Type <strong>DELETE</strong> to confirm. The account remains recoverable for 30
+                days.
+              </p>
+            </div>
+            <label class="form-control mt-4">
+              <span class="label"><span class="label-text">Confirmation text</span></span>
+              <input
+                class="input input-bordered w-full"
+                aria-label="Confirmation text"
+                [ngModel]="deleteConfirmationText()"
+                (ngModelChange)="deleteConfirmationText.set($event)"
+                [ngModelOptions]="{ standalone: true }"
+              />
+            </label>
+            <div class="mt-4 flex flex-wrap gap-3">
+              <button class="btn btn-outline" type="button" (click)="cancelDelete()">Cancel</button>
+              <button class="btn btn-error" type="button" (click)="confirmDeleteAccount()">
+                Confirm deletion
+              </button>
+            </div>
+          </section>
+
+          <app-personal-time-policies *ngIf="activeContextType() === 'personal'" />
+
+          <section
+            class="rounded-box border border-base-300 bg-base-100 p-4"
+            *ngIf="activeContextType() !== 'personal'"
+          >
+            <h2 class="text-lg font-semibold">Time policy workspace</h2>
+            <p
+              class="mt-2 text-sm leading-6 text-base-content/65"
+              *ngIf="activeContextType() === 'organization'"
+            >
+              Personal rules are managed in personal context. Organization rules live in the
+              organization time-policies workspace so scope and preview stay explicit.
+            </p>
+            <p
+              class="mt-2 text-sm leading-6 text-base-content/65"
+              *ngIf="activeContextType() !== 'organization'"
+            >
+              Switch into personal context to manage personal time policies.
+            </p>
+          </section>
         </div>
-
-        <div class="settings-row">
-          <label class="ui-field">
-            <span>Provider to link</span>
-            <select [(ngModel)]="selectedProvider" name="selected-provider">
-              <option *ngFor="let provider of providers()" [value]="provider.code">
-                {{ provider.displayName }}
-              </option>
-            </select>
-          </label>
-          <button class="ui-button ui-button-secondary" type="button" (click)="linkProvider()">
-            Link provider
-          </button>
-        </div>
-
-        <div class="settings-row">
-          <button class="ui-button ui-button-secondary" type="button" (click)="unlinkProvider()">
-            Unlink selected provider
-          </button>
-          <button class="ui-button ui-button-secondary" type="button" (click)="logout()">
-            Sign out
-          </button>
-          <button class="ui-button" type="button" (click)="showDeleteConfirmation()">
-            Delete account
-          </button>
-        </div>
-
-        <section class="ui-panel danger-panel" *ngIf="confirmDelete()">
-          <h2>Confirm account deletion</h2>
-          <p class="settings-copy">
-            Type <strong>DELETE</strong> to confirm. The account remains recoverable for 30 days.
-          </p>
-          <label class="ui-field">
-            <span>Confirmation text</span>
-            <input
-              class="ui-input"
-              [ngModel]="deleteConfirmationText()"
-              (ngModelChange)="deleteConfirmationText.set($event)"
-              [ngModelOptions]="{ standalone: true }"
-            />
-          </label>
-          <div class="settings-row">
-            <button class="ui-button ui-button-secondary" type="button" (click)="cancelDelete()">
-              Cancel
-            </button>
-            <button class="ui-button" type="button" (click)="confirmDeleteAccount()">
-              Confirm deletion
-            </button>
-          </div>
-        </section>
-
-        <app-personal-time-policies />
       </div>
     </section>
   `,
-  styles: [
-    `
-      .settings-grid {
-        display: grid;
-        gap: var(--spacing-5);
-      }
-
-      .settings-copy,
-      .auth-message {
-        color: var(--text-secondary);
-      }
-
-      .auth-error {
-        color: #b91c1c;
-      }
-
-      .settings-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--spacing-3);
-        align-items: end;
-      }
-
-      .danger-panel {
-        border-color: rgb(185 28 28 / 0.25);
-        background: rgb(254 242 242 / 0.85);
-      }
-    `,
-  ],
 })
 export class AccountSettingsComponent {
   private readonly authState = inject(AuthStateService);
+  private readonly contextService = inject(ContextService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   readonly user = computed(() => this.authState.user());
+  readonly activeContextType = computed(() => this.contextService.activeContext().contextType);
   readonly providers = computed(() => this.authState.providers());
   readonly requireEmailVerification = computed(() => this.authState.requireEmailVerification());
   readonly message = signal('');
   readonly error = signal('');
   readonly confirmDelete = signal(false);
   readonly deleteConfirmationText = signal('');
+  settingsDraft: UserSettingsSnapshot = {
+    locale: 'en',
+    timeFormat: '24h',
+    timezone: 'UTC',
+    weekStartsOn: 'monday',
+  };
 
-  selectedProvider: SocialProviderCode = 'google';
+  constructor() {
+    const oauthStatus = this.route.snapshot.queryParamMap.get('oauthStatus');
+    const oauthError = this.route.snapshot.queryParamMap.get('oauthError');
+    if (oauthStatus?.endsWith('-linked')) {
+      this.message.set(`${oauthStatus.replace('-linked', '')} linked.`);
+    }
+    if (oauthError) {
+      this.error.set(oauthError);
+    }
+
+    void this.loadSettings();
+  }
 
   async requestVerification() {
     await this.run(async () => {
@@ -166,24 +287,24 @@ export class AccountSettingsComponent {
     });
   }
 
-  async linkProvider() {
-    await this.run(async () => {
-      const currentUser = this.user();
-      if (!currentUser) {
-        return;
-      }
-      await this.authState.linkProvider(
-        this.selectedProvider,
-        `${this.selectedProvider}:${currentUser.email}`,
-      );
-      this.message.set('Provider linked.');
-    });
+  isLinked(provider: SocialProviderCode) {
+    return (
+      this.user()?.authMethods.some(
+        (method) => method.kind === 'social' && method.provider === provider,
+      ) ?? false
+    );
   }
 
-  async unlinkProvider() {
+  linkProvider(provider: SocialProviderCode) {
+    this.error.set('');
+    this.message.set('');
+    this.authState.startOAuth(provider, 'link', '/settings');
+  }
+
+  async unlinkProvider(provider: SocialProviderCode) {
     await this.run(async () => {
-      await this.authState.unlinkProvider(this.selectedProvider);
-      this.message.set('Provider unlinked.');
+      await this.authState.unlinkProvider(provider);
+      this.message.set(`${provider} unlinked.`);
     });
   }
 
@@ -191,6 +312,14 @@ export class AccountSettingsComponent {
     await this.run(async () => {
       await this.authState.logout();
       await this.router.navigateByUrl('/auth/sign-in');
+    });
+  }
+
+  async saveSettings() {
+    await this.run(async () => {
+      const settings = await this.authState.updateUserSettings(this.settingsDraft);
+      this.settingsDraft = { ...settings };
+      this.message.set('Preferences saved.');
     });
   }
 
@@ -231,5 +360,29 @@ export class AccountSettingsComponent {
     } catch (error: unknown) {
       this.error.set(error instanceof Error ? error.message : 'Request failed.');
     }
+  }
+
+  private async loadSettings() {
+    try {
+      this.settingsDraft = await this.authState.loadUserSettings();
+    } catch {
+      // Keep the defaults if the settings endpoint is not yet reachable.
+    }
+  }
+
+  formatDateTime(value: string | null) {
+    if (!value) {
+      return 'n/a';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 }

@@ -1,5 +1,10 @@
+@plugin "daisyui" {
+  themes: lofi --default;
+  logs: false;
+}
+
 :root {
-  --tw-ring-color: rgb(14 165 233 / 0.14);
+  --tw-ring-color: rgb(24 24 27 / 0.12);
 }
 
 .mx-auto {

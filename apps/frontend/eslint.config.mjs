@@ -15,6 +15,7 @@ export default [
       'eslint.config.mjs',
       'tailwind.config.js',
       'dist/**',
+      'coverage/**',
       '.angular/**',
       'playwright-report/**',
       'test-results/**',

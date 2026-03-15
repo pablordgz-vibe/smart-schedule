@@ -1,10 +1,12 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { ContextService } from './context.service';
 import type {
   AuthConfigurationSnapshot,
   AuthMutationResult,
   AuthSessionSnapshot,
   IdentityUserSummary,
   SocialProviderCode,
+  UserSettingsSnapshot,
 } from './auth.types';
 
 type ApiErrorResponse = {
@@ -16,6 +18,7 @@ type ApiErrorResponse = {
 
 @Injectable({ providedIn: 'root' })
 export class AuthStateService {
+  private readonly contextService = inject(ContextService);
   private readonly sessionState = signal<AuthSessionSnapshot | null>(null);
   private readonly busy = signal(false);
   private readonly loadErrorState = signal<string | null>(null);
@@ -35,7 +38,7 @@ export class AuthStateService {
   async loadIfReady(setupComplete: boolean): Promise<void> {
     if (!setupComplete) {
       this.loadErrorState.set(null);
-      this.sessionState.set(this.createAnonymousSession());
+      this.setSessionSnapshot(this.createAnonymousSession());
       return;
     }
 
@@ -49,12 +52,12 @@ export class AuthStateService {
         message.toLowerCase().includes('not authenticated')
       ) {
         this.loadErrorState.set(null);
-        this.sessionState.set(this.createAnonymousSession());
+        this.setSessionSnapshot(this.createAnonymousSession());
         return;
       }
 
       this.loadErrorState.set(message);
-      this.sessionState.set(this.createAnonymousSession());
+      this.setSessionSnapshot(this.createAnonymousSession());
     }
   }
 
@@ -64,7 +67,7 @@ export class AuthStateService {
       throw new Error('Session payload is invalid.');
     }
     this.loadErrorState.set(null);
-    this.sessionState.set(session);
+    this.setSessionSnapshot(session);
     return session;
   }
 
@@ -102,7 +105,7 @@ export class AuthStateService {
       },
       method: 'POST',
     });
-    this.sessionState.set(result.session);
+    this.setSessionSnapshot(result.session);
     return result;
   }
 
@@ -114,7 +117,7 @@ export class AuthStateService {
       },
       method: 'POST',
     });
-    this.sessionState.set(result.session);
+    this.setSessionSnapshot(result.session);
     return result;
   }
 
@@ -131,8 +134,16 @@ export class AuthStateService {
       },
       method: 'POST',
     });
-    this.sessionState.set(result.session);
+    this.setSessionSnapshot(result.session);
     return result;
+  }
+
+  startOAuth(provider: SocialProviderCode, intent: 'link' | 'sign-in', returnTo: string) {
+    const params = new URLSearchParams({
+      intent,
+      returnTo,
+    });
+    window.location.assign(`/api/auth/oauth/${provider}/start?${params.toString()}`);
   }
 
   async requestEmailVerification(email: string) {
@@ -203,14 +214,14 @@ export class AuthStateService {
       },
       method: 'POST',
     });
-    this.sessionState.set(result.session);
+    this.setSessionSnapshot(result.session);
     return result;
   }
 
   async linkProvider(provider: SocialProviderCode, providerSubject: string) {
     await this.fetchJson('/api/auth/providers/link', {
       body: JSON.stringify({ provider, providerSubject }),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
     return this.loadSession();
@@ -224,13 +235,37 @@ export class AuthStateService {
     return this.loadSession();
   }
 
+  async loadUserSettings() {
+    const response = await this.fetchJson<{ settings: UserSettingsSnapshot }>(
+      '/api/auth/settings',
+      {
+        headers: this.authHeaders(),
+      },
+    );
+
+    return response.settings;
+  }
+
+  async updateUserSettings(input: Partial<UserSettingsSnapshot>) {
+    const response = await this.fetchJson<{ settings: UserSettingsSnapshot }>(
+      '/api/auth/settings',
+      {
+        body: JSON.stringify(input),
+        headers: this.authJsonHeaders(),
+        method: 'PATCH',
+      },
+    );
+
+    return response.settings;
+  }
+
   async deleteAccount() {
     await this.fetchJson('/api/auth/account/delete', {
       headers: this.authHeaders(),
       method: 'POST',
     });
     await this.clearClientCaches();
-    this.sessionState.set(this.createAnonymousSession());
+    this.setSessionSnapshot(this.createAnonymousSession());
   }
 
   async logout() {
@@ -239,7 +274,7 @@ export class AuthStateService {
       method: 'POST',
     });
     await this.clearClientCaches();
-    this.sessionState.set(this.createAnonymousSession());
+    this.setSessionSnapshot(this.createAnonymousSession());
   }
 
   async switchContext(input: {
@@ -248,10 +283,10 @@ export class AuthStateService {
   }) {
     const result = await this.fetchJson<AuthMutationResult>('/api/auth/context', {
       body: JSON.stringify(input),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
-    this.sessionState.set(result.session);
+    this.setSessionSnapshot(result.session);
     return result.session;
   }
 
@@ -266,7 +301,7 @@ export class AuthStateService {
   }) {
     return this.fetchJson<AuthConfigurationSnapshot>('/api/admin/auth/config', {
       body: JSON.stringify(input),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'PATCH',
     });
   }
@@ -286,6 +321,12 @@ export class AuthStateService {
   }
 
   private authHeaders() {
+    return {
+      'x-csrf-token': this.csrfToken() ?? '',
+    };
+  }
+
+  private authJsonHeaders() {
     return {
       'content-type': 'application/json',
       'x-csrf-token': this.csrfToken() ?? '',
@@ -327,6 +368,11 @@ export class AuthStateService {
       requireEmailVerification: this.requireEmailVerification(),
       user: null,
     };
+  }
+
+  private setSessionSnapshot(snapshot: AuthSessionSnapshot) {
+    this.sessionState.set(snapshot);
+    this.contextService.applySessionSnapshot(snapshot);
   }
 
   private async clearClientCaches() {

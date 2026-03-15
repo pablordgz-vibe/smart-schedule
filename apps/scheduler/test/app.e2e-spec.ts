@@ -17,7 +17,7 @@ describe('Scheduler health endpoints (e2e)', () => {
   let app: INestApplication;
 
   function getTestServer() {
-    return app.getHttpAdapter().getInstance() as Parameters<typeof request>[0];
+    return app.getHttpServer() as Parameters<typeof request>[0];
   }
 
   beforeEach(async () => {

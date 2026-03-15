@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --watch --dts",
-    "test": "pnpm exec vitest run"
+    "test": "pnpm exec vitest run",
+    "test:cov": "pnpm exec vitest run --coverage --coverage.reporter=json-summary --coverage.reporter=text --coverage.all=false"
   },
   "dependencies": {
     "zod": "^3.24.2"

@@ -3,6 +3,13 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    coverage: {
+      all: false,
+      clean: true,
+      provider: 'v8',
+      reporter: ['json-summary', 'text'],
+      reportsDirectory: './coverage',
+    },
     globals: true,
     passWithNoTests: true,
     root: './',

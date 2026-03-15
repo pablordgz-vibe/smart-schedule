@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 import { ContextService } from '../context.service';
+import { DirtyStateService } from '../dirty-state.service';
 import { routes } from '../app.routes';
 import { AuthStateService } from '../auth-state.service';
 import { SetupStateService } from '../setup/setup-state.service';
@@ -80,6 +81,7 @@ describe('ShellComponent', () => {
     });
 
     const contextService: ContextService = TestBed.inject(ContextService);
+    const authStateService: AuthStateService = TestBed.inject(AuthStateService);
     const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
     setSetupState(setupStateService, {
       admin: null,
@@ -89,20 +91,21 @@ describe('ShellComponent', () => {
       isComplete: true,
       step: 'complete',
     });
-    contextService.applySessionSnapshot(
+    const fixture = TestBed.createComponent(ShellComponent);
+    authStateService.setSnapshot(
       buildSession({
         active: 'organization',
         includeOrganization: true,
       }),
     );
-
-    const fixture = TestBed.createComponent(ShellComponent);
+    contextService.applySessionSnapshot(authStateService.snapshot());
     fixture.detectChanges();
     await fixture.whenStable();
+    fixture.detectChanges();
 
     const hostElement = fixture.nativeElement as HTMLElement;
-    const badge = hostElement.querySelector('[data-testid="context-badge"]');
-    expect(badge?.textContent).toContain('Organization: Atlas Ops');
+    const contextSwitcher = hostElement.querySelector('[data-testid="context-switcher"]');
+    expect(contextSwitcher?.value).toBe('org:org-1');
   });
 
   it('redirects to the system admin landing page on a system context switch', async () => {
@@ -193,5 +196,159 @@ describe('ShellComponent', () => {
     const results = hostElement.querySelectorAll<HTMLElement>('[data-testid^="search-result-"]');
     expect(results.length).toBe(1);
     expect(results[0]?.textContent).toContain('Users');
+  });
+
+  it('opens compose, settings, and logout actions from the header affordances', async () => {
+    TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [provideRouter(routes)],
+    });
+
+    const router: Router = TestBed.inject(Router);
+    const authStateService: AuthStateService = TestBed.inject(AuthStateService);
+    const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
+    setSetupState(setupStateService, {
+      admin: null,
+      completedAt: '2026-03-11T00:00:00.000Z',
+      configuredIntegrations: [],
+      edition: 'community',
+      isComplete: true,
+      step: 'complete',
+    });
+    authStateService.setSnapshot(buildSession({ active: 'personal' }));
+    TestBed.inject(ContextService).applySessionSnapshot(authStateService.snapshot());
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const logoutSpy = vi.spyOn(authStateService, 'logout').mockResolvedValue();
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.toggleQuickCreateMenu();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.quickCreateMenuOpen()).toBe(true);
+
+    fixture.componentInstance.openCompose('event');
+    expect(navigateSpy).toHaveBeenCalledWith('/calendar?compose=event');
+    expect(fixture.componentInstance.quickCreateMenuOpen()).toBe(false);
+
+    fixture.componentInstance.toggleUserMenu();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.userMenuOpen()).toBe(true);
+
+    fixture.componentInstance.openSettings();
+    expect(navigateSpy).toHaveBeenCalledWith('/settings');
+    expect(fixture.componentInstance.userMenuOpen()).toBe(false);
+
+    fixture.componentInstance.toggleUserMenu();
+    await fixture.componentInstance.logout();
+    expect(logoutSpy).toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalledWith('/auth/sign-in');
+    expect(fixture.componentInstance.userMenuOpen()).toBe(false);
+  });
+
+  it('keeps header panels mutually exclusive and sends system quick create to setup', async () => {
+    TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [provideRouter(routes)],
+    });
+
+    const router: Router = TestBed.inject(Router);
+    const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
+    const authStateService: AuthStateService = TestBed.inject(AuthStateService);
+    setSetupState(setupStateService, {
+      admin: null,
+      completedAt: '2026-03-11T00:00:00.000Z',
+      configuredIntegrations: [],
+      edition: 'community',
+      isComplete: true,
+      step: 'complete',
+    });
+    authStateService.setSnapshot(
+      buildSession({
+        active: 'system',
+        includeSystem: true,
+      }),
+    );
+    TestBed.inject(ContextService).applySessionSnapshot(authStateService.snapshot());
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.toggleHelpPanel();
+    expect(fixture.componentInstance.helpPanelOpen()).toBe(true);
+
+    fixture.componentInstance.toggleUserMenu();
+    expect(fixture.componentInstance.helpPanelOpen()).toBe(false);
+    expect(fixture.componentInstance.userMenuOpen()).toBe(true);
+
+    fixture.componentInstance.toggleQuickCreateMenu();
+    expect(navigateSpy).toHaveBeenCalledWith('/admin/setup');
+    expect(fixture.componentInstance.quickCreateMenuOpen()).toBe(false);
+    expect(fixture.componentInstance.userMenuOpen()).toBe(false);
+  });
+
+  it('guards dirty context switches and resets search when opening results', async () => {
+    TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [provideRouter(routes)],
+    });
+
+    const router: Router = TestBed.inject(Router);
+    const authStateService: AuthStateService = TestBed.inject(AuthStateService);
+    const contextService: ContextService = TestBed.inject(ContextService);
+    const dirtyStateService: DirtyStateService = TestBed.inject(DirtyStateService);
+    const setupStateService: SetupStateService = TestBed.inject(SetupStateService);
+    setSetupState(setupStateService, {
+      admin: null,
+      completedAt: '2026-03-11T00:00:00.000Z',
+      configuredIntegrations: [],
+      edition: 'community',
+      isComplete: true,
+      step: 'complete',
+    });
+    authStateService.setSnapshot(
+      buildSession({
+        active: 'personal',
+        includeOrganization: true,
+      }),
+    );
+    contextService.applySessionSnapshot(authStateService.snapshot());
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const switchSpy = vi.spyOn(authStateService, 'switchContext').mockResolvedValue(
+      buildSession({
+        active: 'organization',
+        includeOrganization: true,
+      }),
+    );
+    const approveSpy = vi.spyOn(dirtyStateService, 'approveNextNavigation');
+    const confirmSpy = vi.spyOn(window, 'confirm');
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    dirtyStateService.markDirty();
+    confirmSpy.mockReturnValueOnce(false);
+    await fixture.componentInstance.switchContext('org:org-1');
+    expect(switchSpy).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.contextSwitcherValue()).toBe('personal');
+
+    confirmSpy.mockReturnValueOnce(true);
+    await fixture.componentInstance.switchContext('org:org-1');
+    expect(approveSpy).toHaveBeenCalled();
+    expect(switchSpy).toHaveBeenCalledWith({
+      contextType: 'organization',
+      organizationId: 'org-1',
+    });
+    expect(navigateSpy).toHaveBeenCalledWith('/');
+
+    fixture.componentInstance.updateSearch('calendar');
+    fixture.componentInstance.toggleHelpPanel();
+    fixture.componentInstance.openFirstSearchResult(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(fixture.componentInstance.searchQuery()).toBe('');
+    expect(fixture.componentInstance.helpPanelOpen()).toBe(false);
   });
 });

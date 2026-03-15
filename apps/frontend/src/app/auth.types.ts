@@ -28,6 +28,13 @@ export type IdentityUserSummary = {
   state: 'active' | 'deactivated' | 'deleted';
 };
 
+export type UserSettingsSnapshot = {
+  locale: string;
+  timeFormat: '12h' | '24h';
+  timezone: string;
+  weekStartsOn: 'monday' | 'sunday';
+};
+
 export type SessionBootstrapContext = {
   key: string;
   label: string;

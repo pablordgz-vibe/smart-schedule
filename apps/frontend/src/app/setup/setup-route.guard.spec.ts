@@ -10,7 +10,7 @@ function setSetupState(service: SetupStateService, snapshot: SetupStateSnapshot)
 }
 
 describe('setupRouteGuard', () => {
-  it('redirects setup to home after bootstrap completes', () => {
+  it('redirects setup to sign-in after bootstrap completes for anonymous users', () => {
     TestBed.configureTestingModule({
       providers: [provideRouter([])],
     });
@@ -35,6 +35,6 @@ describe('setupRouteGuard', () => {
 
     const result = TestBed.runInInjectionContext(() => setupRouteGuard({} as never, {} as never));
 
-    expect(router.serializeUrl(result as ReturnType<typeof router.parseUrl>)).toBe('/home');
+    expect(router.serializeUrl(result as ReturnType<typeof router.parseUrl>)).toBe('/auth/sign-in');
   });
 });

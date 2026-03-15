@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { DatabaseService } from '../src/persistence/database.service';
 
 type HealthResponse = {
   status: string;
@@ -17,13 +18,25 @@ describe('Worker health endpoints (e2e)', () => {
   let app: INestApplication;
 
   function getTestServer() {
-    return app.getHttpAdapter().getInstance() as Parameters<typeof request>[0];
+    return app.getHttpServer() as Parameters<typeof request>[0];
   }
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(DatabaseService)
+      .useValue({
+        getPool: () => ({
+          connect: () =>
+            Promise.resolve({
+              query: () => Promise.resolve({ rows: [] }),
+              release: () => undefined,
+            }),
+        }),
+        query: () => Promise.resolve({ rows: [] }),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();

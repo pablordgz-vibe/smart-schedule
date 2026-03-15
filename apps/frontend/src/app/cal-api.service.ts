@@ -45,7 +45,7 @@ export class CalApiService {
   async createPersonalCalendar(name: string) {
     const response = await this.fetchJson<{ calendar: CalendarSummary }>('/api/cal/calendars', {
       body: JSON.stringify({ name }),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
 
@@ -92,7 +92,7 @@ export class CalApiService {
       `/api/cal/contacts/imported`,
       {
         body: JSON.stringify(input),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -139,7 +139,7 @@ export class CalApiService {
   async createTask(payload: Record<string, unknown>) {
     const response = await this.fetchJson<{ task: unknown }>(`/api/cal/tasks`, {
       body: JSON.stringify(payload),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
 
@@ -149,7 +149,7 @@ export class CalApiService {
   async updateTask(taskId: string, patch: Record<string, unknown>) {
     const response = await this.fetchJson<{ task: unknown }>(`/api/cal/tasks/${taskId}`, {
       body: JSON.stringify(patch),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'PATCH',
     });
 
@@ -166,7 +166,7 @@ export class CalApiService {
   async createEvent(payload: Record<string, unknown>) {
     const response = await this.fetchJson<{ event: unknown }>(`/api/cal/events`, {
       body: JSON.stringify(payload),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'POST',
     });
 
@@ -184,7 +184,7 @@ export class CalApiService {
   async updateEvent(eventId: string, patch: Record<string, unknown>) {
     const response = await this.fetchJson<{ event: unknown }>(`/api/cal/events/${eventId}`, {
       body: JSON.stringify(patch),
-      headers: this.authHeaders(),
+      headers: this.authJsonHeaders(),
       method: 'PATCH',
     });
 
@@ -203,7 +203,7 @@ export class CalApiService {
       `/api/cal/events/${eventId}/attachments`,
       {
         body: JSON.stringify(payload),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -216,7 +216,7 @@ export class CalApiService {
       `/api/cal/tasks/${taskId}/attachments`,
       {
         body: JSON.stringify(payload),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -233,7 +233,7 @@ export class CalApiService {
       `/api/cal/items/${input.itemType}/${input.itemId}/copy-to-personal`,
       {
         body: JSON.stringify({ calendarIds: input.calendarIds }),
-        headers: this.authHeaders(),
+        headers: this.authJsonHeaders(),
         method: 'POST',
       },
     );
@@ -242,6 +242,12 @@ export class CalApiService {
   }
 
   private authHeaders() {
+    return {
+      'x-csrf-token': this.authState.csrfToken() ?? '',
+    };
+  }
+
+  private authJsonHeaders() {
     return {
       'content-type': 'application/json',
       'x-csrf-token': this.authState.csrfToken() ?? '',

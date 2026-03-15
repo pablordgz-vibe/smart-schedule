@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ContextService } from './context.service';
 import {
   TimeApiService,
+  type HolidayLocationCatalog,
   type TimePolicyCategory,
   type TimePolicySummary,
 } from './time-api.service';
@@ -19,11 +20,9 @@ type PolicyFormState = {
   endAt: string;
   endTime: string;
   holidayName: string;
-  locationCode: string;
   maxDailyMinutes: number | null;
   maxWeeklyMinutes: number | null;
   minRestMinutes: number | null;
-  providerCode: string;
   startAt: string;
   startTime: string;
   title: string;
@@ -36,11 +35,9 @@ function createFormState(): PolicyFormState {
     endAt: '',
     endTime: '17:00',
     holidayName: '',
-    locationCode: 'ES-M',
     maxDailyMinutes: 480,
     maxWeeklyMinutes: 2400,
     minRestMinutes: 60,
-    providerCode: 'public-holidays',
     startAt: '',
     startTime: '09:00',
     title: '',
@@ -52,58 +49,70 @@ function createFormState(): PolicyFormState {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-panel stack-tight">
+    <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
       <h2>Personal Time Policies</h2>
-      <p class="ui-copy">
+      <p class="text-sm leading-6 text-base-content/65">
         Define personal working hours, availability, holidays, blackout periods, rest rules, and
         maximum-hour warnings used by scheduling assistance.
       </p>
 
       <ng-container *ngIf="isPersonalContext(); else wrongContext">
-        <div class="tabs">
+        <div role="tablist" class="tabs tabs-boxed w-fit">
           <button
             *ngFor="let tab of tabs"
-            class="ui-button"
+            class="tab"
             type="button"
-            [class.ui-button-primary]="activeTab() === tab.id"
+            [class.tab-active]="activeTab() === tab.id"
             (click)="setActiveTab(tab.id)"
           >
             {{ tab.label }}
           </button>
         </div>
 
-        <p class="ui-banner ui-banner-warning" *ngIf="errorMessage()">{{ errorMessage() }}</p>
-        <p class="ui-banner ui-banner-info" *ngIf="message()">{{ message() }}</p>
+        <p class="text-sm leading-6 text-base-content/65">
+          {{ activeTabDescription() }}
+        </p>
+
+        <p class="alert alert-warning" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+        <p class="alert alert-info" *ngIf="message()">{{ message() }}</p>
+        <p class="alert alert-info" *ngIf="isLoading()">Loading personal time policies…</p>
 
         <div class="two-column">
-          <section class="ui-panel stack-tight">
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h3>Create rule</h3>
-            <label class="ui-field">
+            <label class="form-control gap-2">
               <span>Title</span>
-              <input [(ngModel)]="form.title" [ngModelOptions]="{ standalone: true }" />
+              <input
+                class="input input-bordered w-full"
+                [(ngModel)]="form.title"
+                [ngModelOptions]="{ standalone: true }"
+              />
             </label>
 
             <ng-container [ngSwitch]="activeTab()">
               <ng-container *ngSwitchCase="'working_hours'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days (0-6 comma separated)</span>
                     <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
                     <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
                     <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -114,24 +123,27 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'availability'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days</span>
                     <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
                     <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
                     <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -142,24 +154,27 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'unavailability'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Days</span>
                     <input
+                      class="input input-bordered w-full"
                       [(ngModel)]="form.daysOfWeekToken"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
                     <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.startTime"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
                     <input
+                      class="input input-bordered w-full"
                       type="time"
                       [(ngModel)]="form.endTime"
                       [ngModelOptions]="{ standalone: true }"
@@ -170,34 +185,41 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'holiday'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Date</span>
                     <input
+                      class="input input-bordered w-full"
                       type="date"
                       [(ngModel)]="form.date"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Holiday name</span>
-                    <input [(ngModel)]="form.holidayName" [ngModelOptions]="{ standalone: true }" />
+                    <input
+                      class="input input-bordered w-full"
+                      [(ngModel)]="form.holidayName"
+                      [ngModelOptions]="{ standalone: true }"
+                    />
                   </label>
                 </div>
               </ng-container>
 
               <ng-container *ngSwitchCase="'blackout'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Start</span>
                     <input
+                      class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.startAt"
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>End</span>
                     <input
+                      class="input input-bordered w-full"
                       type="datetime-local"
                       [(ngModel)]="form.endAt"
                       [ngModelOptions]="{ standalone: true }"
@@ -207,9 +229,10 @@ function createFormState(): PolicyFormState {
               </ng-container>
 
               <ng-container *ngSwitchCase="'rest'">
-                <label class="ui-field">
+                <label class="form-control gap-2">
                   <span>Minimum rest minutes</span>
                   <input
+                    class="input input-bordered w-full"
                     type="number"
                     min="1"
                     max="1440"
@@ -221,9 +244,10 @@ function createFormState(): PolicyFormState {
 
               <ng-container *ngSwitchCase="'max_hours'">
                 <div class="inline-fields">
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Max daily minutes</span>
                     <input
+                      class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="1440"
@@ -231,9 +255,10 @@ function createFormState(): PolicyFormState {
                       [ngModelOptions]="{ standalone: true }"
                     />
                   </label>
-                  <label class="ui-field">
+                  <label class="form-control gap-2">
                     <span>Max weekly minutes</span>
                     <input
+                      class="input input-bordered w-full"
                       type="number"
                       min="1"
                       max="10080"
@@ -245,55 +270,163 @@ function createFormState(): PolicyFormState {
               </ng-container>
             </ng-container>
 
-            <button class="ui-button ui-button-primary" type="button" (click)="createPolicy()">
+            <button class="btn btn-neutral" type="button" (click)="createPolicy()">
               Save personal rule
             </button>
           </section>
 
-          <section class="ui-panel stack-tight">
-            <h3>Official holiday import</h3>
+          <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
+            <div class="space-y-2">
+              <h3>Holiday Import Integration</h3>
+              <p class="text-sm leading-6 text-base-content/65">
+                Import official holidays from the configured provider. Country and region selectors
+                are tied directly to this holiday import integration.
+              </p>
+            </div>
+
+            <div
+              class="alert alert-warning"
+              *ngIf="
+                holidayCatalog() && (!holidayCatalog()!.enabled || !holidayCatalog()!.configured)
+              "
+            >
+              <span>
+                {{
+                  !holidayCatalog()!.enabled
+                    ? 'Enable Calendarific in Global Integrations before importing holidays.'
+                    : 'Calendarific is enabled but still needs its API key in Global Integrations.'
+                }}
+              </span>
+            </div>
+
             <div class="inline-fields">
-              <label class="ui-field">
+              <label class="form-control gap-2">
                 <span>Provider</span>
-                <input [(ngModel)]="form.providerCode" [ngModelOptions]="{ standalone: true }" />
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.providerCode"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="loadHolidayCatalog()"
+                >
+                  <option value="calendarific">Calendarific</option>
+                </select>
               </label>
-              <label class="ui-field">
-                <span>Location</span>
-                <input [(ngModel)]="form.locationCode" [ngModelOptions]="{ standalone: true }" />
+              <label class="form-control gap-2">
+                <span>Country search</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="holidayImport.countrySearch"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="Search countries"
+                />
               </label>
-              <label class="ui-field">
+              <label class="form-control gap-2">
+                <span>Country</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.countryCode"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="selectHolidayCountry($event)"
+                >
+                  <option value="">Select a country</option>
+                  <option *ngFor="let country of filteredHolidayCountries()" [value]="country.code">
+                    {{ country.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="form-control gap-2">
+                <span>Region search</span>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="holidayImport.subdivisionSearch"
+                  [ngModelOptions]="{ standalone: true }"
+                  [disabled]="!holidayImport.countryCode"
+                  placeholder="Search regions or leave blank for country-wide holidays"
+                />
+              </label>
+              <label class="form-control gap-2">
+                <span>Region / state</span>
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="holidayImport.subdivisionCode"
+                  [ngModelOptions]="{ standalone: true }"
+                  [disabled]="!holidayImport.countryCode"
+                >
+                  <option value="">Country-wide holidays only</option>
+                  <option
+                    *ngFor="let subdivision of filteredHolidaySubdivisions()"
+                    [value]="subdivision.code ?? ''"
+                  >
+                    {{ subdivision.name }}
+                  </option>
+                </select>
+              </label>
+              <label class="form-control gap-2">
                 <span>Year</span>
                 <input
+                  class="input input-bordered w-full"
                   type="number"
                   [(ngModel)]="holidayYear"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </label>
             </div>
-            <button class="ui-button ui-button-secondary" type="button" (click)="importHolidays()">
-              Import official holidays
-            </button>
+            <div class="flex flex-wrap items-center gap-3">
+              <button class="btn btn-outline" type="button" (click)="importHolidays()">
+                Import official holidays
+              </button>
+              <span class="text-sm text-base-content/60" *ngIf="holidayCatalog() as catalog">
+                {{ catalog.countries.length }} supported countries loaded
+              </span>
+            </div>
+            <p
+              class="text-sm text-base-content/60"
+              *ngIf="holidayImport.countrySearch.trim().length > 0"
+            >
+              Country matches: {{ filteredHolidayCountries().length }}
+            </p>
+            <p
+              class="text-sm text-base-content/60"
+              *ngIf="holidayImport.subdivisionSearch.trim().length > 0"
+            >
+              Region matches: {{ filteredHolidaySubdivisions().length }}
+            </p>
+            <p class="text-sm text-base-content/60" *ngIf="selectedHolidayLocationCode()">
+              Import target: {{ selectedHolidayLocationLabel() }}
+            </p>
+            <p class="alert alert-warning" *ngIf="holidayCatalogErrorMessage()">
+              {{ holidayCatalogErrorMessage() }}
+            </p>
 
             <h3>Effective preview</h3>
+            <p class="alert alert-warning" *ngIf="previewErrorMessage()">
+              {{ previewErrorMessage() }}
+            </p>
             <ul class="simple-list">
               <li *ngFor="let row of previewRows()">
-                <strong>{{ row.category }}</strong>
-                <span class="ui-chip">{{ row.scope || 'none' }}</span>
-                <span class="ui-copy">rules: {{ row.ruleCount }}</span>
+                <strong>{{ formatPolicyCategory(row.category) }}</strong>
+                <span class="badge badge-outline">{{ formatScopeLabel(row.scope || 'none') }}</span>
+                <span class="text-sm text-base-content/60">rules: {{ row.ruleCount }}</span>
+                <span class="text-sm text-base-content/60">{{ row.summary }}</span>
               </li>
             </ul>
           </section>
         </div>
 
-        <section class="ui-panel stack-tight">
+        <section class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
           <h3>Current {{ activeTabLabel() }} rules</h3>
           <ul class="simple-list">
             <li *ngFor="let policy of filteredPolicies()">
               <div>
                 <strong>{{ policy.title }}</strong>
-                <p class="ui-copy">{{ policy.sourceType }} · {{ policy.updatedAt }}</p>
+                <p class="text-sm leading-6 text-base-content/65">{{ describePolicy(policy) }}</p>
+                <p class="text-sm leading-6 text-base-content/55">
+                  {{ formatSourceLabel(policy.sourceType) }} ·
+                  {{ policy.isActive ? 'active' : 'inactive' }} · updated
+                  {{ formatDateTime(policy.updatedAt) }}
+                </p>
               </div>
-              <button class="ui-button" type="button" (click)="removePolicy(policy.id)">
+              <button class="btn btn-outline" type="button" (click)="removePolicy(policy.id)">
                 Delete
               </button>
             </li>
@@ -305,7 +438,9 @@ function createFormState(): PolicyFormState {
       </ng-container>
 
       <ng-template #wrongContext>
-        <p class="ui-copy">Switch into personal context to manage personal time policies.</p>
+        <p class="text-sm leading-6 text-base-content/65">
+          Switch into personal context to manage personal time policies.
+        </p>
       </ng-template>
     </section>
   `,
@@ -363,7 +498,11 @@ export class PersonalTimePoliciesComponent {
 
   readonly activeTab = signal<TimePolicyCategory>('working_hours');
   readonly errorMessage = signal<string | null>(null);
+  readonly isLoading = signal(false);
   readonly message = signal<string | null>(null);
+  readonly previewErrorMessage = signal<string | null>(null);
+  readonly holidayCatalogErrorMessage = signal<string | null>(null);
+  readonly holidayCatalog = signal<HolidayLocationCatalog | null>(null);
   readonly isPersonalContext = computed(
     () => this.contextService.activeContext().contextType === 'personal',
   );
@@ -381,14 +520,70 @@ export class PersonalTimePoliciesComponent {
       category,
       ruleCount: details.rules.length,
       scope: details.resolvedFromScope,
+      summary: this.describePreviewRules(details.rules),
     })),
   );
   readonly activeTabLabel = computed(
     () => this.tabs.find((tab) => tab.id === this.activeTab())?.label ?? 'Policies',
   );
+  readonly activeTabDescription = computed(() => this.describeActiveTab(this.activeTab()));
 
   form = createFormState();
   holidayYear = new Date().getUTCFullYear();
+  holidayImport = {
+    countryCode: '',
+    countrySearch: '',
+    providerCode: 'calendarific',
+    subdivisionCode: '',
+    subdivisionSearch: '',
+  };
+
+  readonly filteredHolidayCountries = computed(() => {
+    const catalog = this.holidayCatalog();
+    const search = this.holidayImport.countrySearch.trim().toLowerCase();
+    const countries = catalog?.countries ?? [];
+    if (!search) {
+      return countries;
+    }
+
+    return countries.filter(
+      (country) =>
+        country.name.toLowerCase().includes(search) || country.code.toLowerCase().includes(search),
+    );
+  });
+  readonly filteredHolidaySubdivisions = computed(() => {
+    const catalog = this.holidayCatalog();
+    const search = this.holidayImport.subdivisionSearch.trim().toLowerCase();
+    const subdivisions = catalog?.subdivisions ?? [];
+    if (!search) {
+      return subdivisions;
+    }
+
+    return subdivisions.filter(
+      (subdivision) =>
+        subdivision.name.toLowerCase().includes(search) ||
+        (subdivision.code ?? '').toLowerCase().includes(search),
+    );
+  });
+
+  formatPolicyCategory(category: string): string {
+    return this.tabs.find((tab) => tab.id === category)?.label ?? this.humanizeToken(category);
+  }
+
+  formatScopeLabel(scope: string): string {
+    return scope === 'none' ? 'No rule' : this.humanizeToken(scope);
+  }
+
+  formatSourceLabel(source: string): string {
+    return this.humanizeToken(source);
+  }
+
+  private humanizeToken(value: string): string {
+    return value
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
 
   constructor() {
     effect(() => {
@@ -399,8 +594,10 @@ export class PersonalTimePoliciesComponent {
       } else {
         this.policiesState.set([]);
         this.previewState.set({});
+        this.isLoading.set(false);
       }
     });
+    void this.loadHolidayCatalog();
   }
 
   setActiveTab(tab: TimePolicyCategory) {
@@ -422,12 +619,10 @@ export class PersonalTimePoliciesComponent {
         endTime: this.form.endTime || undefined,
         holidayName: this.form.holidayName || undefined,
         isActive: true,
-        locationCode: this.form.locationCode || undefined,
         maxDailyMinutes: this.form.maxDailyMinutes ?? undefined,
         maxWeeklyMinutes: this.form.maxWeeklyMinutes ?? undefined,
         minRestMinutes: this.form.minRestMinutes ?? undefined,
         policyType: this.activeTab(),
-        providerCode: this.form.providerCode || undefined,
         scopeLevel: 'user',
         startAt: this.form.startAt ? new Date(this.form.startAt).toISOString() : undefined,
         startTime: this.form.startTime || undefined,
@@ -457,26 +652,74 @@ export class PersonalTimePoliciesComponent {
     try {
       this.errorMessage.set(null);
       this.message.set(null);
+      this.holidayCatalogErrorMessage.set(null);
+      const locationCode = this.selectedHolidayLocationCode();
+      if (!locationCode) {
+        this.errorMessage.set('Select a country before importing official holidays.');
+        return;
+      }
+
       const result = await this.timeApi.importOfficialHolidays({
-        locationCode: this.form.locationCode.trim(),
-        providerCode: this.form.providerCode.trim(),
+        locationCode,
+        providerCode: this.holidayImport.providerCode.trim(),
         scopeLevel: 'user',
         year: this.holidayYear,
       });
-      this.message.set(`Imported ${result.imported} official holidays.`);
+      this.activeTab.set('holiday');
+      this.message.set(
+        `Imported ${result.imported} official holidays for ${this.selectedHolidayLocationLabel()}. Replaced ${result.replaced} previous imported holidays.`,
+      );
       await this.reload();
     } catch (error) {
       this.errorMessage.set(error instanceof Error ? error.message : 'Failed to import holidays.');
     }
   }
 
+  async loadHolidayCatalog() {
+    try {
+      this.holidayCatalogErrorMessage.set(null);
+      const catalog = await this.timeApi.getHolidayLocationCatalog({
+        countryCode: this.holidayImport.countryCode || undefined,
+        providerCode: this.holidayImport.providerCode,
+      });
+      this.holidayCatalog.set(catalog);
+    } catch (error) {
+      this.holidayCatalog.set(null);
+      this.holidayCatalogErrorMessage.set(
+        error instanceof Error ? error.message : 'Failed to load holiday locations.',
+      );
+    }
+  }
+
+  async selectHolidayCountry(countryCode: string) {
+    this.holidayImport.countryCode = countryCode;
+    this.holidayImport.subdivisionCode = '';
+    this.holidayImport.subdivisionSearch = '';
+    await this.loadHolidayCatalog();
+  }
+
   private async reload() {
-    const [policies, preview] = await Promise.all([
-      this.timeApi.listPolicies(),
-      this.timeApi.previewEffectivePolicies(),
-    ]);
-    this.policiesState.set(policies);
-    this.previewState.set(preview.categories);
+    this.isLoading.set(true);
+    try {
+      const policies = await this.timeApi.listPolicies({ includeInactive: true });
+      this.policiesState.set(policies);
+      await this.loadPreview();
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  private async loadPreview() {
+    try {
+      this.previewErrorMessage.set(null);
+      const preview = await this.timeApi.previewEffectivePolicies();
+      this.previewState.set(preview.categories);
+    } catch (error) {
+      this.previewState.set({});
+      this.previewErrorMessage.set(
+        error instanceof Error ? error.message : 'Failed to load policy preview.',
+      );
+    }
   }
 
   private parseDaysOfWeek() {
@@ -486,5 +729,140 @@ export class PersonalTimePoliciesComponent {
       .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6);
 
     return values.length > 0 ? Array.from(new Set(values)) : undefined;
+  }
+
+  selectedHolidayLocationCode() {
+    if (!this.holidayImport.countryCode) {
+      return '';
+    }
+
+    return this.holidayImport.subdivisionCode || this.holidayImport.countryCode;
+  }
+
+  selectedHolidayLocationLabel() {
+    const country =
+      this.holidayCatalog()?.countries.find(
+        (entry) => entry.code === this.holidayImport.countryCode,
+      )?.name ?? this.holidayImport.countryCode;
+    const subdivision =
+      this.holidayCatalog()?.subdivisions.find(
+        (entry) => (entry.code ?? '') === this.holidayImport.subdivisionCode,
+      )?.name ?? '';
+
+    return subdivision ? `${country} / ${subdivision}` : country || 'the selected location';
+  }
+
+  describePolicy(policy: TimePolicySummary) {
+    const rule = policy.rule;
+
+    if (
+      policy.policyType === 'working_hours' ||
+      policy.policyType === 'availability' ||
+      policy.policyType === 'unavailability'
+    ) {
+      const days = Array.isArray(rule['daysOfWeek'])
+        ? (rule['daysOfWeek'] as number[]).join(', ')
+        : 'custom days';
+      return `${days} · ${this.stringRuleValue(rule, 'startTime', '--:--')} to ${this.stringRuleValue(rule, 'endTime', '--:--')}`;
+    }
+
+    if (policy.policyType === 'holiday') {
+      return `${this.stringRuleValue(rule, 'date', 'No date')} · ${this.stringRuleValue(rule, 'holidayName', 'Holiday')}`;
+    }
+
+    if (policy.policyType === 'blackout') {
+      return `${this.formatDateTime(rule['startAt'])} to ${this.formatDateTime(rule['endAt'])}`;
+    }
+
+    if (policy.policyType === 'rest') {
+      return `Minimum rest: ${this.stringRuleValue(rule, 'minRestMinutes', '?')} minutes`;
+    }
+
+    if (policy.policyType === 'max_hours') {
+      return `Daily: ${this.stringRuleValue(rule, 'maxDailyMinutes', 'n/a')} min · Weekly: ${this.stringRuleValue(rule, 'maxWeeklyMinutes', 'n/a')} min`;
+    }
+
+    return '';
+  }
+
+  describePreviewRules(rules: unknown[]) {
+    const firstRule =
+      Array.isArray(rules) && rules.length > 0 && typeof rules[0] === 'object' && rules[0] != null
+        ? ((rules[0] as { rule?: Record<string, unknown> }).rule ?? {})
+        : {};
+
+    if (rules.length === 0) {
+      return 'No effective rule.';
+    }
+
+    if (firstRule['holidayName']) {
+      return `${this.stringRuleValue(firstRule, 'holidayName')} on ${this.stringRuleValue(firstRule, 'date', 'n/a')}`;
+    }
+
+    if (firstRule['startTime'] || firstRule['endTime']) {
+      return `${this.stringRuleValue(firstRule, 'startTime', '--:--')} to ${this.stringRuleValue(firstRule, 'endTime', '--:--')}`;
+    }
+
+    if (firstRule['startAt'] || firstRule['endAt']) {
+      return `${this.formatDateTime(firstRule['startAt'])} to ${this.formatDateTime(firstRule['endAt'])}`;
+    }
+
+    if (firstRule['minRestMinutes']) {
+      return `Minimum rest ${this.stringRuleValue(firstRule, 'minRestMinutes')} minutes`;
+    }
+
+    if (firstRule['maxDailyMinutes'] || firstRule['maxWeeklyMinutes']) {
+      return `Daily ${this.stringRuleValue(firstRule, 'maxDailyMinutes', 'n/a')} · Weekly ${this.stringRuleValue(firstRule, 'maxWeeklyMinutes', 'n/a')}`;
+    }
+
+    return `${rules.length} rule${rules.length === 1 ? '' : 's'} active.`;
+  }
+
+  formatDateTime(value: unknown) {
+    if (typeof value !== 'string' || value.length === 0) {
+      return 'n/a';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
+  }
+
+  private stringRuleValue(rule: Record<string, unknown>, key: string, fallback = '') {
+    const value = rule[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    return fallback;
+  }
+
+  describeActiveTab(tab: TimePolicyCategory) {
+    switch (tab) {
+      case 'working_hours':
+        return 'Use this for your standard working window. It is the default schedule baseline.';
+      case 'availability':
+        return 'Use this for extra time you are available beyond the standard working window.';
+      case 'unavailability':
+        return 'Use this for planned periods when scheduling should warn that you are unavailable.';
+      case 'holiday':
+        return 'Use this for named non-working dates, either manual or imported from the holiday provider.';
+      case 'blackout':
+        return 'Use this for absolute no-schedule periods with explicit start and end datetimes.';
+      case 'rest':
+        return 'Use this to warn when new work leaves too little rest between activities.';
+      case 'max_hours':
+        return 'Use this to warn when daily or weekly workload exceeds your preferred limit.';
+    }
   }
 }

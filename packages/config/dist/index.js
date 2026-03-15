@@ -45,8 +45,14 @@ var envSchema = import_zod.z.object({
   SESSION_COOKIE_NAME: import_zod.z.string().default("smart_schedule_session"),
   SESSION_TTL_SECONDS: import_zod.z.coerce.number().int().positive().default(43200),
   MAIL_FROM_ADDRESS: import_zod.z.string().email().default("no-reply@smart-schedule.local"),
+  MAIL_POLL_INTERVAL_MS: import_zod.z.coerce.number().int().positive().default(5e3),
+  MAIL_MAX_ATTEMPTS: import_zod.z.coerce.number().int().positive().default(5),
+  MAIL_PROCESSING_TIMEOUT_MS: import_zod.z.coerce.number().int().positive().default(3e5),
   RATE_LIMIT_WINDOW_MS: import_zod.z.coerce.number().int().positive().default(6e4),
-  RATE_LIMIT_MAX: import_zod.z.coerce.number().int().positive().default(60)
+  RATE_LIMIT_MAX: import_zod.z.coerce.number().int().positive().default(60),
+  AUTH_SOCIAL_PROVIDERS: import_zod.z.string().optional(),
+  CALENDARIFIC_API_BASE_URL: import_zod.z.string().url().default("https://calendarific.com/api/v2"),
+  CALENDARIFIC_PORTAL_BASE_URL: import_zod.z.string().url().default("https://calendarific.com")
 });
 
 // src/index.ts

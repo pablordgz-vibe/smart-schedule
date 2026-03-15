@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "coverage:critical": "node ./scripts/ci/coverage-gate.mjs critical",
+    "coverage:repo": "node ./scripts/ci/coverage-gate.mjs repo",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
+    "coverage:gate": "pnpm run coverage:repo && pnpm run coverage:critical",
     "typecheck": "node ./scripts/ci/typecheck.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,css,html,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,css,html,json,md,yml,yaml}\"",
@@ -29,7 +32,16 @@
   },
   "pnpm": {
     "overrides": {
-      "undici": ">=6.23.0",
+      "@angular/common": "21.2.4",
+      "@angular/compiler": "21.2.4",
+      "@angular/core": "21.2.4",
+      "@angular/forms": "21.2.4",
+      "@angular/localize": "21.2.4",
+      "@angular/platform-browser": "21.2.4",
+      "@angular/platform-browser-dynamic": "21.2.4",
+      "@angular/router": "21.2.4",
+      "@angular/service-worker": "21.2.4",
+      "undici": "7.24.0",
       "@angular-devkit/core>ajv": ">=8.18.0"
     }
   },

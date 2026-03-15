@@ -7,6 +7,13 @@ const unplugin_swc_1 = __importDefault(require("unplugin-swc"));
 const config_1 = require("vitest/config");
 exports.default = (0, config_1.defineConfig)({
     test: {
+        coverage: {
+            all: false,
+            clean: true,
+            provider: 'v8',
+            reporter: ['json-summary', 'text'],
+            reportsDirectory: './coverage',
+        },
         globals: true,
         passWithNoTests: true,
         root: './',

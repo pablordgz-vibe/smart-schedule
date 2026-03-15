@@ -208,7 +208,9 @@ export class OrgService {
     return contexts;
   }
 
-  async listMemberships(organizationId: string) {
+  async listMemberships(input: { actorId: string; organizationId: string }) {
+    await this.assertOrganizationAdmin(input.organizationId, input.actorId);
+
     const result = await this.databaseService.query<{
       email: string;
       name: string;
@@ -225,7 +227,7 @@ export class OrgService {
          on u.id = m.user_id
        where m.organization_id = $1
        order by u.email asc`,
-      [organizationId],
+      [input.organizationId],
     );
 
     return result.rows.map((row) => ({
@@ -270,6 +272,16 @@ export class OrgService {
     const expiresAt = new Date(
       Date.now() + 7 * 24 * 60 * 60 * 1000,
     ).toISOString();
+    const organizationResult = await this.databaseService.query<{
+      name: string;
+    }>(
+      `select name
+       from organizations
+       where id = $1`,
+      [input.organizationId],
+    );
+    const organizationName =
+      organizationResult.rows[0]?.name ?? 'your organization';
 
     const result = await this.databaseService.query<{
       id: string;
@@ -302,6 +314,14 @@ export class OrgService {
         timestamp,
       ],
     );
+
+    await this.queueInvitationMail({
+      email,
+      expiresAt,
+      inviteCode,
+      organizationName,
+      role: input.role,
+    });
 
     this.auditService.emit({
       action: 'org.invitation.created',
@@ -721,8 +741,9 @@ export class OrgService {
       );
     }
 
+    const isAdmin = membership.role === 'admin';
     const visibleCalendars =
-      membership.role === 'admin' || membership.canViewAllCalendars
+      isAdmin || membership.canViewAllCalendars
         ? await this.databaseService.query<{
             id: string;
             name: string;
@@ -754,10 +775,50 @@ export class OrgService {
             [input.organizationId, input.actorId],
           );
 
+    const grantsByCalendarId = new Map<
+      string,
+      Array<{ email: string; name: string; userId: string }>
+    >();
+
+    if (isAdmin && visibleCalendars.rows.length > 0) {
+      const visibilityGrants = await this.databaseService.query<{
+        calendar_id: string;
+        email: string;
+        name: string;
+        user_id: string;
+      }>(
+        `select
+           g.calendar_id,
+           u.email,
+           u.name,
+           u.id as user_id
+         from organization_calendar_visibility_grants g
+         inner join users u
+           on u.id = g.user_id
+         where g.organization_id = $1
+         order by g.calendar_id asc, u.email asc`,
+        [input.organizationId],
+      );
+
+      for (const grant of visibilityGrants.rows) {
+        const existing = grantsByCalendarId.get(grant.calendar_id) ?? [];
+        existing.push({
+          email: grant.email,
+          name: grant.name,
+          userId: grant.user_id,
+        });
+        grantsByCalendarId.set(grant.calendar_id, existing);
+      }
+    }
+
     return visibleCalendars.rows.map((calendar) => ({
+      defaultVisibility: calendar.owner_user_id
+        ? 'owner-and-grants'
+        : 'all-members',
       id: calendar.id,
       name: calendar.name,
       ownerUserId: calendar.owner_user_id,
+      visibilityGrants: grantsByCalendarId.get(calendar.id) ?? [],
     }));
   }
 
@@ -829,6 +890,43 @@ export class OrgService {
     );
 
     return { ok: true };
+  }
+
+  private async queueInvitationMail(input: {
+    email: string;
+    expiresAt: string;
+    inviteCode: string;
+    organizationName: string;
+    role: MembershipRole;
+  }) {
+    await this.databaseService.query(
+      `insert into mail_outbox (
+         id,
+         body,
+         created_at,
+         expires_at,
+         kind,
+         subject,
+         recipient_email
+       )
+       values ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        randomUUID(),
+        [
+          'From: no-reply@smart-schedule.local',
+          `To: ${input.email}`,
+          '',
+          `You have been invited to join ${input.organizationName} as ${input.role}.`,
+          `Use invite code: ${input.inviteCode}`,
+          `This invitation expires at ${input.expiresAt}.`,
+        ].join('\n'),
+        nowIso(),
+        input.expiresAt,
+        'organization-invitation',
+        `Invitation to join ${input.organizationName}`,
+        input.email,
+      ],
+    );
   }
 
   private async assertOrganizationAdmin(

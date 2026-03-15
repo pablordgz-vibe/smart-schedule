@@ -18,6 +18,27 @@ type PersistedSetupState = {
 
 const integrationCatalog: SetupIntegrationProvider[] = [
   {
+    category: 'identity',
+    code: 'google-social-auth',
+    credentialModes: ['api-key'],
+    description: 'Google OAuth sign-in and account linking.',
+    displayName: 'Google Social Auth',
+  },
+  {
+    category: 'identity',
+    code: 'github-social-auth',
+    credentialModes: ['api-key'],
+    description: 'GitHub OAuth sign-in and account linking.',
+    displayName: 'GitHub Social Auth',
+  },
+  {
+    category: 'identity',
+    code: 'microsoft-social-auth',
+    credentialModes: ['api-key'],
+    description: 'Microsoft OAuth sign-in and account linking.',
+    displayName: 'Microsoft Social Auth',
+  },
+  {
     category: 'calendar',
     code: 'google-calendar',
     credentialModes: ['api-key', 'provider-login'],
@@ -30,6 +51,14 @@ const integrationCatalog: SetupIntegrationProvider[] = [
     credentialModes: ['api-key'],
     description: 'Public holiday import keyed by region and jurisdiction.',
     displayName: 'Calendarific',
+  },
+  {
+    category: 'email',
+    code: 'smtp',
+    credentialModes: ['api-key'],
+    description:
+      'Outbound email delivery for verification, reset, invitation, and notification flows.',
+    displayName: 'SMTP / transactional email',
   },
   {
     category: 'ai',
@@ -168,6 +197,158 @@ export class SetupService {
     return {
       state: await this.getSetupState(),
     };
+  }
+
+  async getAdminIntegrationSnapshot() {
+    const configuredIntegrations = await this.databaseService.query<{
+      code: string;
+      credentials: Record<string, string>;
+      enabled: boolean;
+      mode: 'api-key' | 'provider-login';
+      updated_at: Date | string;
+    }>(
+      `select code, credentials, enabled, mode, updated_at
+       from setup_integrations
+       order by code`,
+    );
+
+    return {
+      configuredIntegrations: configuredIntegrations.rows.map((row) => ({
+        code: row.code,
+        enabled: row.enabled,
+        hasCredentials: Object.keys(row.credentials ?? {}).length > 0,
+        mode: row.mode,
+        updatedAt: toIsoString(row.updated_at) ?? new Date().toISOString(),
+      })),
+      edition: this.edition,
+      providers: this.getAvailableIntegrations(),
+    };
+  }
+
+  async updateGlobalIntegrations(
+    integrations: SetupBootstrapPayload['integrations'],
+  ) {
+    const state = await this.readPersistedState();
+    const allowedProviders = new Map(
+      this.getAvailableIntegrations().map((provider) => [
+        provider.code,
+        provider,
+      ]),
+    );
+    const existingIntegrations = new Map(
+      state.configuredIntegrations.map((integration) => [
+        integration.code,
+        integration,
+      ]),
+    );
+
+    const normalizedIntegrations = integrations
+      .filter((integration) => integration.enabled)
+      .map((integration) => {
+        const provider = allowedProviders.get(integration.code);
+        if (!provider) {
+          throw new BadRequestException(
+            `Unknown integration provider: ${integration.code}`,
+          );
+        }
+
+        if (!provider.credentialModes.includes(integration.mode)) {
+          throw new BadRequestException(
+            `Credential mode ${integration.mode} is not allowed for ${integration.code}`,
+          );
+        }
+
+        const existing = existingIntegrations.get(integration.code);
+        const credentials =
+          Object.keys(integration.credentials).length > 0
+            ? integration.credentials
+            : (existing?.credentials ?? {});
+
+        if (Object.keys(credentials).length === 0) {
+          throw new BadRequestException(
+            `Enabled integration ${integration.code} must include credential values.`,
+          );
+        }
+
+        return {
+          code: integration.code,
+          credentials,
+          enabled: true,
+          mode: integration.mode,
+        };
+      });
+
+    await this.writePersistedState({
+      ...state,
+      configuredIntegrations: normalizedIntegrations,
+    });
+
+    this.auditService.emit({
+      action: 'setup.integrations.updated',
+      details: {
+        configuredIntegrationCount: normalizedIntegrations.length,
+      },
+      targetId: 'setup_state',
+      targetType: 'setup',
+    });
+
+    return this.getAdminIntegrationSnapshot();
+  }
+
+  async listMailOutbox() {
+    const result = await this.databaseService.query<{
+      attempts: number;
+      created_at: Date | string;
+      delivered_at: Date | string | null;
+      expires_at: Date | string;
+      failed_at: Date | string | null;
+      failure_reason: string | null;
+      id: string;
+      kind: string;
+      last_attempt_at: Date | string | null;
+      recipient_email: string;
+      subject: string;
+      transport: string;
+    }>(
+      `select
+         id,
+         kind,
+         subject,
+         recipient_email,
+         transport,
+         attempts,
+         created_at,
+         expires_at,
+         delivered_at,
+         failed_at,
+         failure_reason,
+         last_attempt_at
+       from mail_outbox
+       order by created_at desc
+       limit 50`,
+    );
+
+    return result.rows.map((row) => ({
+      attempts: row.attempts,
+      createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
+      deliveredAt: toIsoString(row.delivered_at),
+      expiresAt: toIsoString(row.expires_at) ?? new Date().toISOString(),
+      failedAt: toIsoString(row.failed_at),
+      failureReason: row.failure_reason,
+      id: row.id,
+      kind: row.kind,
+      lastAttemptAt: toIsoString(row.last_attempt_at),
+      recipientEmail: row.recipient_email,
+      status: row.delivered_at
+        ? 'delivered'
+        : row.failed_at
+          ? 'failed'
+          : row.attempts > 0
+            ? 'retrying'
+            : 'queued',
+      subject: row.subject,
+      transport: row.transport,
+    }));
   }
 
   private isModeAllowed(

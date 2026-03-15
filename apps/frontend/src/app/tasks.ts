@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import {
   CalApiService,
   type AttachmentSummary,
@@ -78,7 +79,8 @@ type TaskDraft = {
   autoCompleteFromSubtasks: boolean;
   calendarIds: string[];
   contactIds: string[];
-  dependenciesToken: string;
+  dependencySearch: string;
+  dependencyTaskIds: string[];
   dueAt: string;
   estimatedDurationMinutes: number;
   location: string;
@@ -95,7 +97,8 @@ function createTaskDraft(): TaskDraft {
     autoCompleteFromSubtasks: false,
     calendarIds: [],
     contactIds: [],
-    dependenciesToken: '',
+    dependencySearch: '',
+    dependencyTaskIds: [],
     dueAt: '',
     estimatedDurationMinutes: 60,
     location: '',
@@ -127,17 +130,6 @@ function createContactImportDraft(): ContactImportDraft {
   };
 }
 
-function parseIdTokenList(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(/[\n,]/)
-        .map((entry) => entry.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
 function encodeSubtasks(subtasks: Array<{ completed: boolean; title: string }>) {
   return subtasks
     .map((subtask) => `${subtask.completed ? '[x]' : '[ ]'} ${subtask.title}`)
@@ -165,58 +157,61 @@ function parseSubtasks(value: string) {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="ui-page" data-testid="page-tasks">
-      <article class="ui-card">
+    <section class="grid gap-6" data-testid="page-tasks">
+      <article class="card border border-base-300 bg-base-100 p-6 shadow-sm space-y-5">
         <p class="ui-kicker">End-User Workspace</p>
         <h1>Task Overview</h1>
         <p class="ui-copy">
           Tasks with and without deadlines are managed here for {{ contextLabel() }}.
         </p>
 
-        <div class="ui-toolbar">
-          <input class="ui-input" placeholder="Search by name" [(ngModel)]="filters.name" />
-          <select class="ui-select" [(ngModel)]="filters.deadlinePeriod">
+        <div class="flex flex-wrap items-end gap-3">
+          <input
+            class="input input-bordered w-full"
+            placeholder="Search by name"
+            [(ngModel)]="filters.name"
+          />
+          <select class="select select-bordered w-full" [(ngModel)]="filters.deadlinePeriod">
             <option value="all">All deadlines</option>
             <option value="none">No deadline</option>
             <option value="overdue">Overdue</option>
             <option value="next_7_days">Next 7 days</option>
             <option value="next_30_days">Next 30 days</option>
           </select>
-          <select class="ui-select" [(ngModel)]="filters.status">
+          <select class="select select-bordered w-full" [(ngModel)]="filters.status">
             <option value="all">All statuses</option>
             <option value="todo">Todo</option>
             <option value="in_progress">In progress</option>
             <option value="blocked">Blocked</option>
             <option value="completed">Completed</option>
           </select>
-          <select class="ui-select" [(ngModel)]="filters.priority">
+          <select class="select select-bordered w-full" [(ngModel)]="filters.priority">
             <option value="all">All priorities</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="urgent">Urgent</option>
           </select>
-          <button class="ui-button ui-button-secondary" type="button" (click)="loadTasks()">
-            Apply
-          </button>
+          <button class="btn btn-outline" type="button" (click)="loadTasks()">Apply</button>
         </div>
 
-        <p class="ui-banner ui-banner-warning" *ngIf="error()">{{ error() }}</p>
-        <p class="ui-banner ui-banner-info" *ngIf="message()">{{ message() }}</p>
+        <p class="alert alert-warning" *ngIf="error()">{{ error() }}</p>
+        <p class="alert alert-info" *ngIf="message()">{{ message() }}</p>
+        <p class="alert alert-info" *ngIf="isLoading()">Loading task workspace…</p>
       </article>
 
-      <article class="ui-card split-layout">
+      <article class="card border border-base-300 bg-base-100 p-6 shadow-sm split-layout">
         <section>
           <h2>Create task</h2>
-          <form class="stack" (ngSubmit)="createTask()">
+          <form class="form-stack" (ngSubmit)="createTask()">
             <input
-              class="ui-input"
+              class="input input-bordered w-full"
               placeholder="Title"
               [(ngModel)]="draft.title"
               name="task-title"
             />
             <textarea
-              class="ui-input"
+              class="textarea textarea-bordered w-full"
               placeholder="Notes"
               [(ngModel)]="draft.notes"
               name="task-notes"
@@ -224,13 +219,13 @@ function parseSubtasks(value: string) {
             ></textarea>
             <div class="inline-grid">
               <input
-                class="ui-input"
+                class="input input-bordered w-full"
                 type="datetime-local"
                 [(ngModel)]="draft.dueAt"
                 name="task-due"
               />
               <input
-                class="ui-input"
+                class="input input-bordered w-full"
                 placeholder="Location"
                 [(ngModel)]="draft.location"
                 name="task-location"
@@ -238,7 +233,7 @@ function parseSubtasks(value: string) {
             </div>
             <div class="inline-grid">
               <input
-                class="ui-input"
+                class="input input-bordered w-full"
                 type="number"
                 min="0"
                 max="1440"
@@ -246,26 +241,34 @@ function parseSubtasks(value: string) {
                 name="task-estimated-duration"
                 placeholder="Estimated duration (minutes)"
               />
-              <label class="ui-field compact-field">
+              <label class="checkbox-row">
                 <span>Work related</span>
                 <input type="checkbox" [(ngModel)]="draft.workRelated" name="task-work-related" />
               </label>
             </div>
             <div class="inline-grid">
-              <select class="ui-select" [(ngModel)]="draft.status" name="task-status">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="draft.status"
+                name="task-status"
+              >
                 <option value="todo">Todo</option>
                 <option value="in_progress">In progress</option>
                 <option value="blocked">Blocked</option>
                 <option value="completed">Completed</option>
               </select>
-              <select class="ui-select" [(ngModel)]="draft.priority" name="task-priority">
+              <select
+                class="select select-bordered w-full"
+                [(ngModel)]="draft.priority"
+                name="task-priority"
+              >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </select>
             </div>
-            <label class="ui-field compact-field">
+            <label class="checkbox-row">
               <span>Auto-complete from subtasks</span>
               <input
                 type="checkbox"
@@ -276,7 +279,7 @@ function parseSubtasks(value: string) {
             <label class="ui-field">
               <span>Calendar memberships</span>
               <select
-                class="ui-select"
+                class="select select-bordered w-full"
                 multiple
                 [(ngModel)]="draft.calendarIds"
                 name="task-calendars"
@@ -289,7 +292,7 @@ function parseSubtasks(value: string) {
             <label class="ui-field">
               <span>Contacts</span>
               <select
-                class="ui-select"
+                class="select select-bordered w-full"
                 multiple
                 [(ngModel)]="draft.contactIds"
                 name="task-contacts"
@@ -300,37 +303,64 @@ function parseSubtasks(value: string) {
               </select>
             </label>
             <label class="ui-field">
-              <span>Dependencies (IDs, comma or newline separated)</span>
-              <textarea
-                class="ui-input"
-                rows="2"
-                [(ngModel)]="draft.dependenciesToken"
-                name="task-dependencies"
-              ></textarea>
+              <span>Dependencies</span>
+              <input
+                class="input input-bordered w-full"
+                [(ngModel)]="draft.dependencySearch"
+                name="task-dependency-search"
+                placeholder="Search tasks by title"
+              />
             </label>
+            <div class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
+              <p class="ui-copy">Selected dependencies</p>
+              <div class="dependency-chip-row">
+                <button
+                  *ngFor="let dependencyId of draft.dependencyTaskIds"
+                  class="btn btn-outline"
+                  type="button"
+                  (click)="removeDependencyFromDraft(draft, dependencyId)"
+                >
+                  {{ dependencyLabel(dependencyId) }} ×
+                </button>
+                <span *ngIf="draft.dependencyTaskIds.length === 0" class="ui-copy">
+                  No dependencies selected.
+                </span>
+              </div>
+              <ul class="simple-list nested">
+                <li *ngFor="let task of availableDependencyTasksForDraft(draft)">
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="addDependencyToDraft(draft, task.id)"
+                  >
+                    Add {{ task.title }}
+                  </button>
+                </li>
+              </ul>
+            </div>
             <label class="ui-field">
               <span>Subtasks (one per line, prefix with [x] for completed)</span>
               <textarea
-                class="ui-input"
+                class="textarea textarea-bordered w-full"
                 rows="4"
                 [(ngModel)]="draft.subtasksToken"
                 name="task-subtasks"
               ></textarea>
             </label>
-            <button class="ui-button ui-button-primary" type="submit">Create task</button>
+            <button class="btn btn-neutral" type="submit">Create task</button>
           </form>
 
-          <article class="ui-panel stack-tight">
+          <article class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
             <h2>Import contact</h2>
             <div class="inline-grid">
               <input
-                class="ui-input"
+                class="input input-bordered w-full"
                 placeholder="Display name"
                 [(ngModel)]="contactImport.displayName"
                 [ngModelOptions]="{ standalone: true }"
               />
               <input
-                class="ui-input"
+                class="input input-bordered w-full"
                 placeholder="Provider contact id"
                 [(ngModel)]="contactImport.providerContactId"
                 [ngModelOptions]="{ standalone: true }"
@@ -338,29 +368,25 @@ function parseSubtasks(value: string) {
             </div>
             <div class="inline-grid">
               <input
-                class="ui-input"
+                class="input input-bordered w-full"
                 placeholder="Provider code"
                 [(ngModel)]="contactImport.providerCode"
                 [ngModelOptions]="{ standalone: true }"
               />
               <input
-                class="ui-input"
+                class="input input-bordered w-full"
                 placeholder="Email"
                 [(ngModel)]="contactImport.email"
                 [ngModelOptions]="{ standalone: true }"
               />
             </div>
             <input
-              class="ui-input"
+              class="input input-bordered w-full"
               placeholder="Phone"
               [(ngModel)]="contactImport.phone"
               [ngModelOptions]="{ standalone: true }"
             />
-            <button
-              class="ui-button ui-button-secondary"
-              type="button"
-              (click)="createImportedContact()"
-            >
+            <button class="btn btn-outline" type="button" (click)="createImportedContact()">
               Import contact into current context
             </button>
           </article>
@@ -376,7 +402,7 @@ function parseSubtasks(value: string) {
               <div>
                 <strong>{{ task.title }}</strong>
                 <p class="ui-copy">
-                  {{ task.status }} · {{ task.priority }} · due {{ task.dueAt || 'none' }}
+                  {{ task.status }} · {{ task.priority }} · due {{ formatDateTime(task.dueAt) }}
                 </p>
                 <p class="ui-copy">
                   allocated {{ task.allocation.allocatedMinutes }}m / est
@@ -409,25 +435,27 @@ function parseSubtasks(value: string) {
               </article>
             </div>
 
-            <p class="ui-banner ui-banner-warning" *ngIf="task.provenance">
+            <p class="alert alert-warning" *ngIf="task.provenance">
               Copied from {{ task.provenance.sourceContextType }} item
-              {{ task.provenance.sourceItemId }} on {{ task.provenance.copiedAt }}.
+              {{ task.provenance.sourceItemId }} on {{ formatDateTime(task.provenance.copiedAt) }}.
             </p>
 
-            <div class="ui-toolbar">
+            <div class="flex flex-wrap items-center gap-3">
               <button
                 *ngIf="isOrganizationContext()"
-                class="ui-button ui-button-secondary"
+                class="btn btn-outline"
                 type="button"
                 (click)="copyToPersonal(task.id)"
               >
                 Copy to Personal
               </button>
-              <button class="ui-button" type="button" (click)="deleteTask()">Delete task</button>
+              <button class="btn btn-outline" type="button" (click)="deleteTask()">
+                Delete task
+              </button>
             </div>
 
-            <div class="ui-meta-grid">
-              <div class="ui-panel">
+            <div class="grid gap-4 md:grid-cols-2">
+              <div class="rounded-box border border-base-300 bg-base-100 p-4">
                 <h3>Subtasks</h3>
                 <ul>
                   <li *ngFor="let subtask of task.subtasks">
@@ -436,37 +464,37 @@ function parseSubtasks(value: string) {
                   <li *ngIf="task.subtasks.length === 0">No subtasks.</li>
                 </ul>
               </div>
-              <div class="ui-panel">
+              <div class="rounded-box border border-base-300 bg-base-100 p-4">
                 <h3>Dependencies</h3>
                 <ul>
                   <li *ngFor="let dependency of task.dependencies">{{ dependency }}</li>
                   <li *ngIf="task.dependencies.length === 0">No dependencies.</li>
                 </ul>
               </div>
-              <div class="ui-panel">
+              <div class="rounded-box border border-base-300 bg-base-100 p-4">
                 <h3>Linked work events</h3>
                 <ul>
                   <li *ngFor="let event of task.linkedEvents">
-                    {{ event.title }} ({{ event.startAt || 'n/a' }})
+                    {{ event.title }} ({{ formatDateTime(event.startAt) }})
                   </li>
                   <li *ngIf="task.linkedEvents.length === 0">No linked events.</li>
                 </ul>
               </div>
-              <div class="ui-panel">
+              <div class="rounded-box border border-base-300 bg-base-100 p-4">
                 <h3>Calendar memberships</h3>
                 <ul>
                   <li *ngFor="let calendar of task.calendars">{{ calendar.calendarName }}</li>
                   <li *ngIf="task.calendars.length === 0">No calendar memberships.</li>
                 </ul>
               </div>
-              <div class="ui-panel">
+              <div class="rounded-box border border-base-300 bg-base-100 p-4">
                 <h3>Contacts</h3>
                 <ul>
                   <li *ngFor="let contact of task.contacts">{{ contact.displayName }}</li>
                   <li *ngIf="task.contacts.length === 0">No contacts.</li>
                 </ul>
               </div>
-              <div class="ui-panel">
+              <div class="rounded-box border border-base-300 bg-base-100 p-4">
                 <h3>Attachments</h3>
                 <ul>
                   <li *ngFor="let attachment of task.attachments">
@@ -477,38 +505,46 @@ function parseSubtasks(value: string) {
               </div>
             </div>
 
-            <form class="stack" (ngSubmit)="saveTaskUpdates()">
+            <form class="form-stack" (ngSubmit)="saveTaskUpdates()">
               <h3>Edit task</h3>
-              <input class="ui-input" [(ngModel)]="editDraft.title" name="edit-task-title" />
+              <input
+                class="input input-bordered w-full"
+                [(ngModel)]="editDraft.title"
+                name="edit-task-title"
+              />
               <textarea
-                class="ui-input"
+                class="textarea textarea-bordered w-full"
                 rows="3"
                 [(ngModel)]="editDraft.notes"
                 name="edit-task-notes"
               ></textarea>
               <div class="inline-grid">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="datetime-local"
                   [(ngModel)]="editDraft.dueAt"
                   name="edit-task-due"
                 />
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   [(ngModel)]="editDraft.location"
                   name="edit-task-location"
                   placeholder="Location"
                 />
               </div>
               <div class="inline-grid">
-                <select class="ui-select" [(ngModel)]="editDraft.status" name="edit-task-status">
+                <select
+                  class="select select-bordered w-full"
+                  [(ngModel)]="editDraft.status"
+                  name="edit-task-status"
+                >
                   <option value="todo">Todo</option>
                   <option value="in_progress">In progress</option>
                   <option value="blocked">Blocked</option>
                   <option value="completed">Completed</option>
                 </select>
                 <select
-                  class="ui-select"
+                  class="select select-bordered w-full"
                   [(ngModel)]="editDraft.priority"
                   name="edit-task-priority"
                 >
@@ -520,7 +556,7 @@ function parseSubtasks(value: string) {
               </div>
               <div class="inline-grid">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="number"
                   min="0"
                   max="1440"
@@ -528,7 +564,7 @@ function parseSubtasks(value: string) {
                   name="edit-task-estimated-duration"
                   placeholder="Estimated duration (minutes)"
                 />
-                <label class="ui-field compact-field">
+                <label class="checkbox-row">
                   <span>Work related</span>
                   <input
                     type="checkbox"
@@ -537,7 +573,7 @@ function parseSubtasks(value: string) {
                   />
                 </label>
               </div>
-              <label class="ui-field compact-field">
+              <label class="checkbox-row">
                 <span>Auto-complete from subtasks</span>
                 <input
                   type="checkbox"
@@ -548,7 +584,7 @@ function parseSubtasks(value: string) {
               <label class="ui-field">
                 <span>Calendar memberships</span>
                 <select
-                  class="ui-select"
+                  class="select select-bordered w-full"
                   multiple
                   [(ngModel)]="editDraft.calendarIds"
                   name="edit-task-calendars"
@@ -561,7 +597,7 @@ function parseSubtasks(value: string) {
               <label class="ui-field">
                 <span>Contacts</span>
                 <select
-                  class="ui-select"
+                  class="select select-bordered w-full"
                   multiple
                   [(ngModel)]="editDraft.contactIds"
                   name="edit-task-contacts"
@@ -573,36 +609,70 @@ function parseSubtasks(value: string) {
               </label>
               <label class="ui-field">
                 <span>Dependencies</span>
-                <textarea
-                  class="ui-input"
-                  rows="2"
-                  [(ngModel)]="editDraft.dependenciesToken"
-                  name="edit-task-dependencies"
-                ></textarea>
+                <input
+                  class="input input-bordered w-full"
+                  [(ngModel)]="editDraft.dependencySearch"
+                  name="edit-task-dependency-search"
+                  placeholder="Search tasks by title"
+                />
               </label>
+              <div class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
+                <p class="ui-copy">Selected dependencies</p>
+                <div class="dependency-chip-row">
+                  <button
+                    *ngFor="let dependencyId of editDraft.dependencyTaskIds"
+                    class="btn btn-outline"
+                    type="button"
+                    (click)="removeDependencyFromDraft(editDraft, dependencyId)"
+                  >
+                    {{ dependencyLabel(dependencyId) }} ×
+                  </button>
+                  <span *ngIf="editDraft.dependencyTaskIds.length === 0" class="ui-copy">
+                    No dependencies selected.
+                  </span>
+                </div>
+                <ul class="simple-list nested">
+                  <li
+                    *ngFor="
+                      let task of availableDependencyTasksForDraft(
+                        editDraft,
+                        selectedTaskId() ?? undefined
+                      )
+                    "
+                  >
+                    <button
+                      class="btn btn-outline"
+                      type="button"
+                      (click)="addDependencyToDraft(editDraft, task.id)"
+                    >
+                      Add {{ task.title }}
+                    </button>
+                  </li>
+                </ul>
+              </div>
               <label class="ui-field">
                 <span>Subtasks</span>
                 <textarea
-                  class="ui-input"
+                  class="textarea textarea-bordered w-full"
                   rows="4"
                   [(ngModel)]="editDraft.subtasksToken"
                   name="edit-task-subtasks"
                 ></textarea>
               </label>
-              <button class="ui-button ui-button-primary" type="submit">Save task updates</button>
+              <button class="btn btn-neutral" type="submit">Save task updates</button>
             </form>
 
-            <article class="ui-panel stack-tight">
+            <article class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
               <h3>Add attachment metadata</h3>
               <div class="inline-grid">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   placeholder="File name"
                   [(ngModel)]="attachmentDraft.fileName"
                   [ngModelOptions]="{ standalone: true }"
                 />
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   placeholder="MIME type"
                   [(ngModel)]="attachmentDraft.mimeType"
                   [ngModelOptions]="{ standalone: true }"
@@ -610,20 +680,20 @@ function parseSubtasks(value: string) {
               </div>
               <div class="inline-grid">
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   type="number"
                   min="1"
                   [(ngModel)]="attachmentDraft.fileSizeBytes"
                   [ngModelOptions]="{ standalone: true }"
                 />
                 <input
-                  class="ui-input"
+                  class="input input-bordered w-full"
                   placeholder="Storage key"
                   [(ngModel)]="attachmentDraft.storageKey"
                   [ngModelOptions]="{ standalone: true }"
                 />
               </div>
-              <button class="ui-button ui-button-secondary" type="button" (click)="addAttachment()">
+              <button class="btn btn-outline" type="button" (click)="addAttachment()">
                 Attach file metadata
               </button>
             </article>
@@ -646,9 +716,16 @@ function parseSubtasks(value: string) {
       }
 
       .split-layout {
+        align-items: start;
         display: grid;
         grid-template-columns: 1.2fr 1fr;
         gap: var(--spacing-6);
+      }
+
+      .form-stack {
+        display: grid;
+        gap: var(--spacing-4);
+        margin-bottom: var(--spacing-6);
       }
 
       .stack {
@@ -666,6 +743,43 @@ function parseSubtasks(value: string) {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--spacing-3);
+      }
+
+      .split-layout > section {
+        min-width: 0;
+        display: grid;
+        gap: var(--spacing-5);
+        align-content: start;
+      }
+
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-4);
+        min-height: 2.75rem;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+      }
+
+      .checkbox-row input {
+        width: 1rem;
+        height: 1rem;
+        margin: 0;
+      }
+
+      .form-stack textarea,
+      .form-stack select[multiple] {
+        min-height: 8rem;
+      }
+
+      .form-stack select[multiple] {
+        padding-block: 0.6rem;
       }
 
       .task-list {
@@ -688,6 +802,12 @@ function parseSubtasks(value: string) {
         box-shadow: 0 0 0 3px rgb(2 132 199 / 0.15);
       }
 
+      .dependency-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-2);
+      }
+
       @media (max-width: 980px) {
         .split-layout,
         .inline-grid {
@@ -700,6 +820,7 @@ function parseSubtasks(value: string) {
 export class TasksComponent {
   private readonly calApi = inject(CalApiService);
   private readonly contextService = inject(ContextService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly contextLabel = computed(() => this.contextService.getContextLabel());
   readonly isOrganizationContext = computed(
@@ -712,6 +833,7 @@ export class TasksComponent {
   readonly contacts = signal<ImportedContact[]>([]);
   readonly calendars = signal<CalendarSummary[]>([]);
   readonly error = signal<string | null>(null);
+  readonly isLoading = signal(false);
   readonly message = signal<string | null>(null);
 
   filters: {
@@ -741,6 +863,7 @@ export class TasksComponent {
 
   async bootstrap() {
     this.error.set(null);
+    this.isLoading.set(true);
     try {
       const [contacts, calendars] = await Promise.all([
         this.calApi.listImportedContacts(),
@@ -749,11 +872,14 @@ export class TasksComponent {
       this.contacts.set(contacts);
       this.calendars.set(calendars);
       if (this.draft.calendarIds.length === 0) {
-        this.draft.calendarIds = calendars.map((calendar) => calendar.id);
+        this.draft.calendarIds = this.defaultDraftCalendarIds(calendars);
       }
       await this.loadTasks();
+      await this.selectRequestedTaskFromRoute();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to load tasks workspace.');
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
@@ -761,6 +887,11 @@ export class TasksComponent {
     this.error.set(null);
     try {
       this.tasks.set((await this.calApi.listTasks(this.filters)) as TaskRow[]);
+      const requestedTaskId = this.route.snapshot.queryParamMap.get('taskId');
+      if (requestedTaskId) {
+        await this.selectTask(requestedTaskId);
+        return;
+      }
       const selectedTaskId = this.selectedTaskId();
       if (selectedTaskId) {
         await this.selectTask(selectedTaskId);
@@ -780,7 +911,8 @@ export class TasksComponent {
         autoCompleteFromSubtasks: task.autoCompleteFromSubtasks,
         calendarIds: task.calendars.map((calendar) => calendar.calendarId),
         contactIds: task.contacts.map((contact) => contact.id),
-        dependenciesToken: task.dependencies.join('\n'),
+        dependencySearch: '',
+        dependencyTaskIds: task.dependencies,
         dueAt: task.dueAt ? this.isoLocalValue(new Date(task.dueAt)) : '',
         estimatedDurationMinutes: task.estimatedDurationMinutes ?? 0,
         location: task.location ?? '',
@@ -812,7 +944,7 @@ export class TasksComponent {
         autoCompleteFromSubtasks: this.draft.autoCompleteFromSubtasks,
         calendarIds: this.draft.calendarIds,
         contactIds: this.draft.contactIds,
-        dependencyTaskIds: parseIdTokenList(this.draft.dependenciesToken),
+        dependencyTaskIds: this.draft.dependencyTaskIds,
         dueAt: this.draft.dueAt ? new Date(this.draft.dueAt).toISOString() : undefined,
         estimatedDurationMinutes: this.draft.estimatedDurationMinutes || undefined,
         location: this.draft.location.trim() || undefined,
@@ -826,7 +958,7 @@ export class TasksComponent {
 
       this.draft = {
         ...createTaskDraft(),
-        calendarIds: this.calendars().map((calendar) => calendar.id),
+        calendarIds: this.defaultDraftCalendarIds(this.calendars()),
       };
       this.message.set('Task created.');
       await this.loadTasks();
@@ -848,7 +980,7 @@ export class TasksComponent {
         autoCompleteFromSubtasks: this.editDraft.autoCompleteFromSubtasks,
         calendarIds: this.editDraft.calendarIds,
         contactIds: this.editDraft.contactIds,
-        dependencyTaskIds: parseIdTokenList(this.editDraft.dependenciesToken),
+        dependencyTaskIds: this.editDraft.dependencyTaskIds,
         dueAt: this.editDraft.dueAt ? new Date(this.editDraft.dueAt).toISOString() : null,
         estimatedDurationMinutes: this.editDraft.estimatedDurationMinutes || null,
         location: this.editDraft.location.trim() || null,
@@ -874,7 +1006,11 @@ export class TasksComponent {
       return;
     }
 
-    if (!window.confirm(`Delete task "${selected.title}"?`)) {
+    if (
+      !window.confirm(
+        `Delete task "${selected.title}" from ${this.contextService.getContextLabel()}?`,
+      )
+    ) {
       return;
     }
 
@@ -894,13 +1030,20 @@ export class TasksComponent {
   async copyToPersonal(taskId: string) {
     this.error.set(null);
     this.message.set(null);
+    if (
+      !window.confirm(
+        `Copy this task from ${this.contextService.getContextLabel()} to your default personal calendar?`,
+      )
+    ) {
+      return;
+    }
     try {
       const copied = (await this.calApi.copyToPersonal({
         calendarIds: [],
         itemId: taskId,
         itemType: 'task',
       })) as { id: string };
-      this.message.set(`Copied task to personal context as ${copied.id}.`);
+      this.message.set(`Copied task to your default personal calendar as ${copied.id}.`);
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Failed to copy task.');
     }
@@ -959,8 +1102,64 @@ export class TasksComponent {
     }
   }
 
+  availableDependencyTasksForDraft(draft: TaskDraft, excludeTaskId?: string) {
+    const query = draft.dependencySearch.trim().toLowerCase();
+    const selectedIds = new Set(draft.dependencyTaskIds);
+    return this.tasks()
+      .filter((task) => task.id !== excludeTaskId)
+      .filter((task) => !selectedIds.has(task.id))
+      .filter((task) => query.length === 0 || task.title.toLowerCase().includes(query))
+      .slice(0, 8);
+  }
+
+  addDependencyToDraft(draft: TaskDraft, taskId: string) {
+    draft.dependencyTaskIds = Array.from(new Set([...draft.dependencyTaskIds, taskId]));
+    draft.dependencySearch = '';
+  }
+
+  removeDependencyFromDraft(draft: TaskDraft, taskId: string) {
+    draft.dependencyTaskIds = draft.dependencyTaskIds.filter((id) => id !== taskId);
+  }
+
+  dependencyLabel(taskId: string) {
+    return this.tasks().find((task) => task.id === taskId)?.title ?? taskId;
+  }
+
+  private async selectRequestedTaskFromRoute() {
+    const requestedTaskId = this.route.snapshot.queryParamMap.get('taskId');
+    if (!requestedTaskId) {
+      return;
+    }
+
+    if (this.selectedTaskId() === requestedTaskId) {
+      return;
+    }
+
+    await this.selectTask(requestedTaskId);
+  }
+
   private isoLocalValue(date: Date) {
     const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
     return offsetDate.toISOString().slice(0, 16);
+  }
+
+  private defaultDraftCalendarIds(calendars: CalendarSummary[]) {
+    return calendars.slice(0, 1).map((calendar) => calendar.id);
+  }
+
+  formatDateTime(value: string | null) {
+    if (!value) {
+      return 'none';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
   }
 }

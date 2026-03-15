@@ -1,32 +1,55 @@
 import type { FastifyReply } from 'fastify';
-import { serialize as serializeCookie } from 'cookie';
+import { serialize as serializeCookie, type SerializeOptions } from 'cookie';
 import type { ApiRequest } from './request-context.types';
 
 export const sessionCookieName =
   process.env.SESSION_COOKIE_NAME || 'smart_schedule_session';
 
-const sessionCookieOptions = {
+const sessionCookieOptions: SerializeOptions = {
   httpOnly: true,
   path: '/',
-  sameSite: 'strict' as const,
+  sameSite: 'strict',
   secure: true,
 };
 
 export function clearSessionCookie(reply: FastifyReply) {
+  clearCookie(reply, sessionCookieName, sessionCookieOptions.path);
+}
+
+export function setSessionCookie(reply: FastifyReply, cookieValue: string) {
+  setCookie(reply, sessionCookieName, cookieValue, {
+    ...sessionCookieOptions,
+  });
+}
+
+export function clearCookie(
+  reply: FastifyReply,
+  cookieName: string,
+  path = '/',
+) {
   appendSetCookieHeader(
     reply,
-    serializeCookie(sessionCookieName, '', {
+    serializeCookie(cookieName, '', {
       ...sessionCookieOptions,
       expires: new Date(0),
       maxAge: 0,
+      path,
     }),
   );
 }
 
-export function setSessionCookie(reply: FastifyReply, cookieValue: string) {
+export function setCookie(
+  reply: FastifyReply,
+  cookieName: string,
+  value: string,
+  options?: SerializeOptions,
+) {
   appendSetCookieHeader(
     reply,
-    serializeCookie(sessionCookieName, cookieValue, sessionCookieOptions),
+    serializeCookie(cookieName, value, {
+      ...sessionCookieOptions,
+      ...options,
+    }),
   );
 }
 
@@ -46,6 +69,31 @@ export function getHeaderValue(
   }
 
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+export function parseCookieHeader(request: Pick<ApiRequest, 'headers'>) {
+  const cookieHeader = getHeaderValue(request, 'cookie');
+  if (!cookieHeader) {
+    return new Map<string, string>();
+  }
+
+  return new Map(
+    cookieHeader
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separatorIndex = part.indexOf('=');
+        if (separatorIndex < 0) {
+          return [part, ''] as const;
+        }
+
+        return [
+          decodeURIComponent(part.slice(0, separatorIndex)),
+          decodeURIComponent(part.slice(separatorIndex + 1)),
+        ] as const;
+      }),
+  );
 }
 
 export function getRequestIp(request: ApiRequest) {

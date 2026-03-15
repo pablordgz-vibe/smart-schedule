@@ -16,6 +16,9 @@ type RuntimeEnvironmentContract = {
     SESSION_TTL_SECONDS: number;
     RATE_LIMIT_WINDOW_MS: number;
     RATE_LIMIT_MAX: number;
+    AUTH_SOCIAL_PROVIDERS?: string;
+    CALENDARIFIC_API_BASE_URL: string;
+    CALENDARIFIC_PORTAL_BASE_URL: string;
 };
 
 declare const requestContextHeaderNames: {
@@ -104,7 +107,7 @@ type RateLimitPolicy = {
 type AppEdition = "commercial" | "community";
 type SetupIntegrationCredentialMode = "api-key" | "provider-login";
 type SetupIntegrationProvider = {
-    category: "ai" | "calendar" | "holiday-data";
+    category: "ai" | "calendar" | "email" | "holiday-data" | "identity";
     code: string;
     credentialModes: SetupIntegrationCredentialMode[];
     description: string;
@@ -163,6 +166,12 @@ type IdentityUserSummary = {
     recoverUntil: string | null;
     roles: string[];
     state: AccountState;
+};
+type UserSettingsSnapshot = {
+    locale: string;
+    timeFormat: "12h" | "24h";
+    timezone: string;
+    weekStartsOn: "monday" | "sunday";
 };
 type SessionBootstrapContext = {
     key: string;
@@ -235,4 +244,4 @@ type ServiceDiscoveryContract = {
     objectStorageConsoleUrl: string;
 };
 
-export { type AccountState, type ActiveContext, type ActiveContextType, type ActorType, type AppEdition, type AuditEnvelope, type AuthConfigurationSnapshot, type AuthMethodSummary, type AuthMutationResult, type AuthSessionSnapshot, type AuthTokenDelivery, type AuthorizationPolicy, type IdentityUserSummary, type RateLimitPolicy, type RequestActor, type RequestContext, type RequestFieldBinding, type RequestFieldBindingSource, type RuntimeEnvironmentContract, type RuntimeHealthResponse, type SecurityDenialKind, type SecurityErrorPayload, type ServiceDiscoveryContract, type SessionActor, type SessionBootstrapContext, type SessionContext, type SessionRecord, type SetupAdminRecord, type SetupBootstrapPayload, type SetupIntegrationCredentialMode, type SetupIntegrationProvider, type SetupIntegrationSelection, type SetupStateSnapshot, type SocialProviderCode, type SocialProviderDescriptor, requestContextHeaderNames, runtimeHealthRoutes, runtimeServices };
+export { type AccountState, type ActiveContext, type ActiveContextType, type ActorType, type AppEdition, type AuditEnvelope, type AuthConfigurationSnapshot, type AuthMethodSummary, type AuthMutationResult, type AuthSessionSnapshot, type AuthTokenDelivery, type AuthorizationPolicy, type IdentityUserSummary, type RateLimitPolicy, type RequestActor, type RequestContext, type RequestFieldBinding, type RequestFieldBindingSource, type RuntimeEnvironmentContract, type RuntimeHealthResponse, type SecurityDenialKind, type SecurityErrorPayload, type ServiceDiscoveryContract, type SessionActor, type SessionBootstrapContext, type SessionContext, type SessionRecord, type SetupAdminRecord, type SetupBootstrapPayload, type SetupIntegrationCredentialMode, type SetupIntegrationProvider, type SetupIntegrationSelection, type SetupStateSnapshot, type SocialProviderCode, type SocialProviderDescriptor, type UserSettingsSnapshot, requestContextHeaderNames, runtimeHealthRoutes, runtimeServices };

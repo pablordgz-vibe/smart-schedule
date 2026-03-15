@@ -21,6 +21,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -30,10 +31,14 @@ import type {
   AuthMutationResult,
   AuthSessionSnapshot,
   SocialProviderCode,
+  UserSettingsSnapshot,
 } from '@smart-schedule/contracts';
 import { Public } from '../security/public-route.decorator';
 import {
   clearSessionCookie,
+  clearCookie,
+  parseCookieHeader,
+  setCookie,
   setSessionCookie,
 } from '../security/http-platform';
 import type { ApiRequest } from '../security/request-context.types';
@@ -41,6 +46,7 @@ import { SecurityPolicy } from '../security/security-policy.decorator';
 import { SessionService } from '../security/session.service';
 import { IdentityService } from './identity.service';
 import { OrgService } from '../org/org.service';
+import { OAuthService } from './oauth.service';
 
 class SignUpDto {
   @IsEmail()
@@ -65,19 +71,8 @@ class PasswordSignInDto {
 }
 
 class SocialAuthDto {
-  @IsEmail()
-  email!: string;
-
-  @IsString()
-  @MinLength(2)
-  name!: string;
-
   @IsIn(['github', 'google', 'microsoft'])
   provider!: SocialProviderCode;
-
-  @IsString()
-  @MinLength(3)
-  providerSubject!: string;
 }
 
 class EmailOnlyDto {
@@ -106,6 +101,26 @@ class LinkSocialDto {
   providerSubject!: string;
 }
 
+class UpdateUserSettingsDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  locale?: string;
+
+  @IsOptional()
+  @IsIn(['12h', '24h'])
+  timeFormat?: '12h' | '24h';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  timezone?: string;
+
+  @IsOptional()
+  @IsIn(['monday', 'sunday'])
+  weekStartsOn?: 'monday' | 'sunday';
+}
+
 class UpdateAuthConfigDto {
   @IsOptional()
   @IsBoolean()
@@ -131,10 +146,27 @@ class SwitchContextDto {
   organizationId?: string;
 }
 
+class OAuthStartQueryDto {
+  @IsOptional()
+  @IsIn(['link', 'sign-in'])
+  intent?: 'link' | 'sign-in';
+
+  @IsOptional()
+  @IsString()
+  returnTo?: string;
+}
+
+const oauthStateCookiePath = '/api/auth/oauth';
+
+function oauthStateCookieName(provider: SocialProviderCode) {
+  return `smart_schedule_oauth_${provider}`;
+}
+
 @Controller()
 export class IdentityController {
   constructor(
     private readonly identityService: IdentityService,
+    private readonly oauthService: OAuthService,
     private readonly sessionService: SessionService,
     private readonly orgService: OrgService,
   ) {}
@@ -142,7 +174,7 @@ export class IdentityController {
   @Public()
   @Get('auth/providers')
   async getProviders() {
-    return this.identityService.getAuthConfiguration();
+    return this.buildAuthConfiguration();
   }
 
   @Public()
@@ -213,12 +245,11 @@ export class IdentityController {
         },
         availableContexts: [],
         authenticated: false,
-        configuredSocialProviders:
-          await this.identityService.getConfiguredSocialProviders(),
+        configuredSocialProviders: (await this.buildAuthConfiguration())
+          .supportedSocialProviders,
         csrfToken: null,
-        requireEmailVerification: (
-          await this.identityService.getAuthConfiguration()
-        ).requireEmailVerification,
+        requireEmailVerification: (await this.buildAuthConfiguration())
+          .requireEmailVerification,
         user: result.user,
       },
       tokenDelivery: result.tokenDelivery,
@@ -241,13 +272,164 @@ export class IdentityController {
 
   @Public()
   @Post('auth/sign-in/social')
-  async signInWithSocial(
-    @Body() body: SocialAuthDto,
+  signInWithSocial(@Body() body: SocialAuthDto) {
+    void body;
+    throw new BadRequestException(
+      'Direct social sign-in is disabled. Start the OAuth flow instead.',
+    );
+  }
+
+  @Public()
+  @Get('auth/oauth/:provider/start')
+  async startOAuth(
+    @Param('provider') provider: SocialProviderCode,
+    @Query() query: OAuthStartQueryDto,
     @Req() request: ApiRequest,
-    @Res({ passthrough: true }) response: FastifyReply,
+    @Res() response: FastifyReply,
   ) {
-    const user = await this.identityService.authenticateSocial(body);
-    return this.issueSession(user.id, request, response);
+    const intent = query.intent ?? 'sign-in';
+    if (intent === 'link' && !request.requestContext?.actor.id) {
+      throw new UnauthorizedException(
+        'You must be signed in before linking a provider.',
+      );
+    }
+
+    const authorizationUrl = await this.oauthService.createAuthorizationUrl({
+      intent,
+      provider,
+      request,
+      returnTo: query.returnTo ?? (intent === 'link' ? '/settings' : '/home'),
+    });
+    const state = new URL(authorizationUrl).searchParams.get('state') ?? '';
+
+    setCookie(response, oauthStateCookieName(provider), state, {
+      maxAge: 10 * 60,
+      path: oauthStateCookiePath,
+      sameSite: 'lax',
+    });
+
+    response.code(302);
+    return response.redirect(authorizationUrl);
+  }
+
+  @Public()
+  @Get('auth/oauth/:provider/callback')
+  async finishOAuth(
+    @Param('provider') provider: SocialProviderCode,
+    @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
+    @Query('error') error: string | undefined,
+    @Req() request: ApiRequest,
+    @Res() response: FastifyReply,
+  ) {
+    const stateCookie = parseCookieHeader(request).get(
+      oauthStateCookieName(provider),
+    );
+    clearCookie(response, oauthStateCookieName(provider), oauthStateCookiePath);
+
+    if (!stateCookie || !state || stateCookie !== state) {
+      response.code(302);
+      return response.redirect(
+        this.oauthService.buildFrontendRedirect(request, '/auth/sign-in', {
+          oauthError: 'The OAuth state validation failed.',
+        }),
+      );
+    }
+
+    if (error) {
+      response.code(302);
+      return response.redirect(
+        this.oauthService.buildFrontendRedirect(request, '/auth/sign-in', {
+          oauthError: `The provider rejected the request: ${error}.`,
+        }),
+      );
+    }
+
+    if (!code) {
+      response.code(302);
+      return response.redirect(
+        this.oauthService.buildFrontendRedirect(request, '/auth/sign-in', {
+          oauthError: 'The provider did not return an authorization code.',
+        }),
+      );
+    }
+
+    try {
+      const oauthState = this.oauthService.verifyState(state, provider);
+      const profile = await this.oauthService.exchangeCodeForProfile({
+        code,
+        provider,
+        request,
+      });
+
+      if (oauthState.intent === 'link') {
+        const actorId = request.requestContext?.actor.id ?? null;
+        if (
+          !actorId ||
+          actorId !== oauthState.actorId ||
+          request.session?.id !== oauthState.sessionId
+        ) {
+          throw new UnauthorizedException(
+            'You must remain signed in to complete provider linking.',
+          );
+        }
+
+        await this.identityService.linkSocialIdentity(actorId, {
+          provider,
+          providerSubject: profile.providerSubject,
+        });
+
+        response.code(302);
+        return response.redirect(
+          this.oauthService.buildFrontendRedirect(
+            request,
+            oauthState.returnTo,
+            {
+              oauthStatus: `${provider}-linked`,
+            },
+          ),
+        );
+      }
+
+      const user = await this.identityService.authenticateSocial({
+        email: profile.email,
+        name: profile.name,
+        provider,
+        providerSubject: profile.providerSubject,
+      });
+
+      if (request.sessionCookieValue) {
+        await this.sessionService.revokeSession(request.sessionCookieValue);
+      }
+
+      const createdSession = await this.sessionService.createSession({
+        actorId: user.id,
+        context: {
+          id: user.id,
+          tenantId: null,
+          type: 'personal',
+        },
+      });
+      setSessionCookie(response, createdSession.cookieValue);
+
+      response.code(302);
+      return response.redirect(
+        this.oauthService.buildFrontendRedirect(request, oauthState.returnTo, {
+          oauthStatus: `${provider}-signed-in`,
+        }),
+      );
+    } catch (oauthError) {
+      const message =
+        oauthError instanceof Error
+          ? oauthError.message
+          : 'The OAuth flow could not be completed.';
+      response.code(302);
+      return response.redirect(
+        this.oauthService.buildFrontendRedirect(request, '/auth/sign-in', {
+          oauthError: message,
+        }),
+      );
+    }
   }
 
   @Public()
@@ -294,13 +476,12 @@ export class IdentityController {
     requireContextId: true,
   })
   @Post('auth/providers/link')
-  async linkProvider(@Req() request: ApiRequest, @Body() body: LinkSocialDto) {
-    return {
-      user: await this.identityService.linkSocialIdentity(
-        request.requestContext!.actor.id!,
-        body,
-      ),
-    };
+  linkProvider(@Req() request: ApiRequest, @Body() body: LinkSocialDto) {
+    void request;
+    void body;
+    throw new BadRequestException(
+      'Social provider linking must complete through the OAuth link flow.',
+    );
   }
 
   @SecurityPolicy({
@@ -375,6 +556,36 @@ export class IdentityController {
 
   @SecurityPolicy({
     allowedActorTypes: ['user'],
+    requireContextId: true,
+  })
+  @Get('auth/settings')
+  async getUserSettings(@Req() request: ApiRequest) {
+    return {
+      settings: await this.identityService.getUserSettings(
+        request.requestContext!.actor.id!,
+      ),
+    };
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
+    requireContextId: true,
+  })
+  @Patch('auth/settings')
+  async updateUserSettings(
+    @Req() request: ApiRequest,
+    @Body() body: UpdateUserSettingsDto,
+  ): Promise<{ settings: UserSettingsSnapshot }> {
+    return {
+      settings: await this.identityService.updateUserSettings(
+        request.requestContext!.actor.id!,
+        body,
+      ),
+    };
+  }
+
+  @SecurityPolicy({
+    allowedActorTypes: ['user'],
     allowedContextTypes: ['system'],
     requiredRoles: ['system-admin'],
     requireContextId: true,
@@ -441,7 +652,7 @@ export class IdentityController {
   @Get('admin/auth/config')
   async getAdminAuthConfig(@Req() request: ApiRequest) {
     void request;
-    return this.identityService.getAuthConfiguration();
+    return this.buildAuthConfiguration();
   }
 
   @SecurityPolicy({
@@ -489,7 +700,7 @@ export class IdentityController {
   private async buildSessionSnapshot(
     request: Pick<ApiRequest, 'session'>,
   ): Promise<AuthSessionSnapshot> {
-    const config = await this.identityService.getAuthConfiguration();
+    const config = await this.buildAuthConfiguration();
     const user = request.session?.actor.id
       ? await this.identityService.getUserSummary(request.session.actor.id)
       : null;
@@ -512,6 +723,21 @@ export class IdentityController {
       csrfToken: request.session?.csrfToken ?? null,
       requireEmailVerification: config.requireEmailVerification,
       user,
+    };
+  }
+
+  private async buildAuthConfiguration() {
+    const config = await this.identityService.getAuthConfiguration();
+    const configuredProviders = new Set(
+      (await this.oauthService.getConfiguredProviders()).map(
+        (provider) => provider.code,
+      ),
+    );
+    return {
+      ...config,
+      supportedSocialProviders: config.supportedSocialProviders.filter(
+        (provider) => configuredProviders.has(provider.code),
+      ),
     };
   }
 

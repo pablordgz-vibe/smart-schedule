@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import { DatabaseService } from '../persistence/database.service';
 import { AuditService } from '../security/audit.service';
 import { OrgService } from '../org/org.service';
@@ -1774,6 +1775,14 @@ export class CalService {
             input.actorId,
           ],
         );
+
+        await this.copyEventContacts({
+          actorId: input.actorId,
+          client,
+          sourceEventId: source.id,
+          targetEventId: copiedId,
+          timestamp,
+        });
       });
 
       return this.getEventById({
@@ -1894,6 +1903,20 @@ export class CalService {
           input.actorId,
         ],
       );
+
+      await this.copyTaskContacts({
+        actorId: input.actorId,
+        client,
+        sourceTaskId: sourceTask.id,
+        targetTaskId: copiedTaskId,
+        timestamp,
+      });
+      await this.copyTaskSubtasks({
+        client,
+        sourceTaskId: sourceTask.id,
+        targetTaskId: copiedTaskId,
+        timestamp,
+      });
     });
 
     return this.getTaskById({
@@ -1901,6 +1924,208 @@ export class CalService {
       scope: personalScope,
       taskId: copiedTaskId,
     });
+  }
+
+  private async copyEventContacts(input: {
+    actorId: string;
+    client: PoolClient;
+    sourceEventId: string;
+    targetEventId: string;
+    timestamp: string;
+  }) {
+    const contacts = await input.client.query<{
+      email: string | null;
+      name: string;
+      phone: string | null;
+      provider_code: string;
+      provider_contact_id: string;
+    }>(
+      `select
+         c.display_name as name,
+         c.provider_code,
+         c.provider_contact_id,
+         c.email,
+         c.phone
+       from calendar_event_contacts ec
+       inner join imported_contacts c
+         on c.id = ec.contact_id
+       where ec.event_id = $1`,
+      [input.sourceEventId],
+    );
+
+    for (const contact of contacts.rows) {
+      const personalContactId = await this.ensurePersonalContactCopy({
+        actorId: input.actorId,
+        client: input.client,
+        source: contact,
+        timestamp: input.timestamp,
+      });
+
+      await input.client.query(
+        `insert into calendar_event_contacts (event_id, contact_id)
+         values ($1, $2)
+         on conflict do nothing`,
+        [input.targetEventId, personalContactId],
+      );
+    }
+  }
+
+  private async copyTaskContacts(input: {
+    actorId: string;
+    client: PoolClient;
+    sourceTaskId: string;
+    targetTaskId: string;
+    timestamp: string;
+  }) {
+    const contacts = await input.client.query<{
+      email: string | null;
+      name: string;
+      phone: string | null;
+      provider_code: string;
+      provider_contact_id: string;
+    }>(
+      `select
+         c.display_name as name,
+         c.provider_code,
+         c.provider_contact_id,
+         c.email,
+         c.phone
+       from calendar_task_contacts tc
+       inner join imported_contacts c
+         on c.id = tc.contact_id
+       where tc.task_id = $1`,
+      [input.sourceTaskId],
+    );
+
+    for (const contact of contacts.rows) {
+      const personalContactId = await this.ensurePersonalContactCopy({
+        actorId: input.actorId,
+        client: input.client,
+        source: contact,
+        timestamp: input.timestamp,
+      });
+
+      await input.client.query(
+        `insert into calendar_task_contacts (task_id, contact_id)
+         values ($1, $2)
+         on conflict do nothing`,
+        [input.targetTaskId, personalContactId],
+      );
+    }
+  }
+
+  private async copyTaskSubtasks(input: {
+    client: PoolClient;
+    sourceTaskId: string;
+    targetTaskId: string;
+    timestamp: string;
+  }) {
+    const subtasks = await input.client.query<{
+      completed: boolean;
+      title: string;
+    }>(
+      `select title, completed
+       from calendar_task_subtasks
+       where task_id = $1
+       order by created_at asc, id asc`,
+      [input.sourceTaskId],
+    );
+
+    for (const subtask of subtasks.rows) {
+      await input.client.query(
+        `insert into calendar_task_subtasks (
+           id,
+           task_id,
+           title,
+           completed,
+           created_at
+         )
+         values ($1, $2, $3, $4, $5)`,
+        [
+          randomUUID(),
+          input.targetTaskId,
+          subtask.title,
+          subtask.completed,
+          input.timestamp,
+        ],
+      );
+    }
+  }
+
+  private async ensurePersonalContactCopy(input: {
+    actorId: string;
+    client: PoolClient;
+    source: {
+      email: string | null;
+      name: string;
+      phone: string | null;
+      provider_code: string;
+      provider_contact_id: string;
+    };
+    timestamp: string;
+  }) {
+    const existing = await input.client.query<{ id: string }>(
+      `select id
+       from imported_contacts
+       where personal_owner_user_id = $1
+         and provider_code = $2
+         and provider_contact_id = $3
+       limit 1`,
+      [
+        input.actorId,
+        input.source.provider_code,
+        input.source.provider_contact_id,
+      ],
+    );
+
+    const existingId = existing.rows[0]?.id;
+    if (existingId) {
+      return existingId;
+    }
+
+    const copiedId = randomUUID();
+    await input.client.query(
+      `insert into imported_contacts (
+         id,
+         context_type,
+         organization_id,
+         personal_owner_user_id,
+         created_by_user_id,
+         provider_code,
+         provider_contact_id,
+         display_name,
+         email,
+         phone,
+         created_at,
+         updated_at
+       )
+       values (
+         $1,
+         'personal',
+         null,
+         $2,
+         $2,
+         $3,
+         $4,
+         $5,
+         $6,
+         $7,
+         $8,
+         $8
+       )`,
+      [
+        copiedId,
+        input.actorId,
+        input.source.provider_code,
+        input.source.provider_contact_id,
+        input.source.name,
+        input.source.email,
+        input.source.phone,
+        input.timestamp,
+      ],
+    );
+
+    return copiedId;
   }
 
   private async resolveDefaultPersonalCalendarId(actorId: string) {

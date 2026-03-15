@@ -1,5 +1,8 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { AuthStateService } from '../auth-state.service';
 import type {
+  AdminIntegrationSnapshot,
+  MailOutboxSummary,
   SetupBootstrapPayload,
   SetupIntegrationProvider,
   SetupStateSnapshot,
@@ -17,6 +20,7 @@ type BootstrapStatusResponse = {
 
 @Injectable({ providedIn: 'root' })
 export class SetupStateService {
+  private readonly authState = inject(AuthStateService);
   private readonly state = signal<SetupStateSnapshot | null>(null);
   private readonly providers = signal<SetupIntegrationProvider[]>([]);
   private readonly loading = signal(false);
@@ -118,5 +122,71 @@ export class SetupStateService {
 
     this.state.set(body.state);
     return body.state;
+  }
+
+  async loadAdminIntegrations(): Promise<AdminIntegrationSnapshot> {
+    const response = await fetch('/api/admin/global-integrations', {
+      credentials: 'include',
+      headers: this.authHeaders(),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string };
+    } & AdminIntegrationSnapshot;
+
+    if (!response.ok) {
+      throw new Error(body.error?.message ?? 'Failed to load integration settings.');
+    }
+
+    return body;
+  }
+
+  async saveAdminIntegrations(
+    integrations: SetupBootstrapPayload['integrations'],
+  ): Promise<AdminIntegrationSnapshot> {
+    const response = await fetch('/api/admin/global-integrations', {
+      body: JSON.stringify({ integrations }),
+      credentials: 'include',
+      headers: this.authJsonHeaders(),
+      method: 'PATCH',
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string };
+    } & AdminIntegrationSnapshot;
+
+    if (!response.ok) {
+      throw new Error(body.error?.message ?? 'Failed to save integration settings.');
+    }
+
+    return body;
+  }
+
+  async loadMailOutbox(): Promise<MailOutboxSummary[]> {
+    const response = await fetch('/api/admin/mail-outbox', {
+      credentials: 'include',
+      headers: this.authHeaders(),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string };
+      messages?: MailOutboxSummary[];
+    };
+
+    if (!response.ok || !Array.isArray(body.messages)) {
+      throw new Error(body.error?.message ?? 'Failed to load mail outbox.');
+    }
+
+    return body.messages;
+  }
+
+  private authHeaders() {
+    return {
+      'x-csrf-token': this.authState.csrfToken() ?? '',
+    };
+  }
+
+  private authJsonHeaders() {
+    return {
+      'content-type': 'application/json',
+      'x-csrf-token': this.authState.csrfToken() ?? '',
+    };
   }
 }

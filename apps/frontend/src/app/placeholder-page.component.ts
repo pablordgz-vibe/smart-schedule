@@ -9,53 +9,57 @@ import { DirtyStateService } from './dirty-state.service';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <section class="ui-page" [attr.data-testid]="testId()">
-      <div class="ui-card page-hero">
-        <p class="ui-kicker">{{ sectionLabel() }}</p>
-        <div class="hero-topline">
-          <div>
-            <h1>{{ title() }}</h1>
-            <p class="page-copy">{{ description() }}</p>
+    <section class="grid gap-6" [attr.data-testid]="testId()">
+      <div class="card border border-base-300 bg-base-100 p-6 shadow-sm grid gap-6">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="max-w-2xl">
+            <p class="ui-kicker">{{ sectionLabel() }}</p>
+            <h1 class="mt-3 text-3xl font-semibold tracking-tight">{{ title() }}</h1>
+            <p class="mt-2 text-sm leading-6 text-base-content/65">{{ description() }}</p>
           </div>
-          <div class="ui-chip" data-testid="page-context-chip">{{ contextLabel() }}</div>
+          <div class="badge badge-outline h-10 px-4 text-sm" data-testid="page-context-chip">
+            {{ contextLabel() }}
+          </div>
         </div>
 
-        <div class="ui-meta-grid">
-          <div class="ui-panel">
-            <h2>Active Context</h2>
-            <p>Mutations on this route target {{ contextLabel().toLowerCase() }}.</p>
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <h2 class="text-lg font-semibold">Active Context</h2>
+            <p class="mt-2 text-sm leading-6 text-base-content/60">
+              Mutations on this route target {{ contextLabel().toLowerCase() }}.
+            </p>
           </div>
-          <div class="ui-panel">
-            <h2>Sprint 0 Status</h2>
-            <p>
+          <div class="rounded-box border border-base-300 bg-base-100 p-4">
+            <h2 class="text-lg font-semibold">Sprint 0 Status</h2>
+            <p class="mt-2 text-sm leading-6 text-base-content/60">
               Skeleton route wired for navigation, guards, localization, and PWA-safe shell
               behavior.
             </p>
           </div>
         </div>
 
-        <div class="state-grid">
-          <article class="ui-banner ui-banner-warning">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <article class="alert alert-warning">
             <h2>Warning</h2>
             <p>Advisory issues stay visually distinct from blocked actions.</p>
           </article>
-          <article class="ui-banner ui-banner-approval">
+          <article class="alert border border-base-300 bg-base-200">
             <h2>Requires approval</h2>
             <p>Approval-gated actions remain separate from hard permission denials.</p>
           </article>
-          <article class="ui-banner ui-banner-denied">
+          <article class="alert alert-error">
             <h2>Not permitted</h2>
             <p>Authorization failures are rendered differently from advisories and approvals.</p>
           </article>
-          <article class="ui-banner ui-banner-entitlement">
+          <article class="alert alert-success">
             <h2>Entitlement limited</h2>
             <p>Edition or plan limitations get their own state treatment in the shared shell.</p>
           </article>
         </div>
 
-        <div class="ui-toolbar" *ngIf="mutationSurface()">
+        <div class="flex flex-wrap items-center gap-3" *ngIf="mutationSurface()">
           <button
-            class="ui-button ui-button-primary"
+            class="btn btn-neutral"
             type="button"
             (click)="markDirty()"
             data-testid="mark-dirty"
@@ -63,65 +67,26 @@ import { DirtyStateService } from './dirty-state.service';
             Simulate unsaved changes
           </button>
           <button
-            class="ui-button ui-button-secondary"
+            class="btn btn-outline"
             type="button"
             (click)="markClean()"
             data-testid="mark-clean"
           >
             Clear unsaved changes
           </button>
-          <span class="ui-chip" data-testid="dirty-indicator">
+          <span class="badge badge-outline" data-testid="dirty-indicator">
             {{ dirtyLabel() }}
           </span>
         </div>
 
-        <a
-          *ngIf="showBuilderLink()"
-          class="ui-button ui-button-secondary"
-          routerLink="/schedules/builder"
-        >
-          Open Schedule Builder
-        </a>
+        <div>
+          <a *ngIf="showBuilderLink()" class="btn btn-outline" routerLink="/schedules/builder">
+            Open Schedule Builder
+          </a>
+        </div>
       </div>
     </section>
   `,
-  styles: [
-    `
-      .page-hero {
-        display: grid;
-        gap: var(--spacing-6);
-      }
-
-      .hero-topline {
-        display: flex;
-        justify-content: space-between;
-        gap: var(--spacing-4);
-        align-items: flex-start;
-      }
-
-      .page-copy {
-        max-width: 60ch;
-        margin-bottom: 0;
-        color: var(--text-secondary);
-      }
-
-      .state-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: var(--spacing-4);
-      }
-
-      @media (max-width: 768px) {
-        .hero-topline {
-          flex-direction: column;
-        }
-
-        .state-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-    `,
-  ],
 })
 export class PlaceholderPageComponent {
   private readonly route = inject(ActivatedRoute);

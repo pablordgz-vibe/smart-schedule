@@ -375,6 +375,34 @@ describe('organizations and context switching (e2e)', () => {
       .send({ userId: bobMemberId })
       .expect(201);
 
+    const ownerCalendarResponse = await request(getTestServer())
+      .get(`/org/organizations/${organizationId}/calendars`)
+      .set(ownerOrgHeaders)
+      .expect(200);
+
+    const ownerCalendars = (
+      ownerCalendarResponse.body as {
+        calendars: Array<{
+          defaultVisibility: 'all-members' | 'owner-and-grants';
+          name: string;
+          visibilityGrants: Array<{ userId: string }>;
+        }>;
+      }
+    ).calendars;
+
+    expect(
+      ownerCalendars.find((calendar) => calendar.name === 'General Team')
+        ?.defaultVisibility,
+    ).toBe('all-members');
+    expect(
+      ownerCalendars.find((calendar) => calendar.name === 'Alice Duty')
+        ?.visibilityGrants,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: bobMemberId }),
+      ]),
+    );
+
     const bobAfterGrant = await request(getTestServer())
       .get(`/org/organizations/${organizationId}/calendars`)
       .set('cookie', bobOrgCookie)
@@ -508,6 +536,80 @@ describe('organizations and context switching (e2e)', () => {
       (withoutMember.body as { groups: Array<{ members: unknown[] }> })
         .groups[0]?.members.length,
     ).toBe(0);
+  });
+
+  it('admin-gates organization membership roster access', async () => {
+    await completeSetup();
+    await signUpAndVerify('owner@example.com', 'Owner', 'owner-password-123');
+    await signUpAndVerify(
+      'member@example.com',
+      'Member',
+      'member-password-123',
+    );
+
+    const owner = await signIn('owner@example.com', 'owner-password-123');
+    const member = await signIn('member@example.com', 'member-password-123');
+
+    const organizationId = (
+      (
+        await request(getTestServer())
+          .post('/org/organizations')
+          .set('cookie', owner.cookie)
+          .set('x-csrf-token', owner.csrf)
+          .send({ name: 'Roster Ops' })
+          .expect(201)
+      ).body as { organization: { id: string } }
+    ).organization.id;
+
+    const switchedOwner = await request(getTestServer())
+      .post('/auth/context')
+      .set('cookie', owner.cookie)
+      .set('x-csrf-token', owner.csrf)
+      .send({ contextType: 'organization', organizationId })
+      .expect(201);
+    owner.cookie = switchedOwner.headers['set-cookie'][0];
+    owner.csrf = (switchedOwner.body as SessionResponse).session.csrfToken;
+
+    const ownerOrgHeaders = {
+      cookie: owner.cookie,
+      'x-csrf-token': owner.csrf,
+      'x-active-context-id': organizationId,
+      'x-active-context-type': 'organization',
+      'x-tenant-id': organizationId,
+    };
+
+    const inviteResponse = await request(getTestServer())
+      .post(`/org/organizations/${organizationId}/invitations`)
+      .set(ownerOrgHeaders)
+      .send({ email: 'member@example.com', role: 'member' })
+      .expect(201);
+
+    await request(getTestServer())
+      .post('/org/invitations/accept')
+      .set('cookie', member.cookie)
+      .set('x-csrf-token', member.csrf)
+      .send({
+        inviteCode: (
+          inviteResponse.body as { invitation: { previewInviteCode: string } }
+        ).invitation.previewInviteCode,
+      })
+      .expect(201);
+
+    const switchedMember = await request(getTestServer())
+      .post('/auth/context')
+      .set('cookie', member.cookie)
+      .set('x-csrf-token', member.csrf)
+      .send({ contextType: 'organization', organizationId })
+      .expect(201);
+    member.cookie = switchedMember.headers['set-cookie'][0];
+
+    await request(getTestServer())
+      .get(`/org/organizations/${organizationId}/memberships`)
+      .set('cookie', member.cookie)
+      .set('x-active-context-id', organizationId)
+      .set('x-active-context-type', 'organization')
+      .set('x-tenant-id', organizationId)
+      .expect(403);
   });
 
   it('enforces context binding for tenant isolation list surfaces', async () => {

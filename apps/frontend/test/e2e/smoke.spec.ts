@@ -124,7 +124,7 @@ test('renders the Sprint 0 shell scaffold', async ({ page }) => {
   await expect(page.getByTestId('app-shell')).toBeVisible();
   await expect(page.getByTestId('context-switcher')).toBeVisible();
   await expect(page.getByTestId('quick-create')).toBeVisible();
-  await expect(page.getByTestId('nav-schedules')).toBeVisible();
+  await expect(page.getByTestId('nav-organizations')).toBeVisible();
   await expect(page.getByTestId('page-home')).toBeVisible();
 });
 
@@ -136,7 +136,8 @@ test('exposes accessible shell landmarks and labeled controls', async ({ page })
   await expect(page.getByRole('main')).toBeVisible();
   await expect(page.getByRole('searchbox', { name: 'Global search' })).toBeVisible();
   await expect(page.getByLabel('Active context')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Notifications' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Help' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
 });
 
 test('preserves the current route when switching contexts and the destination is allowed', async ({
@@ -149,7 +150,7 @@ test('preserves the current route when switching contexts and the destination is
   await page.getByTestId('context-switcher').selectOption('org:org-1');
 
   await expect(page).toHaveURL(/\/calendar$/);
-  await expect(page.getByTestId('context-badge')).toContainText('Organization: Atlas Ops');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('org:org-1');
   expect(state.activeContextKey).toBe('org:org-1');
   expect(state.contextSwitchCalls).toBe(1);
 });
@@ -165,7 +166,7 @@ test('falls back to the nearest valid landing route when the current route is no
 
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByTestId('page-home')).toBeVisible();
-  await expect(page.getByTestId('context-badge')).toContainText('Personal');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('personal');
   expect(state.activeContextKey).toBe('personal');
   expect(state.contextSwitchCalls).toBe(1);
 });
@@ -179,23 +180,25 @@ test('prompts before switching context away from a guarded dirty route', async (
   await expect(page.getByTestId('dirty-indicator')).toContainText('Unsaved changes active');
 
   page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('You have unsaved changes. Leave this screen?');
+    expect(dialog.message()).toContain('You have unsaved changes in Organization: Atlas Ops.');
+    expect(dialog.message()).toContain('switch to Personal');
     await dialog.dismiss();
   });
   await page.getByTestId('context-switcher').selectOption('personal');
 
   await expect(page).toHaveURL(/\/org\/assignments$/);
-  await expect(page.getByTestId('context-badge')).toContainText('Organization: Atlas Ops');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('org:org-1');
   expect(state.contextSwitchCalls).toBe(0);
 
   page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('You have unsaved changes. Leave this screen?');
+    expect(dialog.message()).toContain('You have unsaved changes in Organization: Atlas Ops.');
+    expect(dialog.message()).toContain('switch to Personal');
     await dialog.accept();
   });
   await page.getByTestId('context-switcher').selectOption('personal');
 
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByTestId('context-badge')).toContainText('Personal');
+  await expect(page.getByTestId('context-switcher')).toHaveValue('personal');
   expect(state.activeContextKey).toBe('personal');
   expect(state.contextSwitchCalls).toBe(1);
 });

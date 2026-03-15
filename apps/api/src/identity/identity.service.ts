@@ -12,7 +12,7 @@ import type {
   IdentityUserSummary,
   SessionActor,
   SocialProviderCode,
-  SocialProviderDescriptor,
+  UserSettingsSnapshot,
 } from '@smart-schedule/contracts';
 import {
   createHash,
@@ -24,6 +24,8 @@ import {
 import type { PoolClient } from 'pg';
 import { DatabaseService } from '../persistence/database.service';
 import { AuditService } from '../security/audit.service';
+import { OAuthService } from './oauth.service';
+import { socialProviderCatalog } from './social-provider.catalog';
 
 type TokenKind = 'account-recovery' | 'email-verification' | 'password-reset';
 
@@ -102,13 +104,11 @@ type TokenIssueResult = {
   previewToken: string | null;
 };
 
-const socialProviderCatalog: Record<
-  SocialProviderCode,
-  SocialProviderDescriptor
-> = {
-  github: { code: 'github', displayName: 'GitHub' },
-  google: { code: 'google', displayName: 'Google' },
-  microsoft: { code: 'microsoft', displayName: 'Microsoft' },
+type UpdateUserSettingsInput = {
+  locale?: string;
+  timeFormat?: '12h' | '24h';
+  timezone?: string;
+  weekStartsOn?: 'monday' | 'sunday';
 };
 
 const recoveryWindowMs = 30 * 24 * 60 * 60 * 1000;
@@ -164,6 +164,7 @@ export class IdentityService {
   constructor(
     private readonly auditService: AuditService,
     private readonly databaseService: DatabaseService,
+    private readonly oauthService: OAuthService,
   ) {}
 
   async getAuthConfiguration(): Promise<AuthConfigurationSnapshot> {
@@ -205,6 +206,92 @@ export class IdentityService {
       })
       .map((user) => this.toUserSummary(user))
       .sort((left, right) => left.email.localeCompare(right.email));
+  }
+
+  async getUserSettings(userId: string): Promise<UserSettingsSnapshot> {
+    await this.requireRecoverableUser(userId);
+
+    await this.databaseService.query(
+      `insert into user_settings (user_id)
+       values ($1)
+       on conflict (user_id) do nothing`,
+      [userId],
+    );
+
+    const result = await this.databaseService.query<{
+      locale: string;
+      time_format: '12h' | '24h';
+      timezone: string;
+      week_starts_on: 'monday' | 'sunday';
+    }>(
+      `select locale, time_format, timezone, week_starts_on
+       from user_settings
+       where user_id = $1`,
+      [userId],
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      return this.defaultUserSettings();
+    }
+
+    return {
+      locale: row.locale,
+      timeFormat: row.time_format,
+      timezone: row.timezone,
+      weekStartsOn: row.week_starts_on,
+    };
+  }
+
+  async updateUserSettings(
+    userId: string,
+    input: UpdateUserSettingsInput,
+  ): Promise<UserSettingsSnapshot> {
+    await this.requireRecoverableUser(userId);
+
+    const current = await this.getUserSettings(userId);
+    const next: UserSettingsSnapshot = {
+      locale: input.locale?.trim() || current.locale,
+      timeFormat: input.timeFormat ?? current.timeFormat,
+      timezone: input.timezone?.trim() || current.timezone,
+      weekStartsOn: input.weekStartsOn ?? current.weekStartsOn,
+    };
+
+    await this.databaseService.query(
+      `insert into user_settings (
+         user_id,
+         locale,
+         time_format,
+         timezone,
+         week_starts_on,
+         updated_at
+       )
+       values ($1, $2, $3, $4, $5, $6)
+       on conflict (user_id)
+       do update set
+         locale = excluded.locale,
+         time_format = excluded.time_format,
+         timezone = excluded.timezone,
+         week_starts_on = excluded.week_starts_on,
+         updated_at = excluded.updated_at`,
+      [
+        userId,
+        next.locale,
+        next.timeFormat,
+        next.timezone,
+        next.weekStartsOn,
+        nowIso(),
+      ],
+    );
+
+    this.auditService.emit({
+      action: 'identity.settings.updated',
+      details: next,
+      targetId: userId,
+      targetType: 'user',
+    });
+
+    return next;
   }
 
   async createInitialAdmin(input: RegisterPasswordInput) {
@@ -469,8 +556,8 @@ export class IdentityService {
 
   async getConfiguredSocialProviders() {
     const state = await this.readState();
-    return state.config.supportedSocialProviders.map(
-      (provider) => socialProviderCatalog[provider],
+    return this.oauthService.getAvailableProviders(
+      state.config.supportedSocialProviders,
     );
   }
 
@@ -1002,15 +1089,15 @@ export class IdentityService {
     };
   }
 
-  private toAuthConfiguration(
+  private async toAuthConfiguration(
     state: PersistedIdentityState,
-  ): AuthConfigurationSnapshot {
+  ): Promise<AuthConfigurationSnapshot> {
     return {
       minAdminTierForAccountDeactivation:
         state.config.minAdminTierForAccountDeactivation,
       requireEmailVerification: state.config.requireEmailVerification,
-      supportedSocialProviders: state.config.supportedSocialProviders.map(
-        (provider) => socialProviderCatalog[provider],
+      supportedSocialProviders: await this.oauthService.getAvailableProviders(
+        state.config.supportedSocialProviders,
       ),
     };
   }
@@ -1329,7 +1416,11 @@ export class IdentityService {
         minAdminTierForAccountDeactivation: 0,
         requireEmailVerification: false,
         supportedSocialProviders: this.normalizeProviderList(
-          process.env.AUTH_SOCIAL_PROVIDERS?.split(',') ?? ['google', 'github'],
+          process.env.AUTH_SOCIAL_PROVIDERS?.split(',') ?? [
+            'google',
+            'github',
+            'microsoft',
+          ],
         ),
       },
       tokens: [],
@@ -1449,6 +1540,27 @@ export class IdentityService {
       subject: row.subject,
       to: row.recipient_email,
     }));
+  }
+
+  private defaultUserSettings(): UserSettingsSnapshot {
+    return {
+      locale: 'en',
+      timeFormat: '24h',
+      timezone: 'UTC',
+      weekStartsOn: 'monday',
+    };
+  }
+
+  private async requireRecoverableUser(userId: string) {
+    const state = await this.readState();
+    const user = state.users.find((candidate) => candidate.id === userId);
+
+    if (!user) {
+      throw new NotFoundException('Account not found.');
+    }
+
+    this.assertRecoverableUser(user);
+    return user;
   }
 }
 
