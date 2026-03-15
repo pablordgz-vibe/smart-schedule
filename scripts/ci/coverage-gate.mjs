@@ -128,8 +128,7 @@ for (const run of coverageRuns) {
 if (mode === "all" || mode === "repo") {
   for (const [metric, minimum] of Object.entries(repoWideMinimums)) {
     const totals = repoWideTotals[metric];
-    const actual =
-      totals.total > 0 ? (totals.covered / totals.total) * 100 : 0;
+    const actual = totals.total > 0 ? (totals.covered / totals.total) * 100 : 0;
 
     if (actual < minimum) {
       failures.push(
@@ -153,7 +152,8 @@ const repoWideLines =
     : 0;
 const repoWideStatements =
   repoWideTotals.statements.total > 0
-    ? (repoWideTotals.statements.covered / repoWideTotals.statements.total) * 100
+    ? (repoWideTotals.statements.covered / repoWideTotals.statements.total) *
+      100
     : 0;
 
 if (mode === "all" || mode === "repo") {
