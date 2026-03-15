@@ -120,6 +120,30 @@ function toIsoString(value: Date | string) {
   return new Date(value).toISOString();
 }
 
+function safeRuleData(value: unknown): TimePolicyRecord['rule'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as TimePolicyRecord['rule'];
+}
+
+function safeUpdatedAt(value: unknown) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value == null) {
+    return '';
+  }
+
+  return String(value);
+}
+
 class InMemoryRouteAdvisoryProvider implements RouteAdvisoryContract {
   estimateCommute(input: {
     arrivalLocation: string;
@@ -280,13 +304,13 @@ export class TimeService {
       id: row.id,
       isActive: row.is_active,
       policyType: row.policy_type,
-      rule: row.rule_data,
+      rule: safeRuleData(row.rule_data),
       scopeLevel: row.scope_level,
       sourceType: row.source_type,
       targetGroupId: row.target_group_id,
       targetUserId: row.target_user_id,
       title: row.title,
-      updatedAt: row.updated_at,
+      updatedAt: safeUpdatedAt(row.updated_at),
     }));
   }
 
@@ -553,6 +577,7 @@ export class TimeService {
     actorId: string;
     locationCode: string;
     providerCode: string;
+    replaceExisting: boolean;
     year: number;
     scopeLevel: TimePolicyScopeLevel;
     targetGroupId: string | null;
@@ -587,31 +612,35 @@ export class TimeService {
     );
 
     const replaced = await this.databaseService.transaction(async (client) => {
-      const deleteResult = await client.query(
-        `delete from time_policies
-         where policy_type = 'holiday'
-           and source_type = 'official'
-           and scope_level = $1
-           and coalesce(organization_id, '') = coalesce($2, '')
-           and coalesce(personal_owner_user_id, '') = coalesce($3, '')
-           and coalesce(target_group_id, '') = coalesce($4, '')
-           and coalesce(target_user_id, '') = coalesce($5, '')
-           and rule_data ->> 'providerCode' = $6
-           and rule_data ->> 'locationCode' = $7
-           and rule_data ->> 'date' >= $8
-           and rule_data ->> 'date' <= $9`,
-        [
-          input.scopeLevel,
-          scope.organizationId,
-          scope.personalOwnerUserId,
-          target.targetGroupId,
-          target.targetUserId,
-          input.providerCode,
-          input.locationCode,
-          yearStart,
-          yearEnd,
-        ],
-      );
+      let replacedCount = 0;
+      if (input.replaceExisting) {
+        const deleteResult = await client.query(
+          `delete from time_policies
+           where policy_type = 'holiday'
+             and source_type = 'official'
+             and scope_level = $1
+             and coalesce(organization_id, '') = coalesce($2, '')
+             and coalesce(personal_owner_user_id, '') = coalesce($3, '')
+             and coalesce(target_group_id, '') = coalesce($4, '')
+             and coalesce(target_user_id, '') = coalesce($5, '')
+             and rule_data ->> 'providerCode' = $6
+             and rule_data ->> 'locationCode' = $7
+             and rule_data ->> 'date' >= $8
+             and rule_data ->> 'date' <= $9`,
+          [
+            input.scopeLevel,
+            scope.organizationId,
+            scope.personalOwnerUserId,
+            target.targetGroupId,
+            target.targetUserId,
+            input.providerCode,
+            input.locationCode,
+            yearStart,
+            yearEnd,
+          ],
+        );
+        replacedCount = deleteResult.rowCount ?? 0;
+      }
 
       for (const holiday of uniqueHolidays) {
         const rule = {
@@ -673,7 +702,7 @@ export class TimeService {
         );
       }
 
-      return deleteResult.rowCount ?? 0;
+      return replacedCount;
     });
 
     return {
@@ -809,11 +838,11 @@ export class TimeService {
     return result.rows.map((row) => ({
       category: row.policy_type,
       id: row.id,
-      rule: row.rule_data,
+      rule: safeRuleData(row.rule_data),
       scopeLevel: row.scope_level,
       targetGroupId: row.target_group_id,
       targetUserId: row.target_user_id,
-      updatedAt: row.updated_at,
+      updatedAt: safeUpdatedAt(row.updated_at),
     }));
   }
 

@@ -27,6 +27,7 @@ type CalendarEntry = {
 type CalendarDayBucket = {
   entries: CalendarEntry[];
   fullLabel: string;
+  isInCurrentMonth: boolean;
   isToday: boolean;
   key: string;
   label: string;
@@ -155,74 +156,6 @@ function createAttachmentDraft(): AttachmentDraft {
           </p>
         </div>
 
-        <div class="flex flex-wrap items-end gap-3">
-          <label class="ui-field compact-field">
-            <span>From</span>
-            <input class="input input-bordered w-full" type="datetime-local" [(ngModel)]="from" />
-          </label>
-          <label class="ui-field compact-field">
-            <span>To</span>
-            <input class="input input-bordered w-full" type="datetime-local" [(ngModel)]="to" />
-          </label>
-          <button class="btn btn-outline" type="button" (click)="loadView()">Refresh view</button>
-          <a class="btn btn-outline" routerLink="/schedules/builder"> Schedule builder </a>
-        </div>
-
-        <div class="grid gap-4 md:grid-cols-2">
-          <div class="rounded-box border border-base-300 bg-base-100 p-4">
-            <h2>Calendar selector</h2>
-            <div class="calendar-list">
-              <label *ngFor="let calendar of calendars()" class="calendar-option">
-                <input
-                  type="checkbox"
-                  [checked]="selectedCalendarIds().includes(calendar.id)"
-                  (change)="toggleCalendar(calendar.id, $any($event.target).checked)"
-                />
-                <span>{{ calendar.name }}</span>
-                <small>{{ calendar.type }}</small>
-              </label>
-            </div>
-          </div>
-
-          <div class="rounded-box border border-base-300 bg-base-100 p-4">
-            <h2>Legend</h2>
-            <ul class="legend-list">
-              <li><span class="dot event"></span> Event</li>
-              <li><span class="dot linked"></span> Linked work event</li>
-              <li><span class="dot due"></span> Task due item</li>
-            </ul>
-          </div>
-
-          <div
-            class="rounded-box border border-base-300 bg-base-100 p-5 space-y-4"
-            *ngIf="isPersonalContext()"
-            data-testid="personal-calendar-panel"
-          >
-            <h2>Personal calendars</h2>
-            <p class="ui-copy">
-              Create additional calendars here and add them to your aggregate views immediately.
-            </p>
-            <div class="flex flex-wrap items-end gap-3">
-              <label class="ui-field grow">
-                <span>New personal calendar</span>
-                <input
-                  class="input input-bordered w-full"
-                  [(ngModel)]="personalCalendarName"
-                  [ngModelOptions]="{ standalone: true }"
-                />
-              </label>
-              <button class="btn btn-outline" type="button" (click)="createPersonalCalendar()">
-                Create calendar
-              </button>
-            </div>
-            <ul class="entry-list pt-1">
-              <li *ngFor="let calendar of personalCalendars()" class="entry-item">
-                <strong>{{ calendar.name }}</strong>
-              </li>
-            </ul>
-          </div>
-        </div>
-
         <p class="alert alert-warning" *ngIf="error()">{{ error() }}</p>
         <p class="alert alert-info" *ngIf="message()">{{ message() }}</p>
         <p class="alert alert-info" *ngIf="isLoading()">Loading calendar workspace…</p>
@@ -233,677 +166,800 @@ function createAttachmentDraft(): AttachmentDraft {
       >
         <div class="calendar-grid-header">
           <div>
-            <h2>Calendar grid</h2>
+            <h2>{{ currentMonthLabel() }}</h2>
             <p class="ui-copy">
-              Date buckets for the selected range and calendars in {{ contextLabel() }}.
+              Showing {{ selectedCalendarIds().length }} active calendar{{
+                selectedCalendarIds().length === 1 ? '' : 's'
+              }} in {{ contextLabel() }}.
             </p>
           </div>
-          <p class="ui-copy">
-            {{ calendarBuckets().length }} day{{ calendarBuckets().length === 1 ? '' : 's' }}
-            visible
-          </p>
+          <div class="flex flex-wrap items-center gap-2">
+            <button class="btn btn-outline btn-sm normal-case" type="button" routerLink="/schedules/builder">
+              Schedule builder
+            </button>
+            <button class="btn btn-outline btn-sm" type="button" (click)="openCalendarManager()">
+              Switch calendars
+            </button>
+          </div>
         </div>
 
-        <div class="calendar-workspace" *ngIf="calendarBuckets().length > 0; else invalidRange">
-          <ng-container *ngIf="selectedDayBucket() as bucket; else fullCalendar">
-            <div class="focused-day-layout">
-              <article
-                class="card border border-base-300 bg-base-100 shadow-sm day-card day-card-focused"
-              >
-                <div class="card-body gap-4 p-4">
-                  <div class="day-card-header">
-                    <div>
-                      <p class="ui-kicker">{{ bucket.shortLabel }}</p>
-                      <h3>{{ bucket.label }}</h3>
-                      <p class="ui-copy">{{ bucket.fullLabel }}</p>
-                    </div>
-                    <div class="badge badge-outline">{{ bucket.entries.length }} items</div>
-                  </div>
-
-                  <ul class="day-entry-list">
-                    <li
-                      *ngFor="let entry of bucket.entries"
-                      class="day-entry"
-                      [attr.data-kind]="entry.calendarEntryType"
-                      [class.selected]="selectedEntryId() === entry.id"
-                      (click)="selectEntry(entry)"
-                    >
-                      <strong>{{ entry.title }}</strong>
-                      <span>{{ formatEntryMoment(entry) }}</span>
-                    </li>
-                    <li *ngIf="bucket.entries.length === 0" class="text-sm text-base-content/60">
-                      No items scheduled.
-                    </li>
-                  </ul>
-                </div>
-              </article>
-
-              <aside
-                id="calendar-context-panel"
-                class="card border border-base-300 bg-base-100 shadow-sm context-panel"
-              >
-                <div class="card-body gap-4 p-4">
-                  <div class="context-panel-toolbar">
-                    <button class="btn btn-ghost btn-sm" type="button" (click)="closeFocusedDay()">
-                      Back to calendar
-                    </button>
-                    <div class="context-actions" *ngIf="panelMode() === 'day'">
-                      <button
-                        class="btn btn-neutral btn-sm"
-                        type="button"
-                        (click)="openCreateEventForDay(bucket.key)"
-                      >
-                        New event
-                      </button>
-                      <button
-                        class="btn btn-outline btn-sm"
-                        type="button"
-                        (click)="openCreateTaskForDay(bucket.key)"
-                      >
-                        New task
-                      </button>
-                    </div>
-                  </div>
-
-                  <ul class="entry-list compact-list" *ngIf="panelMode() === 'day'">
-                    <li *ngIf="bucket.entries.length === 0" class="text-sm text-base-content/60">
-                      Create an event or a task for this day.
-                    </li>
-                    <li
-                      *ngFor="let entry of bucket.entries"
-                      class="entry-item selectable"
-                      [attr.data-kind]="entry.calendarEntryType"
-                      [class.selected]="selectedEntryId() === entry.id"
-                      (click)="selectEntry(entry)"
-                    >
-                      <div class="stack-tight">
-                        <strong>{{ entry.title }}</strong>
-                        <span class="ui-copy">{{ formatEntryMoment(entry) }}</span>
-                      </div>
-                    </li>
-                  </ul>
-
-                  <form
-                    class="form-stack compact-stack"
-                    *ngIf="panelMode() === 'create-event'"
-                    (ngSubmit)="createEvent()"
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <div class="stack-tight">
+            <div class="grid gap-3 md:grid-cols-[auto_1fr_1fr_auto] md:items-end">
+              <button class="btn btn-outline" type="button" (click)="goToPreviousMonth()">
+                Previous
+              </button>
+              <label class="ui-field">
+                <span>Month</span>
+                <select
+                  class="select select-bordered w-full"
+                  [ngModel]="displayedMonth()"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="setDisplayedMonth($event)"
+                >
+                  <option *ngFor="let month of monthOptions; let index = index" [ngValue]="index">
+                    {{ month }}
+                  </option>
+                </select>
+              </label>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="ui-field">
+                  <span>Year</span>
+                  <input
+                    class="input input-bordered w-full"
+                    type="number"
+                    [ngModel]="displayedYear()"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="setDisplayedYear($event)"
+                  />
+                </label>
+                <label class="ui-field">
+                  <span>Week starts on</span>
+                  <select
+                    class="select select-bordered w-full"
+                    [ngModel]="weekStartsOn()"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="setWeekStartsOn($event)"
                   >
-                    <div class="join join-horizontal self-start">
-                      <button class="btn btn-sm join-item btn-neutral" type="button">Event</button>
-                      <button
-                        class="btn btn-sm join-item btn-outline"
-                        type="button"
-                        (click)="openCreateTaskForDay(bucket.key)"
-                      >
-                        Task
-                      </button>
-                    </div>
-                    <div class="panel-section-title">
-                      <h4>Create event</h4>
-                      <p class="ui-copy">{{ bucket.fullLabel }}</p>
-                    </div>
-                    <input
-                      class="input input-bordered w-full"
-                      placeholder="Title"
-                      [(ngModel)]="eventDraft.title"
-                      name="event-title"
-                    />
-                    <textarea
-                      class="textarea textarea-bordered w-full"
-                      rows="2"
-                      placeholder="Notes"
-                      [(ngModel)]="eventDraft.notes"
-                      name="event-notes"
-                    ></textarea>
-                    <div class="inline-grid">
-                      <label class="checkbox-row">
-                        <span>All day</span>
-                        <input
-                          type="checkbox"
-                          [(ngModel)]="eventDraft.allDay"
-                          name="event-all-day"
-                        />
-                      </label>
-                      <label class="checkbox-row">
-                        <span>Work related</span>
-                        <input
-                          type="checkbox"
-                          [(ngModel)]="eventDraft.workRelated"
-                          name="event-work-related"
-                        />
-                      </label>
-                    </div>
-                    <div class="inline-grid" *ngIf="!eventDraft.allDay">
-                      <input
-                        class="input input-bordered w-full"
-                        type="datetime-local"
-                        [(ngModel)]="eventDraft.startAt"
-                        name="event-start"
-                        (ngModelChange)="refreshLinkedTaskAllocation()"
-                      />
-                      <select
-                        class="select select-bordered w-full"
-                        [(ngModel)]="eventDraft.timedEntryMode"
-                        name="event-timed-entry-mode"
-                        (ngModelChange)="setEventTimingMode(eventDraft, $event)"
-                      >
-                        <option value="end">Use end time</option>
-                        <option value="duration">Use duration</option>
-                      </select>
-                      <input
-                        *ngIf="eventDraft.timedEntryMode === 'end'"
-                        class="input input-bordered w-full"
-                        type="datetime-local"
-                        [(ngModel)]="eventDraft.endAt"
-                        name="event-end"
-                        (ngModelChange)="refreshLinkedTaskAllocation()"
-                      />
-                      <input
-                        *ngIf="eventDraft.timedEntryMode === 'duration'"
-                        class="input input-bordered w-full"
-                        type="number"
-                        min="1"
-                        max="1440"
-                        [(ngModel)]="eventDraft.durationMinutes"
-                        name="event-duration"
-                        placeholder="Duration (minutes)"
-                        (ngModelChange)="refreshLinkedTaskAllocation()"
-                      />
-                    </div>
-                    <div class="inline-grid" *ngIf="eventDraft.allDay">
-                      <input
-                        class="input input-bordered w-full"
-                        type="date"
-                        [(ngModel)]="eventDraft.allDayStartDate"
-                        name="event-all-day-start"
-                      />
-                      <input
-                        class="input input-bordered w-full"
-                        type="date"
-                        [(ngModel)]="eventDraft.allDayEndDate"
-                        name="event-all-day-end"
-                      />
-                    </div>
-                    <div class="inline-grid">
-                      <input
-                        class="input input-bordered w-full"
-                        placeholder="Location"
-                        [(ngModel)]="eventDraft.location"
-                        name="event-location"
-                      />
-                      <select
-                        class="select select-bordered w-full"
-                        [(ngModel)]="eventDraft.linkedTaskId"
-                        name="event-linked-task"
-                        (ngModelChange)="refreshLinkedTaskAllocation()"
-                      >
-                        <option value="">No linked task</option>
-                        <option *ngFor="let task of taskSummaries()" [value]="task.id">
-                          {{ task.title }}
-                        </option>
-                      </select>
-                    </div>
-                    <label class="ui-field">
-                      <span>Calendar memberships</span>
-                      <select
-                        class="select select-bordered w-full"
-                        multiple
-                        [(ngModel)]="eventDraft.calendarIds"
-                        name="event-calendars"
-                      >
-                        <option *ngFor="let calendar of calendars()" [value]="calendar.id">
-                          {{ calendar.name }}
-                        </option>
-                      </select>
-                    </label>
-                    <label class="ui-field">
-                      <span>Contacts</span>
-                      <select
-                        class="select select-bordered w-full"
-                        multiple
-                        [(ngModel)]="eventDraft.contactIds"
-                        name="event-contacts"
-                      >
-                        <option *ngFor="let contact of contacts()" [value]="contact.id">
-                          {{ contact.displayName }}
-                        </option>
-                      </select>
-                    </label>
-                    <p class="alert alert-warning" *ngIf="linkedTaskAllocationWarning()">
-                      {{ linkedTaskAllocationWarning() }}
-                    </p>
-                    <div class="context-actions">
-                      <button class="btn btn-neutral" type="submit">Create event</button>
-                      <button class="btn btn-ghost" type="button" (click)="closeFocusedDay()">
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+                    <option value="monday">Monday</option>
+                    <option value="sunday">Sunday</option>
+                  </select>
+                </label>
+              </div>
+              <button class="btn btn-outline" type="button" (click)="goToNextMonth()">Next</button>
+            </div>
 
-                  <form
-                    class="form-stack compact-stack"
-                    *ngIf="panelMode() === 'create-task'"
-                    (ngSubmit)="createDeadlineTask()"
-                  >
-                    <div class="join join-horizontal self-start">
-                      <button
-                        class="btn btn-sm join-item btn-outline"
-                        type="button"
-                        (click)="openCreateEventForDay(bucket.key)"
-                      >
-                        Event
-                      </button>
-                      <button class="btn btn-sm join-item btn-neutral" type="button">Task</button>
-                    </div>
-                    <div class="panel-section-title">
-                      <h4>Create deadline task</h4>
-                      <p class="ui-copy">{{ bucket.fullLabel }}</p>
-                    </div>
-                    <input
-                      class="input input-bordered w-full"
-                      placeholder="Title"
-                      [(ngModel)]="deadlineTaskDraft.title"
-                      name="deadline-task-title"
-                    />
-                    <textarea
-                      class="textarea textarea-bordered w-full"
-                      rows="2"
-                      placeholder="Notes"
-                      [(ngModel)]="deadlineTaskDraft.notes"
-                      name="deadline-task-notes"
-                    ></textarea>
-                    <div class="inline-grid">
-                      <input
-                        class="input input-bordered w-full"
-                        type="datetime-local"
-                        [(ngModel)]="deadlineTaskDraft.dueAt"
-                        name="deadline-task-due"
-                      />
-                      <input
-                        class="input input-bordered w-full"
-                        placeholder="Location"
-                        [(ngModel)]="deadlineTaskDraft.location"
-                        name="deadline-task-location"
-                      />
-                    </div>
-                    <label class="checkbox-row">
-                      <span>Work related</span>
-                      <input
-                        type="checkbox"
-                        [(ngModel)]="deadlineTaskDraft.workRelated"
-                        name="deadline-task-work-related"
-                      />
-                    </label>
-                    <label class="ui-field">
-                      <span>Calendar memberships</span>
-                      <select
-                        class="select select-bordered w-full"
-                        multiple
-                        [(ngModel)]="deadlineTaskDraft.calendarIds"
-                        name="deadline-task-calendars"
-                      >
-                        <option *ngFor="let calendar of calendars()" [value]="calendar.id">
-                          {{ calendar.name }}
-                        </option>
-                      </select>
-                    </label>
-                    <label class="ui-field">
-                      <span>Contacts</span>
-                      <select
-                        class="select select-bordered w-full"
-                        multiple
-                        [(ngModel)]="deadlineTaskDraft.contactIds"
-                        name="deadline-task-contacts"
-                      >
-                        <option *ngFor="let contact of contacts()" [value]="contact.id">
-                          {{ contact.displayName }}
-                        </option>
-                      </select>
-                    </label>
-                    <div class="context-actions">
-                      <button class="btn btn-neutral" type="submit">Create task</button>
-                      <button class="btn btn-ghost" type="button" (click)="closeFocusedDay()">
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-
-                  <ng-container *ngIf="panelMode() === 'event'">
-                    <section class="stack-tight compact-stack" *ngIf="selectedEvent() as event">
-                      <div class="context-panel-header">
-                        <div>
-                          <p class="ui-kicker">Event</p>
-                          <h4>{{ event.title }}</h4>
-                          <p class="ui-copy">{{ formatEventTiming(event) }}</p>
+            <ng-container *ngIf="!calendarManagerOpen(); else calendarManager">
+              <div class="calendar-weekdays">
+                <span *ngFor="let weekday of weekdayLabels()">{{ weekday }}</span>
+              </div>
+              <div class="calendar-workspace" *ngIf="calendarBuckets().length > 0; else invalidRange">
+                <ng-container *ngIf="selectedDayBucket() as bucket; else fullCalendar">
+                  <div class="focused-day-layout">
+                    <article
+                      class="card border border-base-300 bg-base-100 shadow-sm day-card day-card-focused"
+                    >
+                      <div class="card-body gap-4 p-4">
+                        <div class="day-card-header">
+                          <div>
+                            <p class="ui-kicker">{{ bucket.shortLabel }}</p>
+                            <h3>{{ bucket.label }}</h3>
+                            <p class="ui-copy">{{ bucket.fullLabel }}</p>
+                          </div>
+                          <div class="badge badge-outline whitespace-nowrap">{{ bucket.entries.length }} items</div>
                         </div>
-                        <div class="context-actions" *ngIf="isOrganizationContext()">
-                          <button
-                            class="btn btn-outline btn-sm"
-                            type="button"
-                            (click)="copySelectedEntryToPersonal()"
+
+                        <ul class="day-entry-list">
+                          <li
+                            *ngFor="let entry of bucket.entries"
+                            class="day-entry"
+                            [attr.data-kind]="entry.calendarEntryType"
+                            [class.selected]="selectedEntryId() === entry.id"
+                            (click)="selectEntry(entry)"
                           >
-                            Copy to Personal
-                          </button>
-                        </div>
+                            <strong>{{ entry.title }}</strong>
+                            <span>{{ formatEntryMoment(entry) }}</span>
+                          </li>
+                          <li *ngIf="bucket.entries.length === 0" class="text-sm text-base-content/60">
+                            No items scheduled.
+                          </li>
+                        </ul>
                       </div>
-                      <p class="alert alert-warning" *ngIf="event.provenance">
-                        Copied from {{ event.provenance.sourceContextType }} item
-                        {{ event.provenance.sourceItemId }} on
-                        {{ formatDateTime(event.provenance.copiedAt) }}.
-                      </p>
-                      <p class="ui-copy" *ngIf="event.linkedTaskId">
-                        Allocation: {{ event.allocation.allocatedMinutes }}m of
-                        {{ event.allocation.estimateMinutes ?? 'n/a' }}m.
-                      </p>
-                      <p class="alert alert-warning" *ngIf="event.allocation.overAllocated">
-                        This linked event allocation exceeds the linked task estimate.
-                      </p>
-                      <form class="stack-tight compact-stack" (ngSubmit)="saveEventUpdates()">
-                        <input
-                          class="input input-bordered w-full"
-                          [(ngModel)]="eventEditDraft.title"
-                          name="edit-event-title"
-                        />
-                        <textarea
-                          class="textarea textarea-bordered w-full"
-                          rows="2"
-                          [(ngModel)]="eventEditDraft.notes"
-                          name="edit-event-notes"
-                        ></textarea>
-                        <div class="inline-grid">
-                          <label class="checkbox-row">
-                            <span>All day</span>
+                    </article>
+
+                    <aside
+                      id="calendar-context-panel"
+                      class="card border border-base-300 bg-base-100 shadow-sm context-panel"
+                    >
+                      <div class="card-body gap-4 p-4">
+                        <div class="context-panel-toolbar">
+                          <button class="btn btn-ghost btn-sm" type="button" (click)="closeFocusedDay()">
+                            Back to calendar
+                          </button>
+                          <div class="context-actions" *ngIf="panelMode() === 'day'">
+                            <button
+                              class="btn btn-neutral btn-sm"
+                              type="button"
+                              (click)="openCreateEventForDay(bucket.key)"
+                            >
+                              New event
+                            </button>
+                            <button
+                              class="btn btn-outline btn-sm"
+                              type="button"
+                              (click)="openCreateTaskForDay(bucket.key)"
+                            >
+                              New task
+                            </button>
+                          </div>
+                        </div>
+
+                        <ul class="entry-list compact-list" *ngIf="panelMode() === 'day'">
+                          <li *ngIf="bucket.entries.length === 0" class="text-sm text-base-content/60">
+                            Create an event or a task for this day.
+                          </li>
+                          <li
+                            *ngFor="let entry of bucket.entries"
+                            class="entry-item selectable"
+                            [attr.data-kind]="entry.calendarEntryType"
+                            [class.selected]="selectedEntryId() === entry.id"
+                            (click)="selectEntry(entry)"
+                          >
+                            <div class="stack-tight">
+                              <strong>{{ entry.title }}</strong>
+                              <span class="ui-copy">{{ formatEntryMoment(entry) }}</span>
+                            </div>
+                          </li>
+                        </ul>
+
+                        <form
+                          class="form-stack compact-stack"
+                          *ngIf="panelMode() === 'create-event'"
+                          (ngSubmit)="createEvent()"
+                        >
+                          <div class="join join-horizontal self-start">
+                            <button class="btn btn-sm join-item btn-neutral" type="button">Event</button>
+                            <button
+                              class="btn btn-sm join-item btn-outline"
+                              type="button"
+                              (click)="openCreateTaskForDay(bucket.key)"
+                            >
+                              Task
+                            </button>
+                          </div>
+                          <div class="panel-section-title">
+                            <h4>Create event</h4>
+                            <p class="ui-copy">{{ bucket.fullLabel }}</p>
+                          </div>
+                          <input
+                            class="input input-bordered w-full"
+                            placeholder="Title"
+                            [(ngModel)]="eventDraft.title"
+                            name="event-title"
+                          />
+                          <textarea
+                            class="textarea textarea-bordered w-full"
+                            rows="2"
+                            placeholder="Notes"
+                            [(ngModel)]="eventDraft.notes"
+                            name="event-notes"
+                          ></textarea>
+                          <div class="inline-grid">
+                            <label class="checkbox-row">
+                              <span>All day</span>
+                              <input
+                                type="checkbox"
+                                [(ngModel)]="eventDraft.allDay"
+                                name="event-all-day"
+                              />
+                            </label>
+                            <label class="checkbox-row">
+                              <span>Work related</span>
+                              <input
+                                type="checkbox"
+                                [(ngModel)]="eventDraft.workRelated"
+                                name="event-work-related"
+                              />
+                            </label>
+                          </div>
+                          <div class="inline-grid" *ngIf="!eventDraft.allDay">
                             <input
-                              type="checkbox"
-                              [(ngModel)]="eventEditDraft.allDay"
-                              name="edit-event-all-day"
+                              class="input input-bordered w-full"
+                              type="datetime-local"
+                              [(ngModel)]="eventDraft.startAt"
+                              name="event-start"
+                              (ngModelChange)="refreshLinkedTaskAllocation()"
                             />
+                            <select
+                              class="select select-bordered w-full"
+                              [(ngModel)]="eventDraft.timedEntryMode"
+                              name="event-timed-entry-mode"
+                              (ngModelChange)="setEventTimingMode(eventDraft, $event)"
+                            >
+                              <option value="end">Use end time</option>
+                              <option value="duration">Use duration</option>
+                            </select>
+                            <input
+                              *ngIf="eventDraft.timedEntryMode === 'end'"
+                              class="input input-bordered w-full"
+                              type="datetime-local"
+                              [(ngModel)]="eventDraft.endAt"
+                              name="event-end"
+                              (ngModelChange)="refreshLinkedTaskAllocation()"
+                            />
+                            <input
+                              *ngIf="eventDraft.timedEntryMode === 'duration'"
+                              class="input input-bordered w-full"
+                              type="number"
+                              min="1"
+                              max="1440"
+                              [(ngModel)]="eventDraft.durationMinutes"
+                              name="event-duration"
+                              placeholder="Duration (minutes)"
+                              (ngModelChange)="refreshLinkedTaskAllocation()"
+                            />
+                          </div>
+                          <div class="inline-grid" *ngIf="eventDraft.allDay">
+                            <input
+                              class="input input-bordered w-full"
+                              type="date"
+                              [(ngModel)]="eventDraft.allDayStartDate"
+                              name="event-all-day-start"
+                            />
+                            <input
+                              class="input input-bordered w-full"
+                              type="date"
+                              [(ngModel)]="eventDraft.allDayEndDate"
+                              name="event-all-day-end"
+                            />
+                          </div>
+                          <div class="inline-grid">
+                            <input
+                              class="input input-bordered w-full"
+                              placeholder="Location"
+                              [(ngModel)]="eventDraft.location"
+                              name="event-location"
+                            />
+                            <select
+                              class="select select-bordered w-full"
+                              [(ngModel)]="eventDraft.linkedTaskId"
+                              name="event-linked-task"
+                              (ngModelChange)="refreshLinkedTaskAllocation()"
+                            >
+                              <option value="">No linked task</option>
+                              <option *ngFor="let task of taskSummaries()" [value]="task.id">
+                                {{ task.title }}
+                              </option>
+                            </select>
+                          </div>
+                          <label class="ui-field">
+                            <span>Calendar memberships</span>
+                            <select
+                              class="select select-bordered w-full"
+                              multiple
+                              [(ngModel)]="eventDraft.calendarIds"
+                              name="event-calendars"
+                            >
+                              <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                                {{ calendar.name }}
+                              </option>
+                            </select>
                           </label>
+                          <label class="ui-field">
+                            <span>Contacts</span>
+                            <select
+                              class="select select-bordered w-full"
+                              multiple
+                              [(ngModel)]="eventDraft.contactIds"
+                              name="event-contacts"
+                            >
+                              <option *ngFor="let contact of contacts()" [value]="contact.id">
+                                {{ contact.displayName }}
+                              </option>
+                            </select>
+                          </label>
+                          <p class="alert alert-warning" *ngIf="linkedTaskAllocationWarning()">
+                            {{ linkedTaskAllocationWarning() }}
+                          </p>
+                          <div class="context-actions">
+                            <button class="btn btn-neutral" type="submit">Create event</button>
+                            <button class="btn btn-ghost" type="button" (click)="closeFocusedDay()">
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+
+                        <form
+                          class="form-stack compact-stack"
+                          *ngIf="panelMode() === 'create-task'"
+                          (ngSubmit)="createDeadlineTask()"
+                        >
+                          <div class="join join-horizontal self-start">
+                            <button
+                              class="btn btn-sm join-item btn-outline"
+                              type="button"
+                              (click)="openCreateEventForDay(bucket.key)"
+                            >
+                              Event
+                            </button>
+                            <button class="btn btn-sm join-item btn-neutral" type="button">Task</button>
+                          </div>
+                          <div class="panel-section-title">
+                            <h4>Create deadline task</h4>
+                            <p class="ui-copy">{{ bucket.fullLabel }}</p>
+                          </div>
+                          <input
+                            class="input input-bordered w-full"
+                            placeholder="Title"
+                            [(ngModel)]="deadlineTaskDraft.title"
+                            name="deadline-task-title"
+                          />
+                          <textarea
+                            class="textarea textarea-bordered w-full"
+                            rows="2"
+                            placeholder="Notes"
+                            [(ngModel)]="deadlineTaskDraft.notes"
+                            name="deadline-task-notes"
+                          ></textarea>
+                          <div class="inline-grid">
+                            <input
+                              class="input input-bordered w-full"
+                              type="datetime-local"
+                              [(ngModel)]="deadlineTaskDraft.dueAt"
+                              name="deadline-task-due"
+                            />
+                            <input
+                              class="input input-bordered w-full"
+                              placeholder="Location"
+                              [(ngModel)]="deadlineTaskDraft.location"
+                              name="deadline-task-location"
+                            />
+                          </div>
                           <label class="checkbox-row">
                             <span>Work related</span>
                             <input
                               type="checkbox"
-                              [(ngModel)]="eventEditDraft.workRelated"
-                              name="edit-event-work-related"
+                              [(ngModel)]="deadlineTaskDraft.workRelated"
+                              name="deadline-task-work-related"
                             />
                           </label>
-                        </div>
-                        <div class="inline-grid" *ngIf="!eventEditDraft.allDay">
-                          <input
-                            class="input input-bordered w-full"
-                            type="datetime-local"
-                            [(ngModel)]="eventEditDraft.startAt"
-                            name="edit-event-start"
-                            (ngModelChange)="refreshEventEditAllocation()"
-                          />
-                          <select
-                            class="select select-bordered w-full"
-                            [(ngModel)]="eventEditDraft.timedEntryMode"
-                            name="edit-event-timed-entry-mode"
-                            (ngModelChange)="setEventTimingMode(eventEditDraft, $event, true)"
-                          >
-                            <option value="end">Use end time</option>
-                            <option value="duration">Use duration</option>
-                          </select>
-                          <input
-                            *ngIf="eventEditDraft.timedEntryMode === 'end'"
-                            class="input input-bordered w-full"
-                            type="datetime-local"
-                            [(ngModel)]="eventEditDraft.endAt"
-                            name="edit-event-end"
-                            (ngModelChange)="refreshEventEditAllocation()"
-                          />
-                          <input
-                            *ngIf="eventEditDraft.timedEntryMode === 'duration'"
-                            class="input input-bordered w-full"
-                            type="number"
-                            min="1"
-                            max="1440"
-                            [(ngModel)]="eventEditDraft.durationMinutes"
-                            name="edit-event-duration"
-                            placeholder="Duration (minutes)"
-                            (ngModelChange)="refreshEventEditAllocation()"
-                          />
-                        </div>
-                        <div class="inline-grid" *ngIf="eventEditDraft.allDay">
-                          <input
-                            class="input input-bordered w-full"
-                            type="date"
-                            [(ngModel)]="eventEditDraft.allDayStartDate"
-                            name="edit-event-all-day-start"
-                          />
-                          <input
-                            class="input input-bordered w-full"
-                            type="date"
-                            [(ngModel)]="eventEditDraft.allDayEndDate"
-                            name="edit-event-all-day-end"
-                          />
-                        </div>
-                        <div class="inline-grid">
-                          <input
-                            class="input input-bordered w-full"
-                            [(ngModel)]="eventEditDraft.location"
-                            name="edit-event-location"
-                            placeholder="Location"
-                          />
-                          <select
-                            class="select select-bordered w-full"
-                            [(ngModel)]="eventEditDraft.linkedTaskId"
-                            name="edit-event-linked-task"
-                            (ngModelChange)="refreshEventEditAllocation()"
-                          >
-                            <option value="">No linked task</option>
-                            <option *ngFor="let task of taskSummaries()" [value]="task.id">
-                              {{ task.title }}
-                            </option>
-                          </select>
-                        </div>
-                        <label class="ui-field">
-                          <span>Calendar memberships</span>
-                          <select
-                            class="select select-bordered w-full"
-                            multiple
-                            [(ngModel)]="eventEditDraft.calendarIds"
-                            name="edit-event-calendars"
-                          >
-                            <option *ngFor="let calendar of calendars()" [value]="calendar.id">
-                              {{ calendar.name }}
-                            </option>
-                          </select>
-                        </label>
-                        <label class="ui-field">
-                          <span>Contacts</span>
-                          <select
-                            class="select select-bordered w-full"
-                            multiple
-                            [(ngModel)]="eventEditDraft.contactIds"
-                            name="edit-event-contacts"
-                          >
-                            <option *ngFor="let contact of contacts()" [value]="contact.id">
-                              {{ contact.displayName }}
-                            </option>
-                          </select>
-                        </label>
-                        <p class="alert alert-warning" *ngIf="eventEditAllocationWarning()">
-                          {{ eventEditAllocationWarning() }}
-                        </p>
-                        <div class="context-actions">
-                          <button class="btn btn-neutral" type="submit">Save event updates</button>
-                          <button class="btn btn-outline" type="button" (click)="deleteEvent()">
-                            Delete event
-                          </button>
-                          <button
-                            class="btn btn-ghost"
-                            type="button"
-                            (click)="selectDay(bucket.key)"
-                          >
-                            Back to day
-                          </button>
-                        </div>
-                      </form>
-                      <article class="rounded-box border border-base-300 p-4 stack-tight">
-                        <h5>Add attachment metadata</h5>
-                        <div class="inline-grid">
-                          <input
-                            class="input input-bordered w-full"
-                            placeholder="File name"
-                            [(ngModel)]="eventAttachmentDraft.fileName"
-                            [ngModelOptions]="{ standalone: true }"
-                          />
-                          <input
-                            class="input input-bordered w-full"
-                            placeholder="MIME type"
-                            [(ngModel)]="eventAttachmentDraft.mimeType"
-                            [ngModelOptions]="{ standalone: true }"
-                          />
-                        </div>
-                        <div class="inline-grid">
-                          <input
-                            class="input input-bordered w-full"
-                            type="number"
-                            min="1"
-                            [(ngModel)]="eventAttachmentDraft.fileSizeBytes"
-                            [ngModelOptions]="{ standalone: true }"
-                          />
-                          <input
-                            class="input input-bordered w-full"
-                            placeholder="Storage key"
-                            [(ngModel)]="eventAttachmentDraft.storageKey"
-                            [ngModelOptions]="{ standalone: true }"
-                          />
-                        </div>
-                        <button
-                          class="btn btn-outline"
-                          type="button"
-                          (click)="addEventAttachment()"
-                        >
-                          Attach file metadata
-                        </button>
-                      </article>
-                      <div class="detail-list">
-                        <p>
-                          <strong>Calendars:</strong>
-                          {{ joinLabels(event.calendars, 'calendarName') }}
-                        </p>
-                        <p>
-                          <strong>Contacts:</strong> {{ joinLabels(event.contacts, 'displayName') }}
-                        </p>
-                      </div>
-                      <ul class="simple-list">
-                        <li *ngFor="let attachment of event.attachments">
-                          {{ attachment.fileName }} ({{ attachment.state }})
-                        </li>
-                        <li *ngIf="event.attachments.length === 0" class="ui-copy">
-                          No attachments.
-                        </li>
-                      </ul>
-                    </section>
-                  </ng-container>
+                          <label class="ui-field">
+                            <span>Calendar memberships</span>
+                            <select
+                              class="select select-bordered w-full"
+                              multiple
+                              [(ngModel)]="deadlineTaskDraft.calendarIds"
+                              name="deadline-task-calendars"
+                            >
+                              <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                                {{ calendar.name }}
+                              </option>
+                            </select>
+                          </label>
+                          <label class="ui-field">
+                            <span>Contacts</span>
+                            <select
+                              class="select select-bordered w-full"
+                              multiple
+                              [(ngModel)]="deadlineTaskDraft.contactIds"
+                              name="deadline-task-contacts"
+                            >
+                              <option *ngFor="let contact of contacts()" [value]="contact.id">
+                                {{ contact.displayName }}
+                              </option>
+                            </select>
+                          </label>
+                          <div class="context-actions">
+                            <button class="btn btn-neutral" type="submit">Create task</button>
+                            <button class="btn btn-ghost" type="button" (click)="closeFocusedDay()">
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
 
-                  <ng-container *ngIf="panelMode() === 'task'">
-                    <section
-                      class="stack-tight compact-stack"
-                      *ngIf="selectedTaskEntry() as taskEntry"
-                    >
-                      <div class="context-panel-header">
-                        <div>
-                          <p class="ui-kicker">Task</p>
-                          <h4>{{ taskEntry.title }}</h4>
+                        <ng-container *ngIf="panelMode() === 'event'">
+                          <section class="stack-tight compact-stack" *ngIf="selectedEvent() as event">
+                            <div class="context-panel-header">
+                              <div>
+                                <p class="ui-kicker">Event</p>
+                                <h4>{{ event.title }}</h4>
+                                <p class="ui-copy">{{ formatEventTiming(event) }}</p>
+                              </div>
+                              <div class="context-actions" *ngIf="isOrganizationContext()">
+                                <button
+                                  class="btn btn-outline btn-sm"
+                                  type="button"
+                                  (click)="copySelectedEntryToPersonal()"
+                                >
+                                  Copy to Personal
+                                </button>
+                              </div>
+                            </div>
+                            <p class="alert alert-warning" *ngIf="event.provenance">
+                              Copied from {{ event.provenance.sourceContextType }} item
+                              {{ event.provenance.sourceItemId }} on
+                              {{ formatDateTime(event.provenance.copiedAt) }}.
+                            </p>
+                            <p class="ui-copy" *ngIf="event.linkedTaskId">
+                              Allocation: {{ event.allocation.allocatedMinutes }}m of
+                              {{ event.allocation.estimateMinutes ?? 'n/a' }}m.
+                            </p>
+                            <p class="alert alert-warning" *ngIf="event.allocation.overAllocated">
+                              This linked event allocation exceeds the linked task estimate.
+                            </p>
+                            <form class="stack-tight compact-stack" (ngSubmit)="saveEventUpdates()">
+                              <input
+                                class="input input-bordered w-full"
+                                [(ngModel)]="eventEditDraft.title"
+                                name="edit-event-title"
+                              />
+                              <textarea
+                                class="textarea textarea-bordered w-full"
+                                rows="2"
+                                [(ngModel)]="eventEditDraft.notes"
+                                name="edit-event-notes"
+                              ></textarea>
+                              <div class="inline-grid">
+                                <label class="checkbox-row">
+                                  <span>All day</span>
+                                  <input
+                                    type="checkbox"
+                                    [(ngModel)]="eventEditDraft.allDay"
+                                    name="edit-event-all-day"
+                                  />
+                                </label>
+                                <label class="checkbox-row">
+                                  <span>Work related</span>
+                                  <input
+                                    type="checkbox"
+                                    [(ngModel)]="eventEditDraft.workRelated"
+                                    name="edit-event-work-related"
+                                  />
+                                </label>
+                              </div>
+                              <div class="inline-grid" *ngIf="!eventEditDraft.allDay">
+                                <input
+                                  class="input input-bordered w-full"
+                                  type="datetime-local"
+                                  [(ngModel)]="eventEditDraft.startAt"
+                                  name="edit-event-start"
+                                  (ngModelChange)="refreshEventEditAllocation()"
+                                />
+                                <select
+                                  class="select select-bordered w-full"
+                                  [(ngModel)]="eventEditDraft.timedEntryMode"
+                                  name="edit-event-timed-entry-mode"
+                                  (ngModelChange)="setEventTimingMode(eventEditDraft, $event, true)"
+                                >
+                                  <option value="end">Use end time</option>
+                                  <option value="duration">Use duration</option>
+                                </select>
+                                <input
+                                  *ngIf="eventEditDraft.timedEntryMode === 'end'"
+                                  class="input input-bordered w-full"
+                                  type="datetime-local"
+                                  [(ngModel)]="eventEditDraft.endAt"
+                                  name="edit-event-end"
+                                  (ngModelChange)="refreshEventEditAllocation()"
+                                />
+                                <input
+                                  *ngIf="eventEditDraft.timedEntryMode === 'duration'"
+                                  class="input input-bordered w-full"
+                                  type="number"
+                                  min="1"
+                                  max="1440"
+                                  [(ngModel)]="eventEditDraft.durationMinutes"
+                                  name="edit-event-duration"
+                                  placeholder="Duration (minutes)"
+                                  (ngModelChange)="refreshEventEditAllocation()"
+                                />
+                              </div>
+                              <div class="inline-grid" *ngIf="eventEditDraft.allDay">
+                                <input
+                                  class="input input-bordered w-full"
+                                  type="date"
+                                  [(ngModel)]="eventEditDraft.allDayStartDate"
+                                  name="edit-event-all-day-start"
+                                />
+                                <input
+                                  class="input input-bordered w-full"
+                                  type="date"
+                                  [(ngModel)]="eventEditDraft.allDayEndDate"
+                                  name="edit-event-all-day-end"
+                                />
+                              </div>
+                              <div class="inline-grid">
+                                <input
+                                  class="input input-bordered w-full"
+                                  [(ngModel)]="eventEditDraft.location"
+                                  name="edit-event-location"
+                                  placeholder="Location"
+                                />
+                                <select
+                                  class="select select-bordered w-full"
+                                  [(ngModel)]="eventEditDraft.linkedTaskId"
+                                  name="edit-event-linked-task"
+                                  (ngModelChange)="refreshEventEditAllocation()"
+                                >
+                                  <option value="">No linked task</option>
+                                  <option *ngFor="let task of taskSummaries()" [value]="task.id">
+                                    {{ task.title }}
+                                  </option>
+                                </select>
+                              </div>
+                              <label class="ui-field">
+                                <span>Calendar memberships</span>
+                                <select
+                                  class="select select-bordered w-full"
+                                  multiple
+                                  [(ngModel)]="eventEditDraft.calendarIds"
+                                  name="edit-event-calendars"
+                                >
+                                  <option *ngFor="let calendar of calendars()" [value]="calendar.id">
+                                    {{ calendar.name }}
+                                  </option>
+                                </select>
+                              </label>
+                              <label class="ui-field">
+                                <span>Contacts</span>
+                                <select
+                                  class="select select-bordered w-full"
+                                  multiple
+                                  [(ngModel)]="eventEditDraft.contactIds"
+                                  name="edit-event-contacts"
+                                >
+                                  <option *ngFor="let contact of contacts()" [value]="contact.id">
+                                    {{ contact.displayName }}
+                                  </option>
+                                </select>
+                              </label>
+                              <p class="alert alert-warning" *ngIf="eventEditAllocationWarning()">
+                                {{ eventEditAllocationWarning() }}
+                              </p>
+                              <div class="context-actions">
+                                <button class="btn btn-neutral" type="submit">Save event updates</button>
+                                <button class="btn btn-outline" type="button" (click)="deleteEvent()">
+                                  Delete event
+                                </button>
+                                <button class="btn btn-ghost" type="button" (click)="selectDay(bucket.key)">
+                                  Back to day
+                                </button>
+                              </div>
+                            </form>
+                            <article class="rounded-box border border-base-300 p-4 stack-tight">
+                              <h5>Add attachment metadata</h5>
+                              <div class="inline-grid">
+                                <input
+                                  class="input input-bordered w-full"
+                                  placeholder="File name"
+                                  [(ngModel)]="eventAttachmentDraft.fileName"
+                                  [ngModelOptions]="{ standalone: true }"
+                                />
+                                <input
+                                  class="input input-bordered w-full"
+                                  placeholder="MIME type"
+                                  [(ngModel)]="eventAttachmentDraft.mimeType"
+                                  [ngModelOptions]="{ standalone: true }"
+                                />
+                              </div>
+                              <div class="inline-grid">
+                                <input
+                                  class="input input-bordered w-full"
+                                  type="number"
+                                  min="1"
+                                  [(ngModel)]="eventAttachmentDraft.fileSizeBytes"
+                                  [ngModelOptions]="{ standalone: true }"
+                                  placeholder="Size in bytes"
+                                />
+                                <input
+                                  class="input input-bordered w-full"
+                                  placeholder="Storage key"
+                                  [(ngModel)]="eventAttachmentDraft.storageKey"
+                                  [ngModelOptions]="{ standalone: true }"
+                                />
+                              </div>
+                              <button class="btn btn-outline self-start" type="button" (click)="addEventAttachment()">
+                                Add attachment metadata
+                              </button>
+                            </article>
+                          </section>
+                        </ng-container>
+
+                        <ng-container *ngIf="panelMode() === 'task'">
+                          <section class="stack-tight compact-stack" *ngIf="selectedTaskEntry() as task">
+                            <div class="context-panel-header">
+                              <div>
+                                <p class="ui-kicker">Task</p>
+                                <h4>{{ task.title }}</h4>
+                                <p class="ui-copy">{{ formatDateTime(task.dueAt, 'No deadline') }}</p>
+                              </div>
+                              <div class="context-actions" *ngIf="isOrganizationContext()">
+                                <button
+                                  class="btn btn-outline btn-sm"
+                                  type="button"
+                                  (click)="copySelectedEntryToPersonal()"
+                                >
+                                  Copy to Personal
+                                </button>
+                              </div>
+                            </div>
+                            <p class="alert alert-warning" *ngIf="task.provenance">
+                              Copied from {{ task.provenance.sourceContextType }} item
+                              {{ task.provenance.sourceItemId }} on
+                              {{ formatDateTime(task.provenance.copiedAt) }}.
+                            </p>
+                            <div class="rounded-box border border-base-300 p-4 stack-tight">
+                              <p><strong>Notes:</strong> {{ task.notes || 'None' }}</p>
+                              <p><strong>Location:</strong> {{ task.location || 'None' }}</p>
+                              <p><strong>Contacts:</strong> {{ joinLabels(task.contacts, 'displayName') }}</p>
+                            </div>
+                            <div class="context-actions">
+                              <button class="btn btn-outline" type="button" (click)="deleteTask()">
+                                Delete task
+                              </button>
+                              <button class="btn btn-ghost" type="button" (click)="selectDay(bucket.key)">
+                                Back to day
+                              </button>
+                            </div>
+                          </section>
+                        </ng-container>
+
+                        <section
+                          class="rounded-box border border-base-300 p-4 stack-tight compact-stack"
+                          *ngIf="advisory()"
+                        >
+                          <h4>Conflict and advisory panel</h4>
                           <p class="ui-copy">
-                            {{ formatDateTime(taskEntry.dueAt, 'No deadline') }}
+                            Advisory concerns are warnings only. They do not hard-block scheduling by
+                            themselves.
                           </p>
-                        </div>
-                        <div class="context-actions">
-                          <button
-                            *ngIf="isOrganizationContext()"
-                            class="btn btn-outline btn-sm"
-                            type="button"
-                            (click)="copySelectedEntryToPersonal()"
-                          >
-                            Copy to Personal
-                          </button>
-                          <a
-                            class="btn btn-ghost btn-sm"
-                            [routerLink]="['/tasks']"
-                            [queryParams]="{ taskId: taskEntry.id }"
-                            >Open in Tasks</a
-                          >
-                        </div>
+                          <ul class="entry-list compact-list">
+                            <li *ngFor="let concern of advisory()!.concerns" class="entry-item">
+                              <strong>{{ concern.category }}</strong>
+                              <p class="ui-copy">{{ concern.message }}</p>
+                            </li>
+                          </ul>
+                          <div class="context-actions">
+                            <button class="btn btn-neutral" type="button" (click)="proceedWithPending()">
+                              Proceed anyway
+                            </button>
+                            <button class="btn btn-outline" type="button" (click)="toggleAlternatives()">
+                              View alternative slot suggestions
+                            </button>
+                            <button class="btn btn-outline" type="button" (click)="askAi()">
+                              Ask AI
+                            </button>
+                            <button class="btn btn-ghost" type="button" (click)="cancelPending()">
+                              Cancel
+                            </button>
+                          </div>
+                          <p class="ui-copy" *ngIf="aiMessage()">{{ aiMessage() }}</p>
+                          <ul class="entry-list compact-list" *ngIf="showAlternatives()">
+                            <li *ngFor="let slot of advisory()!.alternativeSlots" class="entry-item">
+                              <p class="ui-copy">
+                                {{ formatDateTime(slot.startAt) }} to {{ formatDateTime(slot.endAt) }} ·
+                                {{ slot.reason }}
+                              </p>
+                              <button
+                                class="btn btn-outline"
+                                type="button"
+                                (click)="applyAlternative(slot.startAt, slot.endAt)"
+                              >
+                                Use this slot
+                              </button>
+                            </li>
+                            <li *ngIf="advisory()!.alternativeSlots.length === 0" class="ui-copy">
+                              No alternative slots available.
+                            </li>
+                          </ul>
+                        </section>
                       </div>
-                      <p class="ui-copy">{{ taskEntry.notes || 'No notes.' }}</p>
-                      <p class="ui-copy" *ngIf="taskEntry.location">
-                        Location: {{ taskEntry.location }}
-                      </p>
-                      <p class="ui-copy" *ngIf="taskEntry.contacts.length > 0">
-                        Contacts: {{ joinLabels(taskEntry.contacts, 'displayName') }}
-                      </p>
-                      <p class="ui-copy" *ngIf="taskEntry.workRelated">Marked as work related.</p>
-                      <p class="alert alert-warning" *ngIf="taskEntry.provenance">
-                        Copied from {{ taskEntry.provenance.sourceContextType }} item
-                        {{ taskEntry.provenance.sourceItemId }} on
-                        {{ formatDateTime(taskEntry.provenance.copiedAt) }}.
-                      </p>
-                      <div class="context-actions">
-                        <button class="btn btn-ghost" type="button" (click)="selectDay(bucket.key)">
-                          Back to day
-                        </button>
-                      </div>
-                    </section>
-                  </ng-container>
+                    </aside>
+                  </div>
+                </ng-container>
 
-                  <section
-                    class="rounded-box border border-base-300 p-4 stack-tight compact-stack"
-                    *ngIf="advisory()"
-                  >
-                    <h4>Conflict and advisory panel</h4>
-                    <p class="ui-copy">
-                      Advisory concerns are warnings only. They do not hard-block scheduling by
-                      themselves.
-                    </p>
-                    <ul class="entry-list compact-list">
-                      <li *ngFor="let concern of advisory()!.concerns" class="entry-item">
-                        <strong>{{ concern.category }}</strong>
-                        <p class="ui-copy">{{ concern.message }}</p>
-                      </li>
-                    </ul>
-                    <div class="context-actions">
-                      <button class="btn btn-neutral" type="button" (click)="proceedWithPending()">
-                        Proceed anyway
-                      </button>
-                      <button class="btn btn-outline" type="button" (click)="toggleAlternatives()">
-                        View alternative slot suggestions
-                      </button>
-                      <button class="btn btn-outline" type="button" (click)="askAi()">
-                        Ask AI
-                      </button>
-                      <button class="btn btn-ghost" type="button" (click)="cancelPending()">
-                        Cancel
-                      </button>
-                    </div>
-                    <p class="ui-copy" *ngIf="aiMessage()">{{ aiMessage() }}</p>
-                    <ul class="entry-list compact-list" *ngIf="showAlternatives()">
-                      <li *ngFor="let slot of advisory()!.alternativeSlots" class="entry-item">
-                        <p class="ui-copy">
-                          {{ formatDateTime(slot.startAt) }} to {{ formatDateTime(slot.endAt) }} ·
-                          {{ slot.reason }}
-                        </p>
-                        <button
-                          class="btn btn-outline"
-                          type="button"
-                          (click)="applyAlternative(slot.startAt, slot.endAt)"
+                <ng-template #fullCalendar>
+                  <div class="calendar-grid">
+                    <button
+                      *ngFor="let bucket of calendarBuckets()"
+                      class="day-card"
+                      type="button"
+                      [class.today]="bucket.isToday"
+                      [class.outside-month]="!bucket.isInCurrentMonth"
+                      [class.selected]="selectedDayKey() === bucket.key"
+                      (click)="selectDay(bucket.key)"
+                    >
+                      <div class="day-card-header">
+                        <div>
+                          <p class="ui-kicker">{{ bucket.shortLabel }}</p>
+                          <h3>{{ bucket.label }}</h3>
+                        </div>
+                        <span class="badge badge-ghost badge-sm">{{ bucket.entries.length }}</span>
+                      </div>
+                      <ul class="day-entry-list">
+                        <li
+                          *ngFor="let entry of bucket.entries.slice(0, 3)"
+                          class="day-entry"
+                          [attr.data-kind]="entry.calendarEntryType"
                         >
-                          Use this slot
-                        </button>
-                      </li>
-                      <li *ngIf="advisory()!.alternativeSlots.length === 0" class="ui-copy">
-                        No alternative slots available.
-                      </li>
-                    </ul>
-                  </section>
+                          <strong>{{ entry.title }}</strong>
+                          <span>{{ formatEntryMoment(entry) }}</span>
+                        </li>
+                        <li *ngIf="bucket.entries.length > 3" class="muted-item">
+                          +{{ bucket.entries.length - 3 }} more
+                        </li>
+                        <li *ngIf="bucket.entries.length === 0" class="muted-item">No items</li>
+                      </ul>
+                    </button>
+                  </div>
+                </ng-template>
+              </div>
+            </ng-container>
+
+            <ng-template #calendarManager>
+              <div class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3>Switch calendars</h3>
+                    <p class="ui-copy">
+                      Choose the calendars to show, then apply or cancel your changes.
+                    </p>
+                  </div>
+                  <div class="flex gap-2">
+                    <button class="btn btn-ghost btn-sm" type="button" (click)="cancelCalendarManager()">
+                      Cancel
+                    </button>
+                    <button class="btn btn-neutral btn-sm" type="button" (click)="applyCalendarManager()">
+                      Apply
+                    </button>
+                  </div>
                 </div>
-              </aside>
-            </div>
-          </ng-container>
+                <div class="calendar-list">
+                  <label *ngFor="let calendar of calendars()" class="calendar-option">
+                    <input
+                      type="checkbox"
+                      [checked]="pendingCalendarIds().includes(calendar.id)"
+                      (change)="togglePendingCalendar(calendar.id, $any($event.target).checked)"
+                    />
+                    <span>{{ calendar.name }}</span>
+                    <small>{{ calendar.type }}</small>
+                  </label>
+                </div>
+                <div
+                  class="rounded-box border border-base-300 bg-base-200 p-4 stack-tight"
+                  *ngIf="isPersonalContext()"
+                  data-testid="personal-calendar-panel"
+                >
+                  <div>
+                    <h3>New personal calendar</h3>
+                    <p class="ui-copy">Create it here and keep it selected immediately.</p>
+                  </div>
+                  <div class="flex flex-wrap items-end gap-3">
+                    <label class="ui-field grow">
+                      <span>Name</span>
+                      <input
+                        class="input input-bordered w-full"
+                        [(ngModel)]="personalCalendarName"
+                        [ngModelOptions]="{ standalone: true }"
+                      />
+                    </label>
+                    <button class="btn btn-outline" type="button" (click)="createPersonalCalendar()">
+                      Create calendar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </ng-template>
+          </div>
+
+          <aside class="rounded-box border border-base-300 bg-base-100 p-4 stack-tight self-start">
+            <h3>Legend</h3>
+            <ul class="legend-list">
+              <li><span class="dot event"></span> Event</li>
+              <li><span class="dot linked"></span> Linked work event</li>
+              <li><span class="dot due"></span> Task due item</li>
+            </ul>
+          </aside>
         </div>
       </article>
     </section>
@@ -912,46 +968,7 @@ function createAttachmentDraft(): AttachmentDraft {
       <div
         class="rounded-box border border-dashed border-base-300 p-6 text-sm text-base-content/65"
       >
-        Choose a valid date range to render the calendar.
-      </div>
-    </ng-template>
-    <ng-template #fullCalendar>
-      <div class="calendar-grid">
-        <button
-          *ngFor="let bucket of calendarBuckets()"
-          class="card border border-base-300 bg-base-100 text-left shadow-sm day-card"
-          type="button"
-          [class.ring-2]="bucket.isToday"
-          [class.ring-base-300]="bucket.isToday"
-          (click)="selectDay(bucket.key)"
-        >
-          <div class="card-body gap-3 p-4">
-            <div class="day-card-header">
-              <div>
-                <p class="ui-kicker">{{ bucket.shortLabel }}</p>
-                <h3>{{ bucket.label }}</h3>
-              </div>
-              <div class="badge badge-outline">{{ bucket.entries.length }}</div>
-            </div>
-            <ul class="day-entry-list">
-              <li
-                *ngFor="let entry of bucket.entries.slice(0, 3)"
-                class="day-entry"
-                [attr.data-kind]="entry.calendarEntryType"
-                (click)="selectEntry(entry); $event.stopPropagation()"
-              >
-                <strong>{{ entry.title }}</strong>
-                <span>{{ formatEntryMoment(entry) }}</span>
-              </li>
-              <li *ngIf="bucket.entries.length === 0" class="text-sm text-base-content/60">
-                No items scheduled.
-              </li>
-              <li *ngIf="bucket.entries.length > 3" class="text-sm text-base-content/60">
-                +{{ bucket.entries.length - 3 }} more
-              </li>
-            </ul>
-          </div>
-        </button>
+        Choose a valid month and year to render the calendar.
       </div>
     </ng-template>
   `,
@@ -959,10 +976,6 @@ function createAttachmentDraft(): AttachmentDraft {
     `
       .ui-copy {
         color: var(--text-secondary);
-      }
-
-      .compact-field {
-        min-width: 11rem;
       }
 
       .card-heading,
@@ -984,10 +997,25 @@ function createAttachmentDraft(): AttachmentDraft {
         min-width: 0;
       }
 
+      .calendar-weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: var(--spacing-2);
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .calendar-weekdays span {
+        padding: 0 var(--spacing-2);
+      }
+
       .calendar-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
-        gap: var(--spacing-4);
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: var(--spacing-3);
       }
 
       .focused-day-layout {
@@ -999,6 +1027,33 @@ function createAttachmentDraft(): AttachmentDraft {
 
       .day-card {
         min-width: 0;
+        text-align: left;
+        border: 1px solid rgb(148 163 184 / 0.2);
+        border-radius: var(--radius-xl);
+        background: var(--color-base-100);
+        padding: 1rem;
+        transition:
+          border-color 0.18s ease,
+          background 0.18s ease,
+          transform 0.18s ease;
+      }
+
+      .day-card:hover {
+        border-color: rgb(100 116 139 / 0.4);
+        transform: translateY(-1px);
+      }
+
+      .day-card.outside-month {
+        background: color-mix(in srgb, var(--color-base-200) 70%, white 30%);
+        color: var(--text-secondary);
+      }
+
+      .day-card.today {
+        border-color: rgb(2 132 199 / 0.55);
+      }
+
+      .day-card.selected {
+        box-shadow: inset 0 0 0 1px rgb(2 132 199 / 0.4);
       }
 
       .day-card-focused {
@@ -1209,7 +1264,7 @@ function createAttachmentDraft(): AttachmentDraft {
         }
 
         .calendar-grid {
-          grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
     `,
@@ -1228,11 +1283,11 @@ export class CalendarComponent {
   readonly isPersonalContext = computed(
     () => this.contextService.activeContext().contextType === 'personal',
   );
+  readonly monthOptions = Array.from({ length: 12 }, (_, index) =>
+    new Intl.DateTimeFormat(undefined, { month: 'long' }).format(new Date(2026, index, 1)),
+  );
 
   readonly calendars = signal<CalendarSummary[]>([]);
-  readonly personalCalendars = computed(() =>
-    this.calendars().filter((calendar) => calendar.type === 'personal'),
-  );
   readonly contacts = signal<ImportedContact[]>([]);
   readonly selectedCalendarIds = signal<string[]>([]);
   readonly entries = signal<CalendarEntry[]>([]);
@@ -1251,14 +1306,28 @@ export class CalendarComponent {
   readonly selectedTaskEntry = signal<CalendarTaskDetail | null>(null);
   readonly selectedDayKey = signal<string | null>(null);
   readonly panelMode = signal<ContextPanelMode>('day');
+  readonly displayedMonth = signal(new Date().getMonth());
+  readonly displayedYear = signal(new Date().getFullYear());
+  readonly weekStartsOn = signal<'monday' | 'sunday'>('monday');
+  readonly calendarManagerOpen = signal(false);
+  readonly pendingCalendarIds = signal<string[]>([]);
   readonly calendarBuckets = computed(() => this.buildCalendarBuckets());
   readonly selectedDayBucket = computed(() => {
     const selectedKey = this.selectedDayKey();
     return this.calendarBuckets().find((bucket) => bucket.key === selectedKey) ?? null;
   });
+  readonly currentMonthLabel = computed(
+    () => `${this.monthOptions[this.displayedMonth()]} ${this.displayedYear()}`,
+  );
+  readonly weekdayLabels = computed(() => {
+    const baseDate = new Date(Date.UTC(2026, 0, this.weekStartsOn() === 'monday' ? 5 : 4));
+    return Array.from({ length: 7 }, (_, index) =>
+      new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
+        new Date(baseDate.getTime() + index * 24 * 60 * 60 * 1000),
+      ),
+    );
+  });
 
-  from = this.isoLocalValue(new Date(Date.now() - 24 * 60 * 60 * 1000));
-  to = this.isoLocalValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
   personalCalendarName = '';
 
   eventDraft = this.createDefaultEventDraft();
@@ -1271,6 +1340,18 @@ export class CalendarComponent {
       const contextKey = this.contextService.activeContext().id;
       void contextKey;
       void this.bootstrap();
+    });
+
+    effect(() => {
+      const month = this.displayedMonth();
+      const year = this.displayedYear();
+      const weekStartsOn = this.weekStartsOn();
+      void month;
+      void year;
+      void weekStartsOn;
+      if (this.calendars().length > 0) {
+        void this.loadView();
+      }
     });
   }
 
@@ -1334,6 +1415,7 @@ export class CalendarComponent {
             )
           : calendars.map((calendar) => calendar.id);
       this.selectedCalendarIds.set(activeSelections);
+      this.pendingCalendarIds.set(activeSelections);
       this.taskSummaries.set(
         (tasks as TaskSummary[]).map((task) => ({
           allocation: task.allocation,
@@ -1358,8 +1440,9 @@ export class CalendarComponent {
   async loadView() {
     this.error.set(null);
     try {
-      const from = new Date(this.from).toISOString();
-      const to = new Date(this.to).toISOString();
+      const visibleRange = this.visibleRange();
+      const from = visibleRange.start.toISOString();
+      const to = visibleRange.end.toISOString();
       const view = await this.calApi.listCalendarView({
         calendarIds: this.selectedCalendarIds(),
         from,
@@ -1373,11 +1456,65 @@ export class CalendarComponent {
     }
   }
 
-  toggleCalendar(calendarId: string, checked: boolean) {
+  goToPreviousMonth() {
+    if (this.displayedMonth() === 0) {
+      this.displayedMonth.set(11);
+      this.displayedYear.update((year) => year - 1);
+      return;
+    }
+
+    this.displayedMonth.update((month) => month - 1);
+  }
+
+  goToNextMonth() {
+    if (this.displayedMonth() === 11) {
+      this.displayedMonth.set(0);
+      this.displayedYear.update((year) => year + 1);
+      return;
+    }
+
+    this.displayedMonth.update((month) => month + 1);
+  }
+
+  setDisplayedMonth(value: number | string) {
+    const month = Number(value);
+    if (Number.isInteger(month) && month >= 0 && month <= 11) {
+      this.displayedMonth.set(month);
+    }
+  }
+
+  setDisplayedYear(value: number | string) {
+    const year = Number(value);
+    if (Number.isInteger(year) && year >= 1970 && year <= 2100) {
+      this.displayedYear.set(year);
+    }
+  }
+
+  setWeekStartsOn(value: 'monday' | 'sunday') {
+    this.weekStartsOn.set(value === 'sunday' ? 'sunday' : 'monday');
+  }
+
+  openCalendarManager() {
+    this.pendingCalendarIds.set([...this.selectedCalendarIds()]);
+    this.calendarManagerOpen.set(true);
+  }
+
+  cancelCalendarManager() {
+    this.pendingCalendarIds.set([...this.selectedCalendarIds()]);
+    this.calendarManagerOpen.set(false);
+  }
+
+  async applyCalendarManager() {
+    this.selectedCalendarIds.set([...this.pendingCalendarIds()]);
+    this.calendarManagerOpen.set(false);
+    await this.loadView();
+  }
+
+  togglePendingCalendar(calendarId: string, checked: boolean) {
     const next = checked
-      ? [...this.selectedCalendarIds(), calendarId]
-      : this.selectedCalendarIds().filter((id) => id !== calendarId);
-    this.selectedCalendarIds.set(Array.from(new Set(next)));
+      ? [...this.pendingCalendarIds(), calendarId]
+      : this.pendingCalendarIds().filter((id) => id !== calendarId);
+    this.pendingCalendarIds.set(Array.from(new Set(next)));
   }
 
   async createPersonalCalendar() {
@@ -1400,6 +1537,7 @@ export class CalendarComponent {
         [...current, calendar].sort((left, right) => left.name.localeCompare(right.name)),
       );
       this.selectedCalendarIds.update((current) => Array.from(new Set([...current, calendar.id])));
+      this.pendingCalendarIds.update((current) => Array.from(new Set([...current, calendar.id])));
       this.eventDraft.calendarIds = Array.from(
         new Set([...this.eventDraft.calendarIds, calendar.id]),
       );
@@ -1914,6 +2052,33 @@ export class CalendarComponent {
     }
   }
 
+  async deleteTask() {
+    const selected = this.selectedTaskEntry();
+    if (!selected) {
+      return;
+    }
+    if (
+      !window.confirm(
+        `Delete task "${selected.title}" from ${this.contextService.getContextLabel()}?`,
+      )
+    ) {
+      return;
+    }
+
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      await this.calApi.deleteTask(selected.id);
+      this.selectedTaskEntry.set(null);
+      this.selectedEntryId.set(null);
+      this.closeFocusedDay();
+      this.message.set('Task deleted.');
+      await this.loadView();
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Failed to delete task.');
+    }
+  }
+
   async addEventAttachment() {
     const selected = this.selectedEvent();
     if (!selected) {
@@ -1976,14 +2141,12 @@ export class CalendarComponent {
   }
 
   private buildCalendarBuckets(): CalendarDayBucket[] {
-    const fromDate = new Date(this.from);
-    const toDate = new Date(this.to);
-    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
-      return [];
-    }
+    const { start, end } = this.visibleRange();
 
     const buckets: CalendarDayBucket[] = [];
     const entriesByDay = new Map<string, CalendarEntry[]>();
+    const currentMonth = this.displayedMonth();
+    const currentYear = this.displayedYear();
 
     for (const entry of this.entries()) {
       const bucketKey = this.calendarBucketKey(entry);
@@ -1992,10 +2155,7 @@ export class CalendarComponent {
       entriesByDay.set(bucketKey, existing);
     }
 
-    const cursor = new Date(fromDate);
-    cursor.setHours(0, 0, 0, 0);
-    const end = new Date(toDate);
-    end.setHours(0, 0, 0, 0);
+    const cursor = new Date(start);
     const todayKey = new Date().toISOString().slice(0, 10);
 
     while (cursor <= end && buckets.length < 42) {
@@ -2010,12 +2170,11 @@ export class CalendarComponent {
           weekday: 'long',
           year: 'numeric',
         }),
+        isInCurrentMonth:
+          cursor.getMonth() === currentMonth && cursor.getFullYear() === currentYear,
         isToday: key === todayKey,
         key,
-        label: cursor.toLocaleDateString(undefined, {
-          day: 'numeric',
-          month: 'short',
-        }),
+        label: cursor.toLocaleDateString(undefined, { day: 'numeric' }),
         shortLabel: cursor.toLocaleDateString(undefined, {
           weekday: 'short',
         }),
@@ -2127,5 +2286,33 @@ export class CalendarComponent {
     }
 
     return new Date(rawValue).toISOString().slice(0, 10);
+  }
+
+  private visibleRange() {
+    const monthStart = new Date(this.displayedYear(), this.displayedMonth(), 1, 0, 0, 0, 0);
+    const monthEnd = new Date(
+      this.displayedYear(),
+      this.displayedMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+    const start = new Date(monthStart);
+    const offset =
+      this.weekStartsOn() === 'monday'
+        ? (monthStart.getDay() + 6) % 7
+        : monthStart.getDay();
+    start.setDate(monthStart.getDate() - offset);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(monthEnd);
+    const endOffset =
+      this.weekStartsOn() === 'monday' ? (7 - ((monthEnd.getDay() + 6) % 7) - 1) : 6 - monthEnd.getDay();
+    end.setDate(monthEnd.getDate() + endOffset);
+    end.setHours(23, 59, 59, 999);
+
+    return { end, start };
   }
 }

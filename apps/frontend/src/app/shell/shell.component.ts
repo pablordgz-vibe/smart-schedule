@@ -5,6 +5,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { AuthStateService } from '../auth-state.service';
 import { ContextService } from '../context.service';
 import { DirtyStateService } from '../dirty-state.service';
+import { ThemeService } from '../theme.service';
 import {
   endUserNavItems,
   orgAdminNavItems,
@@ -30,7 +31,7 @@ import {
         data-testid="app-shell"
       >
         <header
-          class="border-b border-base-300 bg-base-100/90 backdrop-blur"
+          class="relative z-40 border-b border-base-300 bg-base-100/90 backdrop-blur"
           data-testid="shell-header"
         >
           <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 lg:px-6">
@@ -136,7 +137,7 @@ import {
               >
                 <div class="relative">
                   <button
-                    class="btn btn-neutral btn-sm md:btn-md"
+                    class="btn btn-sm border border-base-300 bg-base-100 text-base-content hover:bg-base-200 md:btn-md"
                     type="button"
                     (click)="toggleQuickCreateMenu()"
                     data-testid="quick-create"
@@ -197,6 +198,40 @@ import {
                   </section>
                 </div>
 
+                <label
+                  class="swap swap-rotate btn btn-ghost btn-sm btn-square"
+                  data-testid="theme-toggle"
+                  [attr.aria-label]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+                  [attr.aria-pressed]="isDarkMode()"
+                >
+                  <input
+                    type="checkbox"
+                    class="theme-controller"
+                    [checked]="isDarkMode()"
+                    (change)="toggleTheme()"
+                  />
+                  <svg
+                    class="swap-off h-5 w-5 fill-current"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M5.64 17l-.71.71-1.41-1.41.71-.71L5.64 17zm6.36 3h-1v-2h1v2zm7.78-3.71l-1.41 1.41-.71-.71 1.41-1.41.71.71zM20 13h-2v-1h2v1zm-8-9h-1V2h1v2zm6.36 1.64l-.71-.71 1.41-1.41.71.71-1.41 1.41zM17 5.64l-1.41-1.41.71-.71 1.41 1.41-.71.71zM4 13H2v-1h2v1zm8-7a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"
+                    />
+                  </svg>
+                  <svg
+                    class="swap-on h-5 w-5 fill-current"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M21.75 15.5A9 9 0 0 1 10.5 2.25a.75.75 0 0 0-.87.97 7.5 7.5 0 1 0 11.15 11.15.75.75 0 0 0 .97-.87z"
+                    />
+                  </svg>
+                </label>
+
                 <div class="relative">
                   <button
                     class="btn btn-ghost btn-sm"
@@ -234,7 +269,7 @@ import {
           class="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[12rem_minmax(0,1fr)] lg:px-6"
         >
           <aside class="hidden lg:block pr-0" data-testid="sidebar">
-            <div class="sticky top-24">
+            <div class="sticky top-0">
               <ng-container
                 *ngTemplateOutlet="navContent; context: { testIdPrefix: '' }"
               ></ng-container>
@@ -412,6 +447,7 @@ export class ShellComponent {
   private readonly authState = inject(AuthStateService);
   private readonly contextService = inject(ContextService);
   private readonly dirtyState = inject(DirtyStateService);
+  private readonly themeService = inject(ThemeService);
   private readonly contextSelect = viewChild<ElementRef<HTMLSelectElement>>('contextSelect');
 
   readonly searchQuery = signal('');
@@ -424,6 +460,7 @@ export class ShellComponent {
   readonly contexts = this.contextService.contexts;
   readonly activeContextId = computed(() => this.contextService.activeContext().id);
   readonly activeContextLabel = computed(() => this.contextService.getContextLabel());
+  readonly isDarkMode = computed(() => this.themeService.isDarkMode());
   readonly dirtyStateLabel = computed(() =>
     this.dirtyState.isDirty()
       ? 'Unsaved changes are active on a guarded route.'
@@ -582,6 +619,11 @@ export class ShellComponent {
   openSettings(): void {
     this.closeHeaderPanels();
     void this.router.navigateByUrl('/settings');
+  }
+
+  toggleTheme(): void {
+    this.closeHeaderPanels();
+    this.themeService.toggleTheme();
   }
 
   async logout(): Promise<void> {

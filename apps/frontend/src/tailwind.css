@@ -1,5 +1,5 @@
 @plugin "daisyui" {
-  themes: lofi --default;
+  themes: lofi --default, night;
   logs: false;
 }
 
